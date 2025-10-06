@@ -1,0 +1,37 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import { electronAPI } from '@electron-toolkit/preload'
+
+// Custom APIs for renderer
+const api = {
+  // Window controls
+  minimize: () => ipcRenderer.invoke('win:minimize'),
+  maximize: () => ipcRenderer.invoke('win:maximize'),
+  close: () => ipcRenderer.invoke('win:close'),
+
+  // Window dimensions
+  getWindowSize: () => ipcRenderer.invoke('win:getSize'),
+  onWindowResize: (callback: (size: { width: number; height: number }) => void) => {
+    ipcRenderer.on('win:resize', (_, size) => callback(size))
+    return () => ipcRenderer.removeListener('win:resize', (_, size) => callback(size))
+  },
+
+  // Platform info
+  platform: process.platform,
+}
+
+// Use `contextBridge` APIs to expose Electron APIs to
+// renderer only if context isolation is enabled, otherwise
+// just add to the DOM global.
+if (process.contextIsolated) {
+  try {
+    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('api', api)
+  } catch (error) {
+    console.error(error)
+  }
+} else {
+  // @ts-ignore (define in dts)
+  window.electron = electronAPI
+  // @ts-ignore (define in dts)
+  window.api = api
+}
