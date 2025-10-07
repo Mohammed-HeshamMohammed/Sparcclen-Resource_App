@@ -4,7 +4,7 @@ import { Shell } from './components/Layout/Shell';
 import { ThemeSelection } from './components/Layout/ThemeSelection';
 import { ThemeProvider } from './components/Layout/ThemeProvider';
 import { AuthProvider, useAuth } from './lib/auth';
-import { useTheme } from './hooks/useTheme';
+import { useTheme } from './components/Layout/ThemeProvider';
 import Login from './components/Auth/Login';
 import SignUp from './components/Auth/SignUp';
 import ForgotPassword from './components/Auth/ForgotPassword';
@@ -12,6 +12,7 @@ import UpdatePassword from './components/Auth/UpdatePassword';
 import AuthConfirm from './components/Auth/AuthConfirm';
 import AuthError from './components/Auth/AuthError';
 import { WindowControls } from './components/Layout/WindowControls';
+// import { ThemeDebug } from './components/Layout/ThemeDebug'; // Commented out for production
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
 
@@ -332,6 +333,7 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <AuthFlow />
+        {/* <ThemeDebug /> */} {/* Uncomment for debugging */}
       </AuthProvider>
     </ThemeProvider>
   );

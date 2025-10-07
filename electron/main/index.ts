@@ -14,7 +14,7 @@ function createWindow(): void {
     frame: false, // Remove Windows title bar completely
     resizable: true,
     hasShadow: true,
-    backgroundColor: '#1c1917', // Match the root background color
+    // backgroundColor removed to allow theme system to control colors
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       sandbox: false,

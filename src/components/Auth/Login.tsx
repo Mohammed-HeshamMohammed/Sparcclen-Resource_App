@@ -98,7 +98,7 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
                   </div>
 
                   {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg flex items-center text-sm">
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-3 rounded-lg flex items-center text-sm">
                       <Info className="w-4 h-4 mr-2 flex-shrink-0" />
                       {error}
                     </div>
@@ -130,19 +130,19 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
 
             {/* Bottom section with password change */}
             <BottomSectionWrapper isVisible={!isTransitioning}>
-              <div className="pt-6 border-t border-gray-200">
+              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 bg-indigo-100 rounded-full p-1">
-                    <Lock className="w-4 h-4 text-indigo-600" />
+                  <div className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-full p-1">
+                    <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-gray-900">Need to change your password?</h3>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Need to change your password?</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Update your password securely anytime you need to.
                     </p>
                     <button
                       onClick={onForgotPassword}
-                      className="text-xs text-indigo-600 font-medium mt-1 hover:text-indigo-800"
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 hover:text-indigo-800 dark:hover:text-indigo-300"
                     >
                       Change Password
                     </button>
@@ -154,7 +154,7 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
         </div>
 
         {/* Right side - Visual Design */}
-        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-900 dark:to-indigo-900 flex items-center justify-center relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-80 h-80 relative">
               {/* Main cube */}
@@ -171,9 +171,9 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
           </div>
           {/* Background pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 rounded-full"></div>
-            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 rounded-full"></div>
-            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 rounded-full"></div>
+            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 dark:border-indigo-600 rounded-full"></div>
+            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 dark:border-purple-600 rounded-full"></div>
+            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 dark:border-pink-600 rounded-full"></div>
           </div>
         </div>
       </div>

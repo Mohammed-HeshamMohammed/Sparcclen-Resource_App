@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Moon, Sun, Bell, Shield, Palette } from 'lucide-react';
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from '../Layout/ThemeProvider';
 
 export function Settings() {
   const { theme, toggleTheme } = useTheme();

@@ -57,15 +57,15 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
 
               <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
                 <FormContentWrapper isVisible={!isTransitioning}>
-                  <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-8 h-8 text-indigo-600" />
+                  <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
                   </div>
 
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                     Email Sent Successfully!
                   </h2>
 
-                  <p className="text-gray-600 max-w-xs">
+                  <p className="text-gray-600 dark:text-gray-400 max-w-xs">
                     We've sent password reset instructions to <strong>{email}</strong>.
                     Please check your inbox and follow the link to reset your password.
                   </p>
@@ -84,17 +84,17 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
 
               {/* Bottom section with plan info */}
               <BottomSectionWrapper isVisible={!isTransitioning}>
-                <div className="pt-6 border-t border-gray-200">
+                <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-start">
-                    <div className="flex-shrink-0 bg-indigo-100 rounded-full p-1">
-                      <Shield className="w-4 h-4 text-indigo-600" />
+                    <div className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-full p-1">
+                      <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-gray-900">Need help with your account?</h3>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Need help with your account?</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Our support team is here to help you with any account-related issues.
                       </p>
-                      <button className="text-xs text-indigo-600 font-medium mt-1 hover:text-indigo-800">
+                      <button className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 hover:text-indigo-800 dark:hover:text-indigo-300">
                         Contact Support
                       </button>
                     </div>
@@ -105,7 +105,7 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
           </div>
 
         {/* Right side - Visual Design */}
-        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-900 dark:to-indigo-900 flex items-center justify-center relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-80 h-80 relative">
               {/* Main cube */}
@@ -122,9 +122,9 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
           </div>
           {/* Background pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 rounded-full"></div>
-            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 rounded-full"></div>
-            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 rounded-full"></div>
+            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 dark:border-indigo-600 rounded-full"></div>
+            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 dark:border-purple-600 rounded-full"></div>
+            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 dark:border-pink-600 rounded-full"></div>
           </div>
         </div>
         </div>
@@ -151,7 +151,7 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
               <FormContentWrapper isVisible={!isTransitioning}>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
+                    <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</Label>
                     <div className="relative">
                       <Input
                         id="email"
@@ -160,14 +160,14 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="youremail@gmail.com"
                         required
-                        className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white transition-colors"
+                        className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
                       />
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     </div>
                   </div>
 
                   {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg flex items-center text-sm">
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-3 rounded-lg flex items-center text-sm">
                       <span className="w-4 h-4 mr-2 flex-shrink-0">⚠</span>
                       {error}
                     </div>
@@ -187,7 +187,7 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
                     <button
                       type="button"
                       onClick={onBack}
-                      className="text-indigo-600 hover:text-indigo-800 font-medium"
+                      className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
                     >
                       ← Back to Login
                     </button>
@@ -198,17 +198,17 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
 
             {/* Bottom section with plan info */}
             <BottomSectionWrapper isVisible={!isTransitioning}>
-              <div className="pt-6 border-t border-gray-200">
+              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 bg-indigo-100 rounded-full p-1">
-                    <Shield className="w-4 h-4 text-indigo-600" />
+                  <div className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-full p-1">
+                    <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-gray-900">Need help with your account?</h3>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Need help with your account?</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Our support team is here to help you with any account-related issues.
                     </p>
-                    <button className="text-xs text-indigo-600 font-medium mt-1 hover:text-indigo-800">
+                    <button className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 hover:text-indigo-800 dark:hover:text-indigo-300">
                       Contact Support
                     </button>
                   </div>
@@ -219,7 +219,7 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
         </div>
 
         {/* Right side - Visual Design */}
-        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-900 dark:to-indigo-900 flex items-center justify-center relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-80 h-80 relative">
               {/* Main cube */}
@@ -236,9 +236,9 @@ export default function ForgotPassword({ onBack, isTransitioning = false }: Forg
           </div>
           {/* Background pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 rounded-full"></div>
-            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 rounded-full"></div>
-            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 rounded-full"></div>
+            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 dark:border-indigo-600 rounded-full"></div>
+            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 dark:border-purple-600 rounded-full"></div>
+            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 dark:border-pink-600 rounded-full"></div>
           </div>
         </div>
       </div>

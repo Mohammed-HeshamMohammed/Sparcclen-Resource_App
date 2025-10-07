@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 
 export type Theme = 'system' | 'light' | 'dark';
 
@@ -7,17 +7,28 @@ const FIRST_TIME_KEY = 'sparcclen_first_time';
 
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-    if (stored) return stored;
-    return 'system'; // Default to system theme
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
+      if (stored && ['system', 'light', 'dark'].includes(stored)) return stored;
+      return 'system'; // Default to system theme
+    } catch {
+      return 'system';
+    }
   });
 
   const [isFirstTime, setIsFirstTime] = useState(() => {
-    return localStorage.getItem(FIRST_TIME_KEY) === null;
+    try {
+      return localStorage.getItem(FIRST_TIME_KEY) === null;
+    } catch {
+      return true;
+    }
   });
 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionTheme, setTransitionTheme] = useState<'light' | 'dark'>('light');
+  const [pendingTheme, setPendingTheme] = useState<Theme | null>(null);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get the actual theme to apply (resolves 'system' to light/dark)
   const getResolvedTheme = (): 'light' | 'dark' => {
@@ -36,7 +47,13 @@ export function useTheme() {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    
+    // Save theme to localStorage with error handling
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+      console.warn('Failed to save theme to localStorage:', error);
+    }
   }, [theme, resolvedTheme]);
 
   // Listen for system theme changes when using system theme
@@ -57,7 +74,30 @@ export function useTheme() {
     }
   }, [theme]);
 
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const setTheme = (newTheme: Theme) => {
+    // Clear any existing debounce timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    // If currently transitioning, queue the new theme
+    if (isTransitioning) {
+      setPendingTheme(newTheme);
+      return;
+    }
+    
     const currentResolved = getResolvedTheme();
     const newResolved = newTheme === 'system' 
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -67,31 +107,60 @@ export function useTheme() {
     if (currentResolved !== newResolved) {
       setTransitionTheme(newResolved);
       setIsTransitioning(true);
+      setPendingTheme(null);
       
       // Apply theme change after a short delay to allow transition to start
-      setTimeout(() => {
+      debounceTimeoutRef.current = setTimeout(() => {
         setThemeState(newTheme);
       }, 50);
+      
+      // Safety timeout to prevent getting stuck in transition
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+      transitionTimeoutRef.current = setTimeout(() => {
+        console.warn('Theme transition timeout - forcing completion');
+        setIsTransitioning(false);
+      }, 750);
     } else {
       setThemeState(newTheme);
+      setPendingTheme(null);
     }
   };
 
   const handleTransitionComplete = () => {
     setIsTransitioning(false);
+    
+    // Clear the safety timeout
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = null;
+    }
+    
+    // If there's a pending theme change, apply it after a short delay
+    if (pendingTheme) {
+      const nextTheme = pendingTheme;
+      setPendingTheme(null);
+      
+      setTimeout(() => {
+        setTheme(nextTheme);
+      }, 100);
+    }
   };
 
   const toggleTheme = () => {
-    setThemeState(prev => {
-      if (prev === 'system') return 'light';
-      if (prev === 'light') return 'dark';
-      return 'system';
-    });
+    const nextTheme = theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system';
+    setTheme(nextTheme);
   };
 
   const markFirstTimeComplete = () => {
-    localStorage.setItem(FIRST_TIME_KEY, 'false');
-    setIsFirstTime(false);
+    try {
+      localStorage.setItem(FIRST_TIME_KEY, 'false');
+      setIsFirstTime(false);
+    } catch (error) {
+      console.warn('Failed to save first time flag to localStorage:', error);
+      setIsFirstTime(false);
+    }
   };
 
   return { 

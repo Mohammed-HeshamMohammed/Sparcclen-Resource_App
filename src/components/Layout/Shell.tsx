@@ -7,7 +7,7 @@ import {SkeletonLoader} from './SkeletonLoader';
 import {Settings} from '../User/Settings';
 import {Profile} from '../User/Profile';
 import {useKeyboardShortcuts} from '../../hooks/useKeyboardShortcuts';
-import {useTheme} from '../../hooks/useTheme';
+import {useTheme} from './ThemeProvider';
 import type {Category, Resource, SearchFilters}
 from '../../types';
 import {
