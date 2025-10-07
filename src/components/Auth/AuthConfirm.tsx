@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/services/supabase' // Use the single client instance
 import { Button } from '../ui/button'
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, Clock, UserCheck, AlertCircle } from 'lucide-react'
 import FormContentWrapper from './FormContentWrapper'
 import BottomSectionWrapper from './BottomSectionWrapper'
 
@@ -9,18 +9,50 @@ interface AuthConfirmProps {
   isTransitioning?: boolean
 }
 
+type ErrorType = 'expired' | 'already_confirmed' | 'invalid' | 'generic'
+
 export default function AuthConfirm({ isTransitioning = false }: AuthConfirmProps) {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
+  const [errorType, setErrorType] = useState<ErrorType>('generic')
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     const handleAuthConfirm = async () => {
 
-      // Get the URL parameters
+      // Get the URL parameters from both query string and hash fragment
       const urlParams = new URLSearchParams(window.location.search)
-      const token_hash = urlParams.get('token_hash')
-      const type = urlParams.get('type')
-      const next = urlParams.get('next') || '/'
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      
+      // Check for errors first (Supabase redirects with error in hash)
+      const error = urlParams.get('error') || hashParams.get('error')
+      const errorCode = urlParams.get('error_code') || hashParams.get('error_code')
+      const errorDescription = urlParams.get('error_description') || hashParams.get('error_description')
+
+      if (error) {
+        setStatus('error')
+        
+        // Determine error type based on error code
+        if (errorCode === 'otp_expired' || error === 'otp_expired') {
+          setErrorType('expired')
+          setMessage('Your confirmation link has expired. Please request a new one.')
+        } else if (errorDescription?.toLowerCase().includes('already') || error === 'already_confirmed') {
+          setErrorType('already_confirmed')
+          setMessage('Your email is already confirmed! You can log in now.')
+        } else if (error === 'access_denied') {
+          setErrorType('invalid')
+          setMessage('This confirmation link is invalid or has already been used.')
+        } else {
+          setErrorType('generic')
+          setMessage(errorDescription ? decodeURIComponent(errorDescription) : 'An error occurred during confirmation.')
+        }
+        return
+      }
+      
+      // Supabase puts tokens in hash fragment, check both locations
+      const token_hash = urlParams.get('token_hash') || hashParams.get('token_hash')
+      const type = urlParams.get('type') || hashParams.get('type')
+      const next = urlParams.get('next') || hashParams.get('next') || '/'
 
       if (token_hash && type) {
         try {
@@ -31,22 +63,47 @@ export default function AuthConfirm({ isTransitioning = false }: AuthConfirmProp
 
           if (error) {
             setStatus('error')
-            setMessage(error.message)
+            
+            // Parse error message for specific cases
+            if (error.message.toLowerCase().includes('expired')) {
+              setErrorType('expired')
+              setMessage('Your confirmation link has expired. Please request a new one.')
+            } else if (error.message.toLowerCase().includes('already')) {
+              setErrorType('already_confirmed')
+              setMessage('Your email is already confirmed! You can log in now.')
+            } else {
+              setErrorType('generic')
+              setMessage(error.message)
+            }
           } else {
             setStatus('success')
             setMessage('Email confirmed successfully!')
-            // Redirect after a short delay
+            
+            // Start Windows-style progress animation
+            const progressInterval = setInterval(() => {
+              setProgress((prev) => {
+                if (prev >= 100) {
+                  clearInterval(progressInterval)
+                  return 100
+                }
+                return prev + 2
+              })
+            }, 40)
+            
+            // Redirect after animation completes
             setTimeout(() => {
               window.location.href = next
-            }, 2000)
+            }, 2500)
           }
         } catch (err) {
           setStatus('error')
+          setErrorType('generic')
           setMessage('An unexpected error occurred')
         }
       } else {
         setStatus('error')
-        setMessage('No token hash or type provided')
+        setErrorType('invalid')
+        setMessage('No confirmation token found in the URL.')
       }
     }
 
@@ -67,74 +124,152 @@ export default function AuthConfirm({ isTransitioning = false }: AuthConfirmProp
 
             <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
               <FormContentWrapper isVisible={!isTransitioning}>
+                {/* Icon based on status and error type */}
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                  status === 'loading' ? 'bg-blue-100' :
-                  status === 'success' ? 'bg-green-100' :
-                  'bg-red-100'
+                  status === 'loading' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                  status === 'success' ? 'bg-green-100 dark:bg-green-900/30' :
+                  errorType === 'expired' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                  errorType === 'already_confirmed' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                  'bg-red-100 dark:bg-red-900/30'
                 }`}>
-                  {status === 'loading' && <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />}
-                  {status === 'success' && <CheckCircle className="w-8 h-8 text-green-600" />}
-                  {status === 'error' && <XCircle className="w-8 h-8 text-red-600" />}
+                  {status === 'loading' && <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />}
+                  {status === 'success' && <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />}
+                  {status === 'error' && errorType === 'expired' && <Clock className="w-8 h-8 text-orange-600 dark:text-orange-400" />}
+                  {status === 'error' && errorType === 'already_confirmed' && <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />}
+                  {status === 'error' && errorType === 'invalid' && <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />}
+                  {status === 'error' && errorType === 'generic' && <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />}
                 </div>
 
+                {/* Title based on status and error type */}
                 <h2 className={`text-xl font-semibold ${
-                  status === 'loading' ? 'text-gray-900' :
-                  status === 'success' ? 'text-green-700' :
-                  'text-red-700'
+                  status === 'loading' ? 'text-gray-900 dark:text-white' :
+                  status === 'success' ? 'text-green-700 dark:text-green-400' :
+                  errorType === 'expired' ? 'text-orange-700 dark:text-orange-400' :
+                  errorType === 'already_confirmed' ? 'text-blue-700 dark:text-blue-400' :
+                  'text-red-700 dark:text-red-400'
                 }`}>
-                  {status === 'loading' && 'Confirming...'}
+                  {status === 'loading' && 'Confirming Your Email...'}
                   {status === 'success' && 'Email Confirmed!'}
-                  {status === 'error' && 'Confirmation Failed'}
+                  {status === 'error' && errorType === 'expired' && 'Link Expired'}
+                  {status === 'error' && errorType === 'already_confirmed' && 'Already Confirmed'}
+                  {status === 'error' && errorType === 'invalid' && 'Invalid Link'}
+                  {status === 'error' && errorType === 'generic' && 'Confirmation Failed'}
                 </h2>
 
+                {/* Message */}
                 <p className={`max-w-xs ${
-                  status === 'loading' ? 'text-gray-600' :
-                  status === 'success' ? 'text-green-600' :
-                  'text-red-600'
+                  status === 'loading' ? 'text-gray-600 dark:text-gray-400' :
+                  status === 'success' ? 'text-green-600 dark:text-green-400' :
+                  errorType === 'expired' ? 'text-orange-600 dark:text-orange-400' :
+                  errorType === 'already_confirmed' ? 'text-blue-600 dark:text-blue-400' :
+                  'text-red-600 dark:text-red-400'
                 }`}>
-                  {status === 'loading' && 'Please wait while we confirm your email...'}
+                  {status === 'loading' && 'Please wait while we verify your email address...'}
                   {status === 'success' && message}
                   {status === 'error' && message}
                 </p>
 
+                {/* Success state with Windows-style progress bar */}
                 {status === 'success' && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-lg text-sm">
-                    You will be redirected shortly...
+                  <div className="w-full max-w-xs space-y-3">
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 p-3 rounded-lg text-sm">
+                      Redirecting you to login...
+                    </div>
+                    
+                    {/* Windows-style progress bar */}
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-100 ease-linear"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {progress < 100 ? `${Math.round(progress)}% complete` : 'Complete!'}
+                    </p>
                   </div>
                 )}
 
+                {/* Error state with specific actions */}
                 {status === 'error' && (
-                  <div className="pt-2">
-                    <Button
-                      onClick={() => window.location.href = '/'}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-medium transition-colors"
-                    >
-                      Back to Home
-                    </Button>
+                  <div className="w-full max-w-xs space-y-3">
+                    {errorType === 'expired' && (
+                      <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 p-3 rounded-lg text-sm">
+                        <p className="font-medium mb-1">What happened?</p>
+                        <p className="text-xs">Confirmation links expire after 24 hours for security. Please sign up again to receive a new link.</p>
+                      </div>
+                    )}
+                    
+                    {errorType === 'already_confirmed' && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 p-3 rounded-lg text-sm">
+                        <p className="font-medium mb-1">Good news!</p>
+                        <p className="text-xs">Your account is ready to use. Just log in with your credentials.</p>
+                      </div>
+                    )}
+                    
+                    {errorType === 'invalid' && (
+                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm">
+                        <p className="font-medium mb-1">Invalid or used link</p>
+                        <p className="text-xs">This link may have already been used or is invalid. Try signing up again if needed.</p>
+                      </div>
+                    )}
+                    
+                    <div className="pt-2">
+                      <Button
+                        onClick={() => window.location.href = '/'}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-medium transition-colors"
+                      >
+                        {errorType === 'already_confirmed' ? 'Go to Login' : 'Back to Home'}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </FormContentWrapper>
             </div>
 
-            {/* Bottom section with help info */}
+            {/* Bottom section with contextual help info */}
             <BottomSectionWrapper isVisible={!isTransitioning}>
-              <div className="pt-6 border-t border-gray-200">
+              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 bg-indigo-100 rounded-full p-1">
-                    <svg className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <div className={`flex-shrink-0 rounded-full p-1 ${
+                    status === 'success' ? 'bg-green-100 dark:bg-green-900/30' :
+                    errorType === 'expired' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                    errorType === 'already_confirmed' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                    'bg-indigo-100 dark:bg-indigo-900/30'
+                  }`}>
+                    <svg className={`w-4 h-4 ${
+                      status === 'success' ? 'text-green-600 dark:text-green-400' :
+                      errorType === 'expired' ? 'text-orange-600 dark:text-orange-400' :
+                      errorType === 'already_confirmed' ? 'text-blue-600 dark:text-blue-400' :
+                      'text-indigo-600 dark:text-indigo-400'
+                    }`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"></circle>
                       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
                       <path d="M12 17h.01"></path>
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-gray-900">Need help?</h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      If you're having trouble confirming your email, please check your spam folder or try again.
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                      {status === 'success' && 'Welcome aboard!'}
+                      {status === 'error' && errorType === 'expired' && 'Need a new link?'}
+                      {status === 'error' && errorType === 'already_confirmed' && 'Ready to start?'}
+                      {status === 'error' && (errorType === 'invalid' || errorType === 'generic') && 'Need help?'}
+                      {status === 'loading' && 'Almost there...'}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {status === 'success' && 'Your account is now active. You can start using all features immediately.'}
+                      {status === 'error' && errorType === 'expired' && 'Go back to the signup page to request a fresh confirmation link.'}
+                      {status === 'error' && errorType === 'already_confirmed' && 'Your email is verified. Head to the login page to access your account.'}
+                      {status === 'error' && (errorType === 'invalid' || errorType === 'generic') && 'If you continue to experience issues, please contact our support team.'}
+                      {status === 'loading' && 'Verifying your email address...'}
                     </p>
-                    <button className="text-xs text-indigo-600 font-medium mt-1 hover:text-indigo-800">
-                      Contact Support
-                    </button>
+                    {status === 'error' && (
+                      <button 
+                        onClick={() => window.location.href = '/'}
+                        className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 hover:text-indigo-800 dark:hover:text-indigo-300"
+                      >
+                        {errorType === 'already_confirmed' ? 'Go to Login' : 'Contact Support'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

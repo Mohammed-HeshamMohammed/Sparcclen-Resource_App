@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase'; // Import the single client instance
+import { initAuthCleanup } from '../services/authCleanup';
 
 // Auth context types and context
 interface AuthContextType {
@@ -33,7 +34,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    // Initialize auth cleanup service (runs on app start)
+    const cleanupShutdown = initAuthCleanup()
+
+    return () => {
+      subscription.unsubscribe()
+      cleanupShutdown() // Stop cleanup service on unmount
+    }
   }, [supabase.auth])
 
   const signOut = async () => {

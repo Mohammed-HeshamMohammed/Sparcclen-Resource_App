@@ -24,10 +24,14 @@ function AuthFlow() {
   const [authState, setAuthState] = useState<AuthState>(() => {
     // Check URL parameters to determine initial state
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('token_hash') && urlParams.get('type')) {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    
+    // Check both query params and hash fragment for Supabase tokens
+    if ((urlParams.get('token_hash') || hashParams.get('token_hash')) && 
+        (urlParams.get('type') || hashParams.get('type'))) {
       return 'auth-confirm';
     }
-    if (urlParams.get('error')) {
+    if (urlParams.get('error') || hashParams.get('error')) {
       return 'auth-error';
     }
     return 'login';
@@ -282,12 +286,15 @@ function AuthFlow() {
           <AuthConfirm isTransitioning={isTransitioning} />
         );
       case 'auth-error':
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
         return (
           <AuthError 
-            error={new URLSearchParams(window.location.search).get('error') || undefined} 
+            error={urlParams.get('error') || hashParams.get('error') || undefined} 
             isTransitioning={isTransitioning}
           />
         );
+      default:
         return null;
     }
   };

@@ -24,7 +24,9 @@
     "electron:dev": "vite",
     "electron:build": "npm run build && electron-builder",
     "install": "npm install --legacy-peer-deps",
-    "install:dev": "npm install --legacy-peer-deps"
+    "install:dev": "npm install --legacy-peer-deps",
+    "mirror:supabase-to-src": "node scripts/mirror-supabase-to-src.js",
+    "mirror:src-to-supabase": "node scripts/mirror-src-to-supabase.js"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^2.0.0",

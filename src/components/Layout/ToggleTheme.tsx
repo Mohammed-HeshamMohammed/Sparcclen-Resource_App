@@ -145,20 +145,29 @@ export function ToggleTheme() {
     // Allow the theme change
     setTheme(newTheme);
   };
-
   if (!isMounted) {
     return <div className="flex h-8 w-24" />;
   }
 
   return (
-    <div className="relative">
+    <div className="flex items-center gap-2">
+      {isCooldownActive && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="bg-red-600 text-white text-xs font-bold rounded-md px-2 py-1 h-6 min-w-[1.5rem] flex items-center justify-center shadow-lg"
+        >
+          {remainingCooldownTime}
+        </motion.div>
+      )}
       <motion.div
         key={String(isMounted)}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
         className={cn(
-          "bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg inline-flex items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200",
+          "relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg inline-flex items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200",
           (isRateLimited || isCooldownActive) && "border-red-400 dark:border-red-600 bg-red-50/80 dark:bg-red-950/80",
           isCooldownActive && "animate-pulse"
         )}
@@ -208,54 +217,40 @@ export function ToggleTheme() {
             )} />
           </button>
         ))}
-      </motion.div>
 
-      {/* Cooldown Badge */}
-      <AnimatePresence>
-        {isCooldownActive && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center z-10 shadow-lg"
-          >
-            {remainingCooldownTime}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Rate Limit Tooltip */}
-      <AnimatePresence>
-        {showTooltip && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: -10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: -10 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 z-50"
-          >
-            <div className={cn(
-              "px-3 py-2 rounded-lg text-xs font-medium shadow-lg whitespace-nowrap backdrop-blur-sm border",
-              isCooldownActive 
-                ? "bg-red-600/90 text-white border-red-500" 
-                : "bg-orange-500/90 text-white border-orange-400"
-            )}>
-              <div className="relative">
-                {tooltipMessage}
-                {/* Arrow pointing down */}
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-                  <div className={cn(
-                    "w-2 h-2 rotate-45 border-r border-b",
-                    isCooldownActive 
-                      ? "bg-red-600/90 border-red-500" 
-                      : "bg-orange-500/90 border-orange-400"
-                  )}></div>
+        {/* Rate Limit Tooltip */}
+        <AnimatePresence>
+          {showTooltip && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: -10 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 z-50"
+            >
+              <div className={cn(
+                "px-3 py-2 rounded-lg text-xs font-medium shadow-lg whitespace-nowrap backdrop-blur-sm border",
+                isCooldownActive 
+                  ? "bg-red-600/90 text-white border-red-500" 
+                  : "bg-orange-500/90 text-white border-orange-400"
+              )}>
+                <div className="relative">
+                  {tooltipMessage}
+                  {/* Arrow pointing down */}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2">
+                    <div className={cn(
+                      "w-2 h-2 rotate-45 border-r border-b",
+                      isCooldownActive 
+                        ? "bg-red-600/90 border-red-500" 
+                        : "bg-orange-500/90 border-orange-400"
+                    )}></div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }
