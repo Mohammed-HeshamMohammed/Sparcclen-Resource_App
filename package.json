@@ -1,8 +1,8 @@
 {
-  "name": "electron-vite-react",
-  "version": "2.2.0",
+  "name": "sparcclen",
+  "version": "1.0.0",
   "main": "dist-electron/index.js",
-  "description": "Electron Vite React boilerplate.",
+  "description": "Sparcclen - Initiate the impossible",
   "author": "草鞋没号 <302315331@qq.com>",
   "license": "MIT",
   "private": true,
@@ -14,7 +14,7 @@
   ],
   "debug": {
     "env": {
-      "VITE_DEV_SERVER_URL": "http://127.0.0.1:7777"
+      "VITE_DEV_SERVER_URL": "http://127.0.0.1:5173"
     }
   },
   "scripts": {

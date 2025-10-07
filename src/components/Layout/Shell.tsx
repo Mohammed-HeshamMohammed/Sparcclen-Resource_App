@@ -205,8 +205,6 @@ export function Shell() {
                             onSearchChange={handleSearchChange}
                             onToggleFavoritesView={handleToggleFavoritesView}
                             favoritesOnly={favoritesOnly}
-                            theme={theme}
-                            onToggleTheme={toggleTheme}
                             categories={categories}
                             activeCategory={activeCategory}
                             activeSubcategory={activeSubcategory}

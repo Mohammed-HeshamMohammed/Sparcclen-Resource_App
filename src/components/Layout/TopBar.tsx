@@ -1,6 +1,5 @@
-import { Search, Heart, Sun, Moon } from 'lucide-react';
+import { Search, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Theme } from '../../hooks/useTheme';
 import { CategoryFilter } from '../Resources/CategoryFilter';
 import type { Category } from '../../types';
 
@@ -9,8 +8,6 @@ interface TopBarProps {
   onSearchChange: (query: string) => void;
   onToggleFavoritesView: () => void;
   favoritesOnly: boolean;
-  theme: Theme;
-  onToggleTheme: () => void;
   // Category filter props
   categories: Category[];
   activeCategory: string | null;
@@ -24,8 +21,6 @@ export function TopBar({
   onSearchChange,
   onToggleFavoritesView,
   favoritesOnly,
-  theme,
-  onToggleTheme,
   categories,
   activeCategory,
   activeSubcategory,
@@ -67,17 +62,6 @@ export function TopBar({
               />
             </button>
 
-            <button
-              onClick={onToggleTheme}
-              className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title="Toggle theme"
-            >
-              {theme === 'light' ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
-            </button>
           </div>
         </div>
 

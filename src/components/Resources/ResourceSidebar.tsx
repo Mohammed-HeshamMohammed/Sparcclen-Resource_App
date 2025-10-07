@@ -128,10 +128,10 @@ export const Logo = ({ open }: { open: boolean }) => {
         className="flex flex-col overflow-hidden whitespace-nowrap"
       >
         <span className="font-bold text-white text-lg">
-          Resource Hub
+          Sparcclen
         </span>
         <span className="text-xs text-gray-400">
-          Design Library
+          Initiate the impossible
         </span>
       </motion.div>
     </div>

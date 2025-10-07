@@ -5,12 +5,15 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Lock, Info } from 'lucide-react'
 import { hashPasswordSecure } from '../../lib/utils/crypto'
+import FormContentWrapper from './FormContentWrapper'
+import BottomSectionWrapper from './BottomSectionWrapper'
 
 interface UpdatePasswordProps {
   onSuccess: () => void
+  isTransitioning?: boolean
 }
 
-export default function UpdatePassword({ onSuccess }: UpdatePasswordProps) {
+export default function UpdatePassword({ onSuccess, isTransitioning = false }: UpdatePasswordProps) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,81 +48,99 @@ export default function UpdatePassword({ onSuccess }: UpdatePasswordProps) {
   }
 
   return (
-    <div className="w-full min-h-fit bg-white rounded-lg overflow-hidden shadow-xl transition-all duration-300 ease-in-out">
-      <div className="flex w-[800px] h-full">
+    <div className="w-[900px] h-[750px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
+      <div className="flex w-full h-full">
         {/* Left side - Update Password form */}
-        <div className="w-1/2 p-10 flex flex-col justify-center">
-          <div className="max-w-lg mx-auto w-full">
+        <div className="w-1/2 p-12 flex flex-col justify-center">
+          <div className="max-w-lg mx-auto w-full h-full flex flex-col">
             <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Update Password
               </h1>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">New Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="********"
-                    required
-                    className="pl-3 pr-3 py-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white transition-all duration-200 focus:scale-[1.02]"
-                  />
-                  <Lock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                </div>
-              </div>
+            <div className="flex-1 flex flex-col justify-center">
+              <FormContentWrapper isVisible={!isTransitioning}>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">New Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="********"
+                        required
+                        className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                      />
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    </div>
+                  </div>
 
-              {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-md flex items-center text-sm">
-                  <Info className="w-4 h-4 mr-2 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg flex items-center text-sm">
+                      <Info className="w-4 h-4 mr-2 flex-shrink-0" />
+                      {error}
+                    </div>
+                  )}
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-md transition-all duration-200 hover:scale-105"
-              >
-                {loading ? 'Updating...' : 'Update Password'}
-              </Button>
-            </form>
+                  <div className="pt-2">
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                    >
+                      {loading ? 'Updating...' : 'Update Password'}
+                    </Button>
+                  </div>
+                </form>
+              </FormContentWrapper>
+            </div>
 
             {/* Bottom section with password info */}
-            <div className="mt-auto pt-6 border-t border-gray-200">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 bg-indigo-100 rounded-full p-1">
-                  <Lock className="w-4 h-4 text-indigo-600" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-gray-900">Password Updated Successfully</h3>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Your password has been securely updated and encrypted.
-                  </p>
+            <BottomSectionWrapper isVisible={!isTransitioning}>
+              <div className="pt-6 border-t border-gray-200">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-indigo-100 rounded-full p-1">
+                    <Lock className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-gray-900">Password Updated Successfully</h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Your password has been securely updated and encrypted.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            </BottomSectionWrapper>
+          </div>
         </div>
 
-        {/* Right side - 3D Fluid cube image */}
-        <div className="w-1/2 bg-gray-200 flex items-center justify-center relative" style={{clipPath: 'ellipse(100% 50% at 0% 50%)'}}>
+        {/* Right side - Visual Design */}
+        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-64 h-64 relative">
-              <div className="w-full h-full bg-indigo-400/80 rounded-lg transform rotate-12 shadow-xl"
+            <div className="w-80 h-80 relative">
+              {/* Main cube */}
+              <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl transform rotate-12 shadow-2xl"
                    style={{
-                     background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.8) 0%, rgba(168, 85, 247, 0.4) 100%)',
-                     boxShadow: '0 25px 50px -12px rgba(99, 102, 241, 0.5)'
+                     boxShadow: '0 25px 50px -12px rgba(99, 102, 241, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
                    }}>
               </div>
+              {/* Floating elements */}
+              <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-pink-400 to-rose-500 rounded-full opacity-80 shadow-lg transform rotate-45"></div>
+              <div className="absolute -bottom-6 -left-6 w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full opacity-70 shadow-lg transform -rotate-12"></div>
+              <div className="absolute top-1/2 -left-8 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full opacity-60 shadow-lg transform rotate-45"></div>
             </div>
+          </div>
+          {/* Background pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 rounded-full"></div>
+            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 rounded-full"></div>
+            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 rounded-full"></div>
           </div>
         </div>
       </div>
     </div>
-  </div>
   )
 }

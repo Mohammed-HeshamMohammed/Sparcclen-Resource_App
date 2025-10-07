@@ -1,84 +1,76 @@
 import { supabase } from './supabase';
 import type { Category, Resource, Tag, SearchFilters } from '../../types';
-import { encryptedDatabase } from '../../lib/database/encryptedDatabase';
-import type { Resource as EncryptedResource, Tag as EncryptedTag } from '../../types/database/encryptedDatabase';
-
-function mapEncryptedToAppResource(er: EncryptedResource, tags: EncryptedTag[] = [], is_favorite = false): Resource {
-  return {
-    id: er.id,
-    slug: er.slug,
-    title: er.title,
-    description: er.description,
-    url: er.url,
-    category_id: er.category_id,
-    subcategory_id: er.subcategory_id,
-    resource_type: er.resource_type,
-    thumbnail_url: er.thumbnail_url,
-    thumbnail_type: er.thumbnail_type,
-    colors: er.colors,
-    metadata: er.metadata,
-    view_count: er.view_count,
-    date_added: er.date_added,
-    created_at: er.created_at,
-    updated_at: er.updated_at,
-    tags: tags.map(t => ({
-      id: t.id,
-      name: t.name,
-      slug: t.slug,
-      usage_count: t.usage_count,
-      created_at: t.created_at
-    })),
-    is_favorite,
-  };
-}
 
 export async function getCategories(): Promise<Category[]> {
-  // Read categories from encrypted database
-  const categories = await encryptedDatabase.getCategories();
-  return categories.map(cat => ({
-    id: cat.id,
-    slug: cat.slug,
-    title: cat.title,
-    description: cat.description,
-    parent_id: cat.parent_id,
-    sort_order: cat.sort_order,
-    item_count: cat.item_count,
-    created_at: cat.created_at,
-    updated_at: cat.updated_at
-  }));
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('sort_order', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
 }
 
 export async function getResources(
   categoryId?: string,
   subcategoryId?: string
 ): Promise<Resource[]> {
-  // Read resources from encrypted database and filter by category/subcategory
-  let resources: EncryptedResource[];
+  let query = supabase
+    .from('resources')
+    .select(`
+      *,
+      tags:resource_tags(tag:tags(*))
+    `);
+
   if (subcategoryId) {
-    resources = await encryptedDatabase.getResourcesBySubcategory(subcategoryId);
+    query = query.eq('subcategory_id', subcategoryId);
   } else if (categoryId) {
-    resources = await encryptedDatabase.getResourcesByCategory(categoryId);
-  } else {
-    resources = await encryptedDatabase.getResources();
+    query = query.eq('category_id', categoryId);
   }
 
-  const allResourceTags = await encryptedDatabase.getResourceTags();
-  const allTags = await encryptedDatabase.getTags();
+  const { data, error } = await query.order('created_at', { ascending: false });
 
-  return resources.map((r) => {
-    const tagIds = allResourceTags.filter((rt) => rt.resource_id === r.id).map((rt) => rt.tag_id);
-    const tags = allTags.filter((t) => tagIds.includes(t.id));
-    return mapEncryptedToAppResource(r, tags);
-  });
+  if (error) throw error;
+
+  return (data || []).map((item: any) => ({
+    ...item,
+    tags: item.tags?.map((rt: any) => rt.tag) || [],
+    is_favorite: false, // Will be set by searchResources if needed
+  })) as Resource[];
 }
 
 export async function searchResources(
   filters: SearchFilters,
   userId?: string
 ): Promise<Resource[]> {
-  // Search is done against the encrypted database
-  let resources = await encryptedDatabase.getResources();
+  let query = supabase
+    .from('resources')
+    .select(`
+      *,
+      tags:resource_tags(tag:tags(*))
+    `);
 
+  if (filters.categoryId) {
+    query = query.eq('category_id', filters.categoryId);
+  }
+  if (filters.subcategoryId) {
+    query = query.eq('subcategory_id', filters.subcategoryId);
+  }
+  if (filters.resourceType) {
+    query = query.eq('resource_type', filters.resourceType);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  let resources = (data || []).map((item: any) => ({
+    ...item,
+    tags: item.tags?.map((rt: any) => rt.tag) || [],
+    is_favorite: false,
+  })) as Resource[];
+
+  // Apply text search filter
   if (filters.query) {
     const q = filters.query.toLowerCase();
     resources = resources.filter(
@@ -89,80 +81,81 @@ export async function searchResources(
     );
   }
 
-  if (filters.categoryId) resources = resources.filter((r) => r.category_id === filters.categoryId);
-  if (filters.subcategoryId) resources = resources.filter((r) => r.subcategory_id === filters.subcategoryId);
-  if (filters.resourceType) resources = resources.filter((r) => r.resource_type === filters.resourceType);
-
-  // Fetch user's favorites from Supabase to mark is_favorite where needed
-  let favoriteIds = new Set<string>();
-  if (userId) {
-    const { data } = await (supabase as any)
-      .from('favorites')
-      .select('resource_id')
-      .eq('user_id', userId);
-    (data || []).forEach((f: any) => favoriteIds.add(f.resource_id));
-  }
-
-  const allResourceTags = await encryptedDatabase.getResourceTags();
-  const allTags = await encryptedDatabase.getTags();
-
-  let results = resources.map((r) => {
-    const tagIds = allResourceTags.filter((rt) => rt.resource_id === r.id).map((rt) => rt.tag_id);
-    const tags = allTags.filter((t) => tagIds.includes(t.id));
-    return mapEncryptedToAppResource(r, tags, favoriteIds.has(r.id));
-  });
-
+  // Apply tag filter
   if (filters.tags.length > 0) {
-    // Filter by tags
-    results = results.filter((r) => 
+    resources = resources.filter((r) => 
       filters.tags.some(tagId => (r.tags || []).some(tag => tag.id === tagId))
     );
   }
 
-  if (filters.favoritesOnly && userId) {
-    results = results.filter((r) => r.is_favorite);
+  // Fetch user's favorites if userId is provided
+  if (userId) {
+    const { data: favorites } = await supabase
+      .from('favorites')
+      .select('resource_id')
+      .eq('user_id', userId);
+
+    const favoriteIds = new Set((favorites || []).map((f: any) => f.resource_id));
+    
+    resources = resources.map(r => ({
+      ...r,
+      is_favorite: favoriteIds.has(r.id)
+    }));
+
+    // Apply favorites filter
+    if (filters.favoritesOnly) {
+      resources = resources.filter((r) => r.is_favorite);
+    }
   }
 
-  return results;
+  return resources;
 }
 
 export async function getResourceById(id: string, userId?: string): Promise<Resource | null> {
-  const resources = await encryptedDatabase.getResources();
-  const resource = resources.find((r) => r.id === id) || null;
-  if (!resource) return null;
-  
-  const allResourceTags = await encryptedDatabase.getResourceTags();
-  const allTags = await encryptedDatabase.getTags();
-  const tagIds = allResourceTags.filter((rt) => rt.resource_id === id).map((rt) => rt.tag_id);
-  const tags = allTags.filter((t) => tagIds.includes(t.id));
+  const { data, error } = await supabase
+    .from('resources')
+    .select(`
+      *,
+      tags:resource_tags(tag:tags(*))
+    `)
+    .eq('id', id)
+    .maybeSingle();
 
+  if (error) throw error;
+  if (!data) return null;
+
+  let is_favorite = false;
   if (userId) {
-    const { data } = await (supabase as any)
+    const { data: favorite } = await supabase
       .from('favorites')
       .select('id')
       .eq('user_id', userId)
       .eq('resource_id', id)
       .maybeSingle();
-    return mapEncryptedToAppResource(resource, tags, !!data);
+    is_favorite = !!favorite;
   }
 
-  return mapEncryptedToAppResource(resource, tags, false);
+  return {
+    ...data,
+    tags: data.tags?.map((rt: any) => rt.tag) || [],
+    is_favorite,
+  } as Resource;
 }
 
 export async function incrementViewCount(resourceId: string): Promise<void> {
-  const { error } = await (supabase as any).rpc('increment_view_count', {
+  const { error } = await supabase.rpc('increment_view_count', {
     resource_id: resourceId,
   });
 
   if (error) {
-    const { data: resource } = await (supabase as any)
+    const { data: resource } = await supabase
       .from('resources')
       .select('view_count')
       .eq('id', resourceId)
       .maybeSingle();
 
     if (resource) {
-      await (supabase as any)
+      await supabase
         .from('resources')
         .update({ view_count: resource.view_count + 1 })
         .eq('id', resourceId);
@@ -174,7 +167,7 @@ export async function toggleFavorite(
   resourceId: string,
   userId: string
 ): Promise<{ favorite: boolean }> {
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await supabase
     .from('favorites')
     .select('id')
     .eq('user_id', userId)
@@ -182,7 +175,7 @@ export async function toggleFavorite(
     .maybeSingle();
 
   if (existing) {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('favorites')
       .delete()
       .eq('id', existing.id);
@@ -190,7 +183,7 @@ export async function toggleFavorite(
     if (error) throw error;
     return { favorite: false };
   } else {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('favorites')
       .insert({ user_id: userId, resource_id: resourceId });
 
@@ -200,7 +193,7 @@ export async function toggleFavorite(
 }
 
 export async function getFavoritedResources(userId: string): Promise<Resource[]> {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('favorites')
     .select(`
       resource:resources(
@@ -223,18 +216,39 @@ export async function getFavoritedResources(userId: string): Promise<Resource[]>
 }
 
 export async function getTags(limit?: number): Promise<Tag[]> {
-  // Tags are stored in encrypted database
-  const tags = await encryptedDatabase.getTags();
-  if (limit) return tags.slice(0, limit);
-  return tags;
+  let query = supabase
+    .from('tags')
+    .select('*')
+    .order('usage_count', { ascending: false });
+
+  if (limit) {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data || [];
 }
 
 export async function getTagsByCategory(categoryId: string): Promise<Tag[]> {
-  // Collect tags for resources in the category from encrypted database
-  const resources = await encryptedDatabase.getResources();
-  const resourceIds = new Set(resources.filter((r) => r.category_id === categoryId).map((r) => r.id));
-  const resourceTags = await encryptedDatabase.getResourceTags();
-  const tagIds = new Set(resourceTags.filter((rt) => resourceIds.has(rt.resource_id)).map((rt) => rt.tag_id));
-  const tags = await encryptedDatabase.getTags();
-  return tags.filter((t) => tagIds.has(t.id));
+  const { data, error } = await supabase
+    .from('resources')
+    .select(`
+      tags:resource_tags(tag:tags(*))
+    `)
+    .eq('category_id', categoryId);
+
+  if (error) throw error;
+
+  const tagMap = new Map();
+  (data || []).forEach((resource: any) => {
+    (resource.tags || []).forEach((rt: any) => {
+      if (rt.tag) {
+        tagMap.set(rt.tag.id, rt.tag);
+      }
+    });
+  });
+
+  return Array.from(tagMap.values());
 }

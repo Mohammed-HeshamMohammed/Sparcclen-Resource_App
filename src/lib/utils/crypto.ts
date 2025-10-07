@@ -99,13 +99,38 @@ export function generateSalt(length: number = 16): string {
 }
 
 /**
+ * Generate a consistent salt based on the password for deterministic hashing
+ * @param password - The password to generate salt from
+ * @param length - Length of salt in bytes (default: 16)
+ * @returns string - Hex string representation of the consistent salt
+ */
+export function generateConsistentSalt(password: string, length: number = 16): string {
+  // Create a deterministic salt by hashing the password with a fixed seed
+  const seed = "SparcclenAuth2024"; // Fixed seed for consistency
+  const combined = password + seed;
+  
+  // Use a simple hash to create consistent salt
+  let hash = 0;
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Convert to hex and pad to desired length
+  const hexString = Math.abs(hash).toString(16).padStart(8, '0');
+  return hexString.padEnd(length * 2, '0').substring(0, length * 2);
+}
+
+/**
  * Hash password with salt using PBKDF2 (more secure than simple SHA-256)
  * @param password - The plain text password
  * @param salt - Optional salt (will generate if not provided)
  * @returns Promise<{hash: string, salt: string}> - Object containing hash and salt
  */
 export async function hashPasswordSecure(password: string, salt?: string): Promise<{hash: string, salt: string}> {
-  const actualSalt = salt || generateSalt(16);
+  // Use a consistent salt based on the password for deterministic hashing
+  const actualSalt = salt || generateConsistentSalt(password);
   const encoder = new TextEncoder();
   const passwordData = encoder.encode(password);
   const saltData = encoder.encode(actualSalt);

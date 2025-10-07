@@ -5,12 +5,14 @@ import { Database } from 'lucide-react';
 interface SplashScreenProps {
   onLoaded: () => void;
   brandName?: string;
+  tagline?: string;
   minimumDisplayTime?: number;
 }
 
 export function SplashScreen({
   onLoaded,
-  brandName = 'Resource Hub',
+  brandName = 'Sparcclen',
+  tagline = 'Initiate the impossible',
   minimumDisplayTime = 2000,
 }: SplashScreenProps) {
   const [isReady, setIsReady] = useState(false);
@@ -60,6 +62,17 @@ export function SplashScreen({
         >
           {brandName}
         </motion.h1>
+
+        {tagline && (
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="text-lg text-gray-600 dark:text-gray-300 mb-6"
+          >
+            {tagline}
+          </motion.p>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}

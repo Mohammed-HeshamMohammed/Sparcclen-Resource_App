@@ -15,18 +15,25 @@ const metaEnv: Record<string, any> = typeof import.meta !== 'undefined' ? (impor
 const supabaseUrl = nodeEnv?.SUPABASE_URL || metaEnv.VITE_SUPABASE_URL || metaEnv.SUPABASE_URL || '';
 const supabaseAnonKey = nodeEnv?.SUPABASE_KEY || metaEnv.VITE_SUPABASE_ANON_KEY || metaEnv.VITE_SUPABASE_KEY || metaEnv.SUPABASE_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  // Provide a clearer runtime hint in the browser console instead of a confusing crash.
-  // If you're developing locally, add a VITE_SUPABASE_ANON_KEY to your .env or export SUPABASE_KEY before starting the dev server.
-  // Note: Vite only exposes variables prefixed with VITE_ to the client.
+function createMockSupabaseClient(): SupabaseClient<Database> {
+  // Minimal mock implementing the auth surface we use in the app
+  const mockAuth: any = {
+    getSession: async () => ({ data: { session: null }, error: null }),
+    onAuthStateChange: (_cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    signOut: async () => ({ error: null }),
+    getUser: async () => ({ data: { user: null }, error: null }),
+  };
   // eslint-disable-next-line no-console
-  console.error('Missing Supabase configuration. Set VITE_SUPABASE_ANON_KEY or SUPABASE_KEY in your environment.');
-  throw new Error('Missing Supabase configuration');
+  console.warn('[supabase] Missing configuration. Using mock auth client for development.');
+  return { auth: mockAuth } as unknown as SupabaseClient<Database>;
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+export const supabase: SupabaseClient<Database> =
+  supabaseUrl && supabaseAnonKey
+    ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      })
+    : createMockSupabaseClient();

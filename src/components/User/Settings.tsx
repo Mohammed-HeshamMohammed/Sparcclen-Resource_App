@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Moon, Sun, Bell, Shield, Palette, Database } from 'lucide-react';
+import { Moon, Sun, Bell, Shield, Palette } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
-import { DatabasePopulator } from '../Admin/DatabasePopulator';
 
 export function Settings() {
   const { theme, toggleTheme } = useTheme();
@@ -15,7 +14,6 @@ export function Settings() {
     profile: 'public',
     data: 'private',
   });
-  const [showDatabasePopulator, setShowDatabasePopulator] = useState(false);
 
   const handleNotificationChange = (key: string, value: boolean) => {
     setNotifications(prev => ({ ...prev, [key]: value }));
@@ -172,7 +170,6 @@ export function Settings() {
             {/* Data Management */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Database className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Data Management</h2>
               </div>
 
@@ -200,39 +197,11 @@ export function Settings() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Populate Database</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Fill database with sample categories and resources</p>
-                  </div>
-                  <button
-                    onClick={() => setShowDatabasePopulator(true)}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                  >
-                    Populate
-                  </button>
-                </div>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {showDatabasePopulator && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Database Population</h2>
-                <button
-                  onClick={() => setShowDatabasePopulator(false)}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  ✕
-                </button>
-              </div>
-              <DatabasePopulator />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

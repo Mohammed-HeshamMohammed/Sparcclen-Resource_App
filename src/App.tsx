@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { SplashScreen } from './components/Layout/SplashScreen';
 import { Shell } from './components/Layout/Shell';
+import { ThemeSelection } from './components/Layout/ThemeSelection';
+import { ThemeProvider } from './components/Layout/ThemeProvider';
 import { AuthProvider, useAuth } from './lib/auth';
+import { useTheme } from './hooks/useTheme';
 import Login from './components/Auth/Login';
 import SignUp from './components/Auth/SignUp';
 import ForgotPassword from './components/Auth/ForgotPassword';
@@ -9,12 +12,14 @@ import UpdatePassword from './components/Auth/UpdatePassword';
 import AuthConfirm from './components/Auth/AuthConfirm';
 import AuthError from './components/Auth/AuthError';
 import { WindowControls } from './components/Layout/WindowControls';
-import './lib/database/databaseInit'; // Initialize encrypted database
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
 
 function AuthFlow() {
   const { user, loading } = useAuth();
+  const { isFirstTime, markFirstTimeComplete, setTheme } = useTheme();
+  const [showStartupSplash, setShowStartupSplash] = useState(true);
+  const [showThemeSelection, setShowThemeSelection] = useState(false);
   const [authState, setAuthState] = useState<AuthState>(() => {
     // Check URL parameters to determine initial state
     const urlParams = new URLSearchParams(window.location.search);
@@ -28,6 +33,37 @@ function AuthFlow() {
   });
 
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
+  const [showMainApp, setShowMainApp] = useState(false);
+
+  const handleThemeSelect = (theme: 'system' | 'light' | 'dark') => {
+    setTheme(theme);
+    markFirstTimeComplete();
+    setShowThemeSelection(false);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowStartupSplash(false);
+      // Show theme selection for first-time users
+      if (isFirstTime) {
+        setShowThemeSelection(true);
+      }
+    }, 2000); // Reduced splash time for better UX
+    return () => clearTimeout(timer);
+  }, [isFirstTime]);
+
+  // Handle transition from auth success to main app
+  useEffect(() => {
+    if (isAuthSuccess && user) {
+      // Wait for card slide down animation to complete, then show main app
+      const timer = setTimeout(() => {
+        setShowMainApp(true);
+      }, 600); // Match the slide-down animation duration
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthSuccess, user]);
 
   useEffect(() => {
     // Listen for window resize events from main process
@@ -38,26 +74,35 @@ function AuthFlow() {
       setIsMaximized(size.width >= screenWidth - 50 && size.height >= screenHeight - 50);
     };
 
-    if (window.api?.onWindowResize) {
+    if (window.api?.onWindowResize && window.api?.getWindowSize) {
       const removeListener = window.api.onWindowResize(handleWindowResize);
 
-      // Initial check
-      window.api?.getWindowSize().then((size: { width: number; height: number }) => {
-        handleWindowResize(size);
-      });
+      // Initial check with error handling
+      window.api.getWindowSize()
+        .then((size: { width: number; height: number }) => {
+          handleWindowResize(size);
+        })
+        .catch((error) => {
+          console.warn('Failed to get window size:', error);
+          // Fallback: assume not maximized
+          setIsMaximized(false);
+        });
 
       return () => {
         removeListener();
       };
+    } else {
+      // Fallback: assume not maximized if API is not available
+      setIsMaximized(false);
     }
   }, []);
 
-  if (loading) {
+  if (showStartupSplash) {
     return (
-      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl`}>
+      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0"
+            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
             style={{
               WebkitAppRegion: 'drag',
               borderTop: '1px solid transparent',
@@ -67,7 +112,7 @@ function AuthFlow() {
           >
             <div className="flex items-center space-x-4">
               <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Resource Hub
+                Sparcclen
               </h1>
             </div>
             <WindowControls
@@ -76,21 +121,21 @@ function AuthFlow() {
               onMaximizeToggle={() => setIsMaximized(!isMaximized)}
             />
           </div>
-          <div className="flex-1 flex items-center justify-center">
-            <SplashScreen onLoaded={() => {}} brandName="Resource Hub" />
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+            <SplashScreen onLoaded={() => {}} brandName="Sparcclen" tagline="Initiate the impossible" />
           </div>
         </div>
       </div>
     );
   }
 
-  if (user) {
+  // Show theme selection for first-time users
+  if (showThemeSelection) {
     return (
-      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl`}>
+      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
         <div className="h-full flex flex-col relative">
-          {/* Custom Title Bar - Always Visible */}
           <div
-            className="h-10 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0"
+            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
             style={{
               WebkitAppRegion: 'drag',
               borderTop: '1px solid transparent',
@@ -100,7 +145,7 @@ function AuthFlow() {
           >
             <div className="flex items-center space-x-4">
               <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Resource Hub
+                Sparcclen
               </h1>
             </div>
             <WindowControls
@@ -109,7 +154,72 @@ function AuthFlow() {
               onMaximizeToggle={() => setIsMaximized(!isMaximized)}
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950">
+            <ThemeSelection onThemeSelect={handleThemeSelect} isVisible={true} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && !showStartupSplash) {
+    return (
+      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
+        <div className="h-full flex flex-col relative">
+          <div
+            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
+            style={{
+              WebkitAppRegion: 'drag',
+              borderTop: '1px solid transparent',
+              borderLeft: '1px solid transparent',
+              borderRight: '1px solid transparent'
+            } as React.CSSProperties}
+          >
+            <div className="flex items-center space-x-4">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Sparcclen
+              </h1>
+            </div>
+            <WindowControls
+              className="flex-shrink-0"
+              isMaximized={isMaximized}
+              onMaximizeToggle={() => setIsMaximized(!isMaximized)}
+            />
+          </div>
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+            <SplashScreen onLoaded={() => {}} brandName="Sparcclen" tagline="Initiate the impossible" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && !showStartupSplash) {
+    return (
+      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
+        <div className="h-full flex flex-col relative">
+          {/* Custom Title Bar - Always Visible */}
+          <div
+            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
+            style={{
+              WebkitAppRegion: 'drag',
+              borderTop: '1px solid transparent',
+              borderLeft: '1px solid transparent',
+              borderRight: '1px solid transparent'
+            } as React.CSSProperties}
+          >
+            <div className="flex items-center space-x-4">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Sparcclen
+              </h1>
+            </div>
+            <WindowControls
+              className="flex-shrink-0"
+              isMaximized={isMaximized}
+              onMaximizeToggle={() => setIsMaximized(!isMaximized)}
+            />
+          </div>
+          <div className={`flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950 ${showMainApp ? 'animate-fade-in-up' : 'opacity-0'}`}>
             <Shell />
           </div>
         </div>
@@ -118,64 +228,71 @@ function AuthFlow() {
   }
 
   const handleAuthSuccess = () => {
+    setIsAuthSuccess(true);
     // Auth state will be handled by the auth context
   };
 
   const handleBackToLogin = () => {
-    setAuthState('login');
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setAuthState('login');
+      setTimeout(() => setIsTransitioning(false), 50);
+    }, 200);
+  };
+
+  const handleAuthStateChange = (newState: AuthState) => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setAuthState(newState);
+      setTimeout(() => setIsTransitioning(false), 50);
+    }, 200);
   };
 
   const renderAuthScreen = () => {
     switch (authState) {
       case 'login':
         return (
-          <div className="transition-all duration-500 ease-in-out transform">
-            <Login
-              onSuccess={handleAuthSuccess}
-              onSignUp={() => setAuthState('signup')}
-              onForgotPassword={() => setAuthState('forgot-password')}
-            />
-          </div>
+          <Login
+            onSuccess={handleAuthSuccess}
+            onSignUp={() => handleAuthStateChange('signup')}
+            onForgotPassword={() => handleAuthStateChange('forgot-password')}
+            isTransitioning={isTransitioning}
+          />
         );
       case 'signup':
         return (
-          <div className="transition-all duration-500 ease-in-out transform">
-            <SignUp
-              onSuccess={handleBackToLogin}
-              onBackToLogin={handleBackToLogin}
-            />
-          </div>
+          <SignUp
+            onSuccess={handleBackToLogin}
+            onBackToLogin={handleBackToLogin}
+            onForgotPassword={() => handleAuthStateChange('forgot-password')}
+            isTransitioning={isTransitioning}
+          />
         );
       case 'forgot-password':
         return (
-          <div className="transition-all duration-500 ease-in-out transform">
-            <ForgotPassword onBack={handleBackToLogin} />
-          </div>
+          <ForgotPassword onBack={handleBackToLogin} isTransitioning={isTransitioning} />
         );
       case 'update-password':
         return (
-          <div className="transition-all duration-500 ease-in-out transform">
-            <UpdatePassword onSuccess={handleAuthSuccess} />
-          </div>
+          <UpdatePassword onSuccess={handleAuthSuccess} isTransitioning={isTransitioning} />
         );
       case 'auth-confirm':
         return (
-          <div className="transition-all duration-500 ease-in-out transform">
-            <AuthConfirm />
-          </div>
+          <AuthConfirm isTransitioning={isTransitioning} />
         );
       case 'auth-error':
         return (
-          <div className="transition-all duration-500 ease-in-out transform">
-            <AuthError error={new URLSearchParams(window.location.search).get('error') || undefined} />
-          </div>
+          <AuthError 
+            error={new URLSearchParams(window.location.search).get('error') || undefined} 
+            isTransitioning={isTransitioning}
+          />
         );
         return null;
     }
   };
 
   return (
-    <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl`}>
+    <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden`}>
       <div className="h-full flex flex-col relative">
         {/* Custom Title Bar - Always Visible */}
         <div
@@ -189,7 +306,7 @@ function AuthFlow() {
         >
           <div className="flex items-center space-x-4">
             <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Resource Hub
+              Sparcclen
             </h1>
           </div>
           <WindowControls
@@ -199,10 +316,12 @@ function AuthFlow() {
           />
         </div>
 
-        {/* Auth Content */}
-        <div className="flex-1 flex items-center justify-center overflow-auto">
-          {renderAuthScreen()}
-        </div>
+         {/* Auth Content with swipe-in after splash ends */}
+         <div className="flex-1 flex items-center justify-center overflow-auto bg-gray-50 dark:bg-gray-950">
+           <div className={`${showStartupSplash ? 'opacity-0' : isAuthSuccess ? 'animate-slide-down' : 'animate-swipe-in'}`}>
+             {renderAuthScreen()}
+           </div>
+         </div>
       </div>
     </div>
   );
@@ -210,9 +329,11 @@ function AuthFlow() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AuthFlow />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AuthFlow />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

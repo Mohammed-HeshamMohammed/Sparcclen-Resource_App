@@ -21,10 +21,3 @@ export {
   exampleUsage
 } from './libraryImporter';
 
-export {
-  migrateAllLibraryData,
-  migrateCategoryData,
-  migrateFromJsonData,
-  getMigrationStatus,
-  runMigrationExample
-} from './migrateLibraryData';
