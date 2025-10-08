@@ -9,6 +9,6 @@ export {
   getFavoritedResources,
   getTags,
   getTagsByCategory
-} from './api';
+} from './localApi';
 
 export { supabase } from './supabase';

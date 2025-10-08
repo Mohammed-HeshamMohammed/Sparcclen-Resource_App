@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { readSave, saveWrite } from '../lib/system/saveClient';
 
 export type Theme = 'system' | 'light' | 'dark';
 
@@ -54,6 +55,11 @@ export function useTheme() {
     } catch (error) {
       console.warn('Failed to save theme to localStorage:', error);
     }
+
+    // Persist to OS save file (best-effort)
+    (async () => {
+      try { await saveWrite({ theme }); } catch {}
+    })();
   }, [theme, resolvedTheme]);
 
   // Listen for system theme changes when using system theme
@@ -161,7 +167,32 @@ export function useTheme() {
       console.warn('Failed to save first time flag to localStorage:', error);
       setIsFirstTime(false);
     }
+
+    // Persist to OS save file (best-effort)
+    (async () => {
+      try { await saveWrite({ firstRun: false }); } catch {}
+    })();
   };
+
+  // On mount, sync theme and firstRun from OS save file if available
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await readSave();
+        if (s) {
+          // Update theme if different
+          if (s.theme && s.theme !== theme) {
+            setTheme(s.theme);
+          }
+          // Update firstRun
+          setIsFirstTime(!!s.firstRun);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { 
     theme, 

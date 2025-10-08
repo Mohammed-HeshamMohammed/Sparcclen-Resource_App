@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/services/supabase' // Use the single client instance
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -7,6 +7,7 @@ import { Mail, Lock, Info } from 'lucide-react'
 import { hashPasswordSecure } from '../../lib/utils/crypto'
 import FormContentWrapper from './FormContentWrapper'
 import BottomSectionWrapper from './BottomSectionWrapper'
+import { readSave, saveWrite } from '../../lib/system/saveClient'
 
 interface LoginProps {
   onSuccess: () => void
@@ -20,6 +21,35 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [savedEmail, setSavedEmail] = useState<string | null>(null)
+  const passwordRef = useRef<HTMLInputElement | null>(null)
+
+  // Prefill email from save file on mount
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const s = await readSave()
+        if (mounted && s?.lastEmail) {
+          setSavedEmail(s.lastEmail)
+          if (!email) setEmail(s.lastEmail)
+        }
+      } catch {}
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  const handleContinueAs = () => {
+    if (savedEmail) {
+      setEmail(savedEmail)
+      setTimeout(() => passwordRef.current?.focus(), 0)
+    }
+  }
+
+  const handleUseDifferentEmail = () => {
+    setSavedEmail(null)
+    setEmail('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,6 +68,9 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
       if (error) {
         setError(error.message)
       } else {
+        try {
+          await saveWrite({ loggedInBefore: true, lastEmail: email })
+        } catch {}
         onSuccess()
       }
     } catch (err) {
@@ -65,6 +98,20 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
             <div className="flex-1 flex flex-col justify-center">
               <FormContentWrapper isVisible={!isTransitioning}>
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {savedEmail && (
+                    <div className="mb-2 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
+                      <div className="text-sm text-indigo-800 dark:text-indigo-300">
+                        Welcome back, <span className="font-semibold">{savedEmail}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={handleUseDifferentEmail} className="text-xs text-indigo-600 dark:text-indigo-300 hover:underline">Use different email</button>
+                        <Button type="button" variant="outline" onClick={handleContinueAs} className="text-xs">
+                          Continue as {savedEmail}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</Label>
                     <div className="relative">
@@ -87,6 +134,7 @@ export default function Login({ onSuccess, onSignUp, onForgotPassword, isTransit
                       <Input
                         id="password"
                         type="password"
+                        ref={passwordRef}
                         value={password}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                         placeholder="********"

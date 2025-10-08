@@ -101,7 +101,10 @@ const api = {
     return () => require$$0.ipcRenderer.removeListener("win:resize", (_, size) => callback(size));
   },
   // Platform info
-  platform: process.platform
+  platform: process.platform,
+  // Persistent save access
+  readSave: () => require$$0.ipcRenderer.invoke("save:read"),
+  saveWrite: (patch) => require$$0.ipcRenderer.invoke("save:write", patch)
 };
 if (process.contextIsolated) {
   try {

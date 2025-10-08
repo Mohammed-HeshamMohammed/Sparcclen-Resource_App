@@ -17,6 +17,10 @@ const api = {
 
   // Platform info
   platform: process.platform,
+
+  // Persistent save access
+  readSave: () => ipcRenderer.invoke('save:read'),
+  saveWrite: (patch: any) => ipcRenderer.invoke('save:write', patch),
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

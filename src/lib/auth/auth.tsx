@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase'; // Import the single client instance
 import { initAuthCleanup } from '../services/authCleanup';
+import { saveWrite } from '../system/saveClient';
 
 // Auth context types and context
 interface AuthContextType {
@@ -21,6 +22,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
+      // Persist login info if session exists
+      if (session?.user?.email) {
+        try { await saveWrite({ loggedInBefore: true, lastEmail: session.user.email }) } catch {}
+      }
       setLoading(false)
     }
 
@@ -30,16 +35,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setUser(session?.user ?? null)
+        // Persist login info if session exists
+        if (session?.user?.email) {
+          try { await saveWrite({ loggedInBefore: true, lastEmail: session.user.email }) } catch {}
+        }
         setLoading(false)
       }
     )
 
-    // Initialize auth cleanup service (runs on app start)
-    const cleanupShutdown = initAuthCleanup()
+    // Initialize auth cleanup service only when explicitly enabled
+    const metaEnv: Record<string, any> = typeof import.meta !== 'undefined' ? (import.meta as any).env : {};
+    const nodeEnv = typeof process !== 'undefined' ? (process.env as Record<string, string | undefined>) : undefined;
+    const enableCleanup = (metaEnv.VITE_ENABLE_AUTH_CLEANUP === 'true') || (nodeEnv?.VITE_ENABLE_AUTH_CLEANUP === 'true');
+
+    let cleanupShutdown: (() => void) | null = null;
+    if (enableCleanup) {
+      cleanupShutdown = initAuthCleanup();
+    }
 
     return () => {
       subscription.unsubscribe()
-      cleanupShutdown() // Stop cleanup service on unmount
+      if (cleanupShutdown) cleanupShutdown() // Stop cleanup service on unmount
     }
   }, [supabase.auth])
 

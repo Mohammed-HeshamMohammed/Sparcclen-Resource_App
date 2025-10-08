@@ -34,7 +34,7 @@ export function WindowControls({ className, isMaximized, onMaximizeToggle }: Win
   }
 
   return (
-    <div className={`flex items-center space-x-2 ${className}`}>
+    <div className={`flex items-center bg-transparent border-transparent space-x-2 ${className}`}>
       {/* Theme Toggle */}
       <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <ToggleTheme />

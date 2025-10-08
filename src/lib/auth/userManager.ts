@@ -18,18 +18,35 @@ export async function createUserDev(username: string, password: string, role: Ro
   const { data: current } = await supabase.auth.getUser();
   const user = current.user;
   if (!user) {
-    // After signUp, supabase may still require confirmation; try to find user row
-    const { data: uRow } = await (supabase as any)
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
-    if (uRow) {
-      // Construct a minimal user-like object
-      // @ts-ignore
-      return { id: uRow.id };
+    // In dev, signUp may require email confirmation; fallback to Admin lookup via Edge Function
+    try {
+      const { data: lookup } = await (supabase as any).functions.invoke('get_user_by_email', {
+        body: { email }
+      });
+
+      if (lookup?.ok && lookup.id) {
+        // Set role and initial app_settings for the found auth user id (best-effort; may fail due to RLS without session)
+        const secret = authenticator.generateSecret();
+        try {
+          await (supabase as any).from('app_settings').upsert({
+            user_id: lookup.id,
+            totp_secret: secret,
+            theme: 'light',
+            settings: { roles: [role], username, email },
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn('[createUserDev] Could not upsert app_settings for found auth user:', err);
+        }
+        return { id: lookup.id, email, secret };
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[createUserDev] auth lookup via edge function failed');
     }
-    throw new Error('User creation failed');
+    throw new Error('User creation requires email confirmation or sign-in.');
   }
 
   // Set role and initial app_settings including totp_secret
@@ -43,14 +60,7 @@ export async function createUserDev(username: string, password: string, role: Ro
     created_at: new Date().toISOString(),
   });
 
-  // Ensure a users/profile row exists linking auth user to profile data
-  try {
-    await (supabase as any).from('users').upsert({ auth_uid: user.id, email, username, display_name: username }).select();
-  } catch (err: any) {
-    // If table doesn't exist, ignore — migration may not have run yet.
-    // eslint-disable-next-line no-console
-    console.warn('Could not upsert profile row in users table:', err?.message ?? String(err));
-  }
+  // Custom profile storage via 'users' table has been removed.
 
   return { id: user.id, email: user.email, secret };
 }

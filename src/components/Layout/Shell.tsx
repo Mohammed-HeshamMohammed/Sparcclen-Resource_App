@@ -16,7 +16,7 @@ import {
     searchResources,
     toggleFavorite,
     incrementViewCount
-} from '../../lib/services/api';
+} from '../../lib/services';
 import {useAuth} from '../../lib/auth';
 import {debounce} from '../../lib/utils/utils';
 
