@@ -97,6 +97,9 @@ export function Shell() {
         setActiveSubcategory(subcategoryId || null);
         setSearchQuery('');
         setFavoritesOnly(false);
+        // Close profile and settings when navigating to dashboard
+        setShowProfile(false);
+        setShowSettings(false);
     };
 
     const handleToggleFavorite = async (resourceId : string) => {
@@ -183,12 +186,12 @@ export function Shell() {
     ]);
 
     return (
-        <div className="h-screen flex flex-col relative overflow-hidden">
+        <div className="h-full flex flex-col relative overflow-hidden bg-gray-900 dark:bg-gray-800">
 
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden relative">
                 {
                 isLoadingCategories ? (
-                    <div className="w-[320px] flex-shrink-0">
+                    <div className="w-[360px] flex-shrink-0">
                         <SkeletonLoader type="sidebar"/>
                     </div>
                 ) : (
@@ -198,23 +201,25 @@ export function Shell() {
                 )
             }
 
-                <main className="flex-1 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950">
+                <main className="flex-1 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
                     {
                     !showSettings && !showProfile && (
-                        <TopBar searchQuery={searchQuery}
-                            onSearchChange={handleSearchChange}
-                            onToggleFavoritesView={handleToggleFavoritesView}
-                            favoritesOnly={favoritesOnly}
-                            categories={categories}
-                            activeCategory={activeCategory}
-                            activeSubcategory={activeSubcategory}
-                            onSelectCategory={handleSelectCategory}
-                            onClearCategoryFilter={
-                                () => {
-                                    setActiveCategory(null);
-                                    setActiveSubcategory(null);
-                                }
-                            }/>
+                        <div className="pt-4">
+                            <TopBar searchQuery={searchQuery}
+                                onSearchChange={handleSearchChange}
+                                onToggleFavoritesView={handleToggleFavoritesView}
+                                favoritesOnly={favoritesOnly}
+                                categories={categories}
+                                activeCategory={activeCategory}
+                                activeSubcategory={activeSubcategory}
+                                onSelectCategory={handleSelectCategory}
+                                onClearCategoryFilter={
+                                    () => {
+                                        setActiveCategory(null);
+                                        setActiveSubcategory(null);
+                                    }
+                                }/>
+                        </div>
                     )
                 }
                     {

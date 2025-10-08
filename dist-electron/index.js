@@ -139,9 +139,164 @@ function requireDist() {
   return dist;
 }
 var distExports = requireDist();
+class CredentialManager {
+  CRED_DIR;
+  CRED_FILE;
+  constructor() {
+    this.CRED_DIR = path.join(require$$0.app.getPath("documents"), "Sparcclen");
+    this.CRED_FILE = path.join(this.CRED_DIR, ".credentials.enc");
+  }
+  async ensureDir() {
+    if (!fs.existsSync(this.CRED_DIR)) {
+      fs.mkdirSync(this.CRED_DIR, { recursive: true });
+    }
+  }
+  /**
+   * Check if encryption is available (requires user to be logged in to Windows)
+   */
+  isEncryptionAvailable() {
+    return require$$0.safeStorage.isEncryptionAvailable();
+  }
+  /**
+   * Prompt user confirmation via native Electron dialog
+   * Note: DPAPI encryption already provides security - credentials can only be 
+   * decrypted by the logged-in Windows user. This prompt adds user confirmation.
+   */
+  async promptWindowsHello(email) {
+    console.log(`[CredentialManager] Prompting confirmation for ${email}...`);
+    try {
+      const result = await require$$0.dialog.showMessageBox({
+        type: "info",
+        title: "Windows Security",
+        message: `Sign in to Sparcclen`,
+        detail: `Continue as ${email}?
+
+Your Windows login already protects these credentials via Windows Data Protection API (DPAPI).`,
+        buttons: ["Continue", "Cancel"],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+        icon: void 0
+      });
+      const confirmed = result.response === 0;
+      if (confirmed) {
+        console.log("[CredentialManager] User confirmed sign-in");
+      } else {
+        console.log("[CredentialManager] User cancelled sign-in");
+      }
+      return confirmed;
+    } catch (error) {
+      console.error("[CredentialManager] Failed to show confirmation dialog:", error);
+      return false;
+    }
+  }
+  /**
+   * Store encrypted credentials for a user
+   * @param email User's email
+   * @param password User's password (will be encrypted)
+   */
+  async storeCredentials(email, password) {
+    try {
+      if (!this.isEncryptionAvailable()) {
+        console.warn("[CredentialManager] Encryption not available");
+        return false;
+      }
+      await this.ensureDir();
+      const encryptedPassword = require$$0.safeStorage.encryptString(password);
+      let credentials = {};
+      if (fs.existsSync(this.CRED_FILE)) {
+        const data = await fs.promises.readFile(this.CRED_FILE, "utf-8");
+        credentials = JSON.parse(data);
+      }
+      credentials[email] = encryptedPassword.toString("base64");
+      await fs.promises.writeFile(this.CRED_FILE, JSON.stringify(credentials, null, 2), "utf-8");
+      return true;
+    } catch (error) {
+      console.error("[CredentialManager] Failed to store credentials:", error);
+      return false;
+    }
+  }
+  /**
+   * Retrieve and decrypt password for a user
+   * @param email User's email
+   * @returns Decrypted password or null if not found
+   */
+  async getCredentials(email) {
+    try {
+      if (!this.isEncryptionAvailable()) {
+        console.warn("[CredentialManager] Encryption not available");
+        return null;
+      }
+      if (!fs.existsSync(this.CRED_FILE)) {
+        return null;
+      }
+      const data = await fs.promises.readFile(this.CRED_FILE, "utf-8");
+      const credentials = JSON.parse(data);
+      if (!credentials[email]) {
+        return null;
+      }
+      const encryptedBuffer = Buffer.from(credentials[email], "base64");
+      const decryptedPassword = require$$0.safeStorage.decryptString(encryptedBuffer);
+      return decryptedPassword;
+    } catch (error) {
+      console.error("[CredentialManager] Failed to retrieve credentials:", error);
+      return null;
+    }
+  }
+  /**
+   * Get list of stored email addresses
+   */
+  async getStoredEmails() {
+    try {
+      if (!fs.existsSync(this.CRED_FILE)) {
+        return [];
+      }
+      const data = await fs.promises.readFile(this.CRED_FILE, "utf-8");
+      const credentials = JSON.parse(data);
+      return Object.keys(credentials);
+    } catch (error) {
+      console.error("[CredentialManager] Failed to get stored emails:", error);
+      return [];
+    }
+  }
+  /**
+   * Delete stored credentials for a user
+   * @param email User's email
+   */
+  async deleteCredentials(email) {
+    try {
+      if (!fs.existsSync(this.CRED_FILE)) {
+        return true;
+      }
+      const data = await fs.promises.readFile(this.CRED_FILE, "utf-8");
+      const credentials = JSON.parse(data);
+      delete credentials[email];
+      await fs.promises.writeFile(this.CRED_FILE, JSON.stringify(credentials, null, 2), "utf-8");
+      return true;
+    } catch (error) {
+      console.error("[CredentialManager] Failed to delete credentials:", error);
+      return false;
+    }
+  }
+  /**
+   * Check if credentials exist for an email
+   */
+  async hasCredentials(email) {
+    try {
+      if (!fs.existsSync(this.CRED_FILE)) {
+        return false;
+      }
+      const data = await fs.promises.readFile(this.CRED_FILE, "utf-8");
+      const credentials = JSON.parse(data);
+      return email in credentials;
+    } catch (error) {
+      return false;
+    }
+  }
+}
+const credentialManager = new CredentialManager();
 if (distExports.is.dev) {
   const devUserData = path.join(require$$0.app.getPath("appData"), "SparcclenDev");
-  require$$0.app.setPath("userData", devUserData);
   require$$0.app.setPath("cache", path.join(devUserData, "Cache"));
 }
 const gotTheLock = require$$0.app.requestSingleInstanceLock();
@@ -180,6 +335,18 @@ function createWindow() {
       experimentalFeatures: false
     }
   });
+  if (distExports.is.dev) {
+    require$$0.session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          "Content-Security-Policy": [
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* ws://localhost:*; frame-src 'none';"
+          ]
+        }
+      });
+    });
+  }
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
   });
@@ -243,6 +410,27 @@ function createWindow() {
   });
   require$$0.ipcMain.handle("save:write", async (_event, patch) => {
     return writeSaveFile(patch || {});
+  });
+  require$$0.ipcMain.handle("credentials:isAvailable", () => {
+    return credentialManager.isEncryptionAvailable();
+  });
+  require$$0.ipcMain.handle("credentials:store", async (_event, email, password) => {
+    return credentialManager.storeCredentials(email, password);
+  });
+  require$$0.ipcMain.handle("credentials:get", async (_event, email) => {
+    return credentialManager.getCredentials(email);
+  });
+  require$$0.ipcMain.handle("credentials:getEmails", async () => {
+    return credentialManager.getStoredEmails();
+  });
+  require$$0.ipcMain.handle("credentials:has", async (_event, email) => {
+    return credentialManager.hasCredentials(email);
+  });
+  require$$0.ipcMain.handle("credentials:delete", async (_event, email) => {
+    return credentialManager.deleteCredentials(email);
+  });
+  require$$0.ipcMain.handle("credentials:promptHello", async (_event, email) => {
+    return credentialManager.promptWindowsHello(email);
   });
   mainWindow.on("resize", () => {
     const bounds = mainWindow.getBounds();

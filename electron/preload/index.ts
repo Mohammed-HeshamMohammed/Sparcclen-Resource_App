@@ -21,6 +21,17 @@ const api = {
   // Persistent save access
   readSave: () => ipcRenderer.invoke('save:read'),
   saveWrite: (patch: any) => ipcRenderer.invoke('save:write', patch),
+
+  // Windows Credential Manager
+  credentials: {
+    isAvailable: () => ipcRenderer.invoke('credentials:isAvailable'),
+    store: (email: string, password: string) => ipcRenderer.invoke('credentials:store', email, password),
+    get: (email: string) => ipcRenderer.invoke('credentials:get', email),
+    getEmails: () => ipcRenderer.invoke('credentials:getEmails'),
+    has: (email: string) => ipcRenderer.invoke('credentials:has', email),
+    delete: (email: string) => ipcRenderer.invoke('credentials:delete', email),
+    promptHello: (email: string) => ipcRenderer.invoke('credentials:promptHello', email),
+  },
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

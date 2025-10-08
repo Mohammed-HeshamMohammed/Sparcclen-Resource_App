@@ -43,7 +43,7 @@ export function WindowControls({ className, isMaximized, onMaximizeToggle }: Win
       {/* Minimize Button */}
       <button
         onClick={handleMinimize}
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-sm transition-all duration-200 hover:scale-105"
+        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <Minus className="w-4 h-4 text-gray-700 dark:text-gray-200" />
@@ -52,7 +52,7 @@ export function WindowControls({ className, isMaximized, onMaximizeToggle }: Win
       {/* Maximize Button */}
       <button
         onClick={handleMaximize}
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-sm transition-all duration-200 hover:scale-105"
+        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <Square className="w-4 h-4 text-gray-700 dark:text-gray-200" />
@@ -61,10 +61,10 @@ export function WindowControls({ className, isMaximized, onMaximizeToggle }: Win
       {/* Close Button */}
       <button
         onClick={handleClose}
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 backdrop-blur-sm transition-all duration-200 hover:scale-105"
+        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-500 transition-all duration-200 hover:scale-105 group"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        <X className="w-4 h-4 text-white" />
+        <X className="w-4 h-4 text-gray-700 dark:text-gray-200 group-hover:text-white transition-colors" />
       </button>
     </div>
   )

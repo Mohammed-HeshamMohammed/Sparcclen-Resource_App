@@ -1,15 +1,18 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { promises as fs } from 'fs'
 import { existsSync, mkdirSync } from 'fs'
 
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { CredentialManager } from './credentialManager'
+
+// Initialize credential manager
+const credentialManager = new CredentialManager()
 
 // In development, use a dedicated userData directory to avoid cache lock conflicts
 // (fixes: Unable to move/create cache: Access is denied (0x5))
 if (is.dev) {
   const devUserData = join(app.getPath('appData'), 'SparcclenDev')
-  app.setPath('userData', devUserData)
   // Also ensure cache dir is unique in dev to avoid lock conflicts
   app.setPath('cache', join(devUserData, 'Cache'))
 }
@@ -52,6 +55,26 @@ function createWindow(): void {
       experimentalFeatures: false
     }
   })
+
+  // Set Content Security Policy for development
+  if (is.dev) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: https:; " +
+            "font-src 'self' data:; " +
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* ws://localhost:*; " +
+            "frame-src 'none';"
+          ]
+        }
+      })
+    })
+  }
 
   // Show window only when it's ready to avoid white flashes and "background only" runs
   mainWindow.once('ready-to-show', () => {
@@ -138,6 +161,35 @@ function createWindow(): void {
 
   ipcMain.handle('save:write', async (_event, patch: Partial<SaveData>) => {
     return writeSaveFile(patch || {})
+  })
+
+  // Credential Manager IPC handlers
+  ipcMain.handle('credentials:isAvailable', () => {
+    return credentialManager.isEncryptionAvailable()
+  })
+
+  ipcMain.handle('credentials:store', async (_event, email: string, password: string) => {
+    return credentialManager.storeCredentials(email, password)
+  })
+
+  ipcMain.handle('credentials:get', async (_event, email: string) => {
+    return credentialManager.getCredentials(email)
+  })
+
+  ipcMain.handle('credentials:getEmails', async () => {
+    return credentialManager.getStoredEmails()
+  })
+
+  ipcMain.handle('credentials:has', async (_event, email: string) => {
+    return credentialManager.hasCredentials(email)
+  })
+
+  ipcMain.handle('credentials:delete', async (_event, email: string) => {
+    return credentialManager.deleteCredentials(email)
+  })
+
+  ipcMain.handle('credentials:promptHello', async (_event, email: string) => {
+    return credentialManager.promptWindowsHello(email)
   })
 
   // Listen for window resize events and notify renderer

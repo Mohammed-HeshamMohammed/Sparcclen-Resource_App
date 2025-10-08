@@ -16,6 +16,7 @@ interface SignUpProps {
 }
 
 const SignUpComponent: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, onForgotPassword, isTransitioning = false }) => {
+  const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [repeatPassword, setRepeatPassword] = useState('')
@@ -62,14 +63,17 @@ const SignUpComponent: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, onFo
     }
 
     try {
-      // Hash the password before sending to Supabase for consistent security
+      // Deterministic client-side hash so the same password yields the same value
       const { hash: hashedPassword } = await hashPasswordSecure(password)
 
       const { error } = await supabase.auth.signUp({
         email,
-        password: hashedPassword, // Send hashed password for consistent security
+        password: hashedPassword,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          data: {
+            display_name: displayName || email.split('@')[0],
+          },
         },
       })
 
@@ -160,6 +164,21 @@ const SignUpComponent: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, onFo
                 <div className="flex-1 flex flex-col justify-center">
                   <FormContentWrapper isVisible={!isTransitioning}>
                     <form onSubmit={handleSubmit} className="space-y-5">
+                      {/* Display Name Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="displayName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Display Name</Label>
+                        <div className="relative">
+                          <Input
+                            id="displayName"
+                            type="text"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            placeholder="Your name"
+                            className="pl-4 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                          />
+                        </div>
+                      </div>
+
                       {/* Email Field */}
                       <div className="space-y-2">
                         <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Address</Label>

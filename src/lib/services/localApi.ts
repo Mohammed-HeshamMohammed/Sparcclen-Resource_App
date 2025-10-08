@@ -131,8 +131,8 @@ class LocalStore {
     };
 
     this.resources = [
-      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color', 'https://example.com/colors/blue-orange'),
-      makeResource('High-Contrast Display Font', catFontsId, subDisplayFontsId, ['fonts', 'display'], 'font', 'https://example.com/fonts/display'),
+      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
+      makeResource('High-Contrast Display Font', catFontsId, subDisplayFontsId, ['fonts', 'display'], 'font'),
     ];
 
     // Update item_count on categories

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.ns", "deno.window"]
+  },
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.39.0",
+    "@simplewebauthn/server": "npm:@simplewebauthn/server@^8.3.0"
+  }
+}

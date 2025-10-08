@@ -104,7 +104,17 @@ const api = {
   platform: process.platform,
   // Persistent save access
   readSave: () => require$$0.ipcRenderer.invoke("save:read"),
-  saveWrite: (patch) => require$$0.ipcRenderer.invoke("save:write", patch)
+  saveWrite: (patch) => require$$0.ipcRenderer.invoke("save:write", patch),
+  // Windows Credential Manager
+  credentials: {
+    isAvailable: () => require$$0.ipcRenderer.invoke("credentials:isAvailable"),
+    store: (email, password) => require$$0.ipcRenderer.invoke("credentials:store", email, password),
+    get: (email) => require$$0.ipcRenderer.invoke("credentials:get", email),
+    getEmails: () => require$$0.ipcRenderer.invoke("credentials:getEmails"),
+    has: (email) => require$$0.ipcRenderer.invoke("credentials:has", email),
+    delete: (email) => require$$0.ipcRenderer.invoke("credentials:delete", email),
+    promptHello: (email) => require$$0.ipcRenderer.invoke("credentials:promptHello", email)
+  }
 };
 if (process.contextIsolated) {
   try {

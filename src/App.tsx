@@ -12,7 +12,6 @@ import UpdatePassword from './components/Auth/UpdatePassword';
 import AuthConfirm from './components/Auth/AuthConfirm';
 import AuthError from './components/Auth/AuthError';
 import { WindowControls } from './components/Layout/WindowControls';
-// import { ThemeDebug } from './components/Layout/ThemeDebug'; // Commented out for production
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
 
@@ -43,7 +42,12 @@ function AuthFlow() {
   const [showMainApp, setShowMainApp] = useState(false);
 
   const handleThemeSelect = (theme: 'system' | 'light' | 'dark') => {
+    // Theme is applied immediately for preview
     setTheme(theme);
+  };
+
+  const handleThemeConfirm = () => {
+    // Confirm button was clicked, close the selection screen
     markFirstTimeComplete();
     setShowThemeSelection(false);
   };
@@ -61,14 +65,23 @@ function AuthFlow() {
 
   // Handle transition from auth success to main app
   useEffect(() => {
-    if (isAuthSuccess && user) {
-      // Wait for card slide down animation to complete, then show main app
-      const timer = setTimeout(() => {
+    if (user && !showStartupSplash) {
+      if (isAuthSuccess) {
+        // Wait for card slide down animation to complete, then show main app
+        const timer = setTimeout(() => {
+          setShowMainApp(true);
+        }, 600); // Match the slide-down animation duration
+        return () => clearTimeout(timer);
+      } else {
+        // User is already authenticated (e.g., page refresh), show app immediately
         setShowMainApp(true);
-      }, 600); // Match the slide-down animation duration
-      return () => clearTimeout(timer);
+      }
+    } else if (!user) {
+      // User logged out, reset animation states
+      setIsAuthSuccess(false);
+      setShowMainApp(false);
     }
-  }, [isAuthSuccess, user]);
+  }, [isAuthSuccess, user, showStartupSplash]);
 
   useEffect(() => {
     // Listen for window resize events from main process
@@ -104,19 +117,16 @@ function AuthFlow() {
 
   if (showStartupSplash) {
     return (
-      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
+      <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
+            className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{
-              WebkitAppRegion: 'drag',
-              borderTop: '1px solid transparent',
-              borderLeft: '1px solid transparent',
-              borderRight: '1px solid transparent'
+              WebkitAppRegion: 'drag'
             } as React.CSSProperties}
           >
             <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
                 Sparcclen
               </h1>
             </div>
@@ -137,19 +147,16 @@ function AuthFlow() {
   // Show theme selection for first-time users
   if (showThemeSelection) {
     return (
-      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
+      <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
+            className="h-10 bg-white dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 relative z-[60] transition-colors duration-300"
             style={{
-              WebkitAppRegion: 'drag',
-              borderTop: '1px solid transparent',
-              borderLeft: '1px solid transparent',
-              borderRight: '1px solid transparent'
+              WebkitAppRegion: 'drag'
             } as React.CSSProperties}
           >
             <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
                 Sparcclen
               </h1>
             </div>
@@ -160,7 +167,7 @@ function AuthFlow() {
             />
           </div>
           <div className="flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950">
-            <ThemeSelection onThemeSelect={handleThemeSelect} isVisible={true} />
+            <ThemeSelection onThemeSelect={handleThemeSelect} onConfirm={handleThemeConfirm} isVisible={true} />
           </div>
         </div>
       </div>
@@ -169,19 +176,16 @@ function AuthFlow() {
 
   if (loading && !showStartupSplash) {
     return (
-      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
+      <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
+            className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{
-              WebkitAppRegion: 'drag',
-              borderTop: '1px solid transparent',
-              borderLeft: '1px solid transparent',
-              borderRight: '1px solid transparent'
+              WebkitAppRegion: 'drag'
             } as React.CSSProperties}
           >
             <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
                 Sparcclen
               </h1>
             </div>
@@ -201,20 +205,17 @@ function AuthFlow() {
 
   if (user && !showStartupSplash) {
     return (
-      <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden border-3 border-gray-200 dark:border-gray-700`}>
+      <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           {/* Custom Title Bar - Always Visible */}
           <div
-            className="h-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0 border-b border-gray-200/50 dark:border-gray-700/50"
+            className="h-10 bg-gray-900 dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{
-              WebkitAppRegion: 'drag',
-              borderTop: '1px solid transparent',
-              borderLeft: '1px solid transparent',
-              borderRight: '1px solid transparent'
+              WebkitAppRegion: 'drag'
             } as React.CSSProperties}
           >
             <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h1 className="text-lg font-semibold text-white transition-colors duration-300">
                 Sparcclen
               </h1>
             </div>
@@ -224,7 +225,7 @@ function AuthFlow() {
               onMaximizeToggle={() => setIsMaximized(!isMaximized)}
             />
           </div>
-          <div className={`flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950 ${showMainApp ? 'animate-fade-in-up' : 'opacity-0'}`}>
+          <div className={`flex-1 overflow-hidden bg-gray-900 dark:bg-gray-800 ${showMainApp ? 'animate-fade-in-up' : 'opacity-0'}`}>
             <Shell />
           </div>
         </div>
@@ -300,20 +301,17 @@ function AuthFlow() {
   };
 
   return (
-    <div className={`h-screen w-screen bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl overflow-hidden`}>
+    <div className={`h-screen w-screen overflow-hidden`}>
       <div className="h-full flex flex-col relative">
         {/* Custom Title Bar - Always Visible */}
         <div
-          className="h-10 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl flex items-center justify-between px-4 select-none flex-shrink-0"
+          className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
           style={{
-            WebkitAppRegion: 'drag',
-            borderTop: '1px solid transparent',
-            borderLeft: '1px solid transparent',
-            borderRight: '1px solid transparent'
+            WebkitAppRegion: 'drag'
           } as React.CSSProperties}
         >
           <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
               Sparcclen
             </h1>
           </div>
@@ -325,7 +323,7 @@ function AuthFlow() {
         </div>
 
          {/* Auth Content with swipe-in after splash ends */}
-         <div className="flex-1 flex items-center justify-center overflow-auto bg-gray-50 dark:bg-gray-950">
+         <div className="flex-1 flex items-center justify-center overflow-auto bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
            <div className={`${showStartupSplash ? 'opacity-0' : isAuthSuccess ? 'animate-slide-down' : 'animate-swipe-in'}`}>
              {renderAuthScreen()}
            </div>
@@ -340,7 +338,6 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <AuthFlow />
-        {/* <ThemeDebug /> */} {/* Uncomment for debugging */}
       </AuthProvider>
     </ThemeProvider>
   );

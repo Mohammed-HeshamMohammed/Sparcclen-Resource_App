@@ -60,7 +60,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase.auth])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      // Attempt to sign out from Supabase
+      await supabase.auth.signOut()
+    } catch (error) {
+      // If sign out fails (403, network error, etc.), still clear local state
+      console.warn('Sign out API call failed, clearing local session:', error)
+    }
+    
+    // Always clear local user state regardless of API success
+    setUser(null)
   }
 
   return (
