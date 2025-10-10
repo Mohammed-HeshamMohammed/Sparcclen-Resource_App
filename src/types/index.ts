@@ -23,7 +23,7 @@ export interface Resource {
   thumbnail_url: string | null;
   thumbnail_type: string | null;
   colors: string[] | null;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   view_count: number;
   date_added: string;
   created_at: string;
@@ -52,7 +52,7 @@ export interface AppSettings {
   user_id: string;
   passkey_hash: string | null;
   theme: 'light' | 'dark';
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

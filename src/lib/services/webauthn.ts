@@ -1,15 +1,50 @@
 import {
-  startRegistration,
   startAuthentication,
   browserSupportsWebAuthn,
 } from '@simplewebauthn/browser';
-import { supabase } from './supabase';
 
-export interface WebAuthnCredential {
-  id: string;
-  publicKey: string;
-  counter: number;
-  transports?: string[];
+// Online WebAuthn (server verify) has been removed by request.
+// We retain only an offline Windows Hello gate using WebAuthn APIs locally.
+
+/**
+ * Offline authentication using Windows Hello UI (WebAuthn) without server verify.
+ * This shows the OS Windows Security dialog and treats a successful assertion
+ * as a passed check for offline gating purposes only.
+ */
+export async function authenticateWithPasskeyOffline(): Promise<{ success: boolean; error?: string }>{
+  try {
+    // Generate a local random challenge (base64url)
+    const random = new Uint8Array(32)
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      crypto.getRandomValues(random)
+    } else {
+      for (let i = 0; i < random.length; i++) random[i] = Math.floor(Math.random() * 256)
+    }
+    const challenge = btoa(String.fromCharCode(...Array.from(random)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
+
+    // rpId must match current host; fallback to 127.0.0.1 used in dev setup
+    const rpId = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'
+
+    const options = {
+      challenge,
+      rpId,
+      timeout: 60_000,
+      userVerification: 'preferred',
+      // No allowCredentials to allow discoverable resident credentials
+    }
+    await startAuthentication(options as Parameters<typeof startAuthentication>[0])
+
+    return { success: true }
+  } catch (error: unknown) {
+    const errorObj = error as { name?: string; message?: string }
+    if (errorObj?.name === 'NotAllowedError') {
+      return { success: false, error: 'Authentication cancelled' }
+    }
+    return { success: false, error: errorObj?.message || 'Offline authentication failed' }
+  }
 }
 
 /**
@@ -19,152 +54,4 @@ export function isWebAuthnSupported(): boolean {
   return browserSupportsWebAuthn();
 }
 
-/**
- * Register a new passkey (Windows Hello credential)
- * This will trigger the Windows Hello enrollment dialog
- */
-export async function registerPasskey(email: string): Promise<boolean> {
-  try {
-    // Request registration options from server
-    const response = await supabase.functions.invoke(
-      'webauthn-registration-options',
-      {
-        body: { email },
-      }
-    );
-
-    console.log('[WebAuthn] Raw response:', response);
-
-    if (response.error || !response.data) {
-      console.error('Failed to get registration options:', response.error);
-      return false;
-    }
-
-    const optionsData = response.data;
-    console.log('[WebAuthn] Registration options received:', optionsData);
-
-    // Trigger Windows Hello enrollment
-    const attestationResponse = await startRegistration(optionsData);
-
-    // Verify registration with server
-    const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-      'webauthn-registration-verify',
-      {
-        body: {
-          email,
-          attestationResponse,
-          challenge: optionsData.challenge,
-        },
-      }
-    );
-
-    if (verifyError || !verifyData?.verified) {
-      console.error('Failed to verify registration:', verifyError);
-      return false;
-    }
-
-    console.log('✅ Windows Hello passkey registered successfully');
-    return true;
-  } catch (error: any) {
-    console.error('WebAuthn registration error:', error);
-    
-    // User cancelled
-    if (error.name === 'NotAllowedError') {
-      console.log('User cancelled Windows Hello registration');
-    }
-    
-    return false;
-  }
-}
-
-/**
- * Authenticate using passkey (Windows Hello)
- * This will trigger the Windows Security dialog with PIN/fingerprint/face
- */
-export async function authenticateWithPasskey(email: string): Promise<{
-  success: boolean;
-  sessionToken?: string;
-  error?: string;
-}> {
-  try {
-    // Request authentication options from server
-    const { data: optionsData, error: optionsError } = await supabase.functions.invoke(
-      'webauthn-authentication-options',
-      {
-        body: { email },
-      }
-    );
-
-    if (optionsError || !optionsData) {
-      return {
-        success: false,
-        error: 'Failed to get authentication options',
-      };
-    }
-
-    // Trigger Windows Hello authentication (this shows the Windows Security dialog!)
-    const assertionResponse = await startAuthentication(optionsData);
-
-    // Verify authentication with server
-    const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-      'webauthn-authentication-verify',
-      {
-        body: {
-          email,
-          assertionResponse,
-          challenge: optionsData.challenge,
-        },
-      }
-    );
-
-    if (verifyError || !verifyData?.verified) {
-      return {
-        success: false,
-        error: 'Authentication verification failed',
-      };
-    }
-
-    console.log('✅ Windows Hello authentication successful');
-    
-    return {
-      success: true,
-      sessionToken: verifyData.sessionToken,
-    };
-  } catch (error: any) {
-    console.error('WebAuthn authentication error:', error);
-    
-    // User cancelled
-    if (error.name === 'NotAllowedError') {
-      return {
-        success: false,
-        error: 'Authentication cancelled',
-      };
-    }
-    
-    return {
-      success: false,
-      error: error.message || 'Authentication failed',
-    };
-  }
-}
-
-/**
- * Check if user has registered passkey
- */
-export async function hasRegisteredPasskey(email: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase.functions.invoke('webauthn-has-credential', {
-      body: { email },
-    });
-
-    if (error) {
-      console.error('Failed to check credential:', error);
-      return false;
-    }
-
-    return data?.hasCredential || false;
-  } catch (error) {
-    console.error('Error checking passkey:', error);
-    return false;
-  }
-}
+// Online register/authenticate/lookup were removed.

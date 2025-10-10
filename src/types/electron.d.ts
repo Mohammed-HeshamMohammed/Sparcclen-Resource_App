@@ -1,4 +1,5 @@
 // TypeScript declarations for Electron API exposed via preload
+import type { SaveData } from "../lib/system/saveClient";
 
 export interface ElectronAPI {
   minimize: () => Promise<boolean>
@@ -7,8 +8,8 @@ export interface ElectronAPI {
   getWindowSize: () => Promise<{ width: number; height: number }>
   onWindowResize: (callback: (size: { width: number; height: number }) => void) => () => void
   platform: string
-  readSave: () => Promise<any>
-  saveWrite: (patch: any) => Promise<any>
+  readSave: () => Promise<SaveData>
+  saveWrite: (patch: Partial<SaveData>) => Promise<SaveData>
   credentials: {
     isAvailable: () => Promise<boolean>
     store: (email: string, password: string) => Promise<boolean>
@@ -23,7 +24,7 @@ export interface ElectronAPI {
 declare global {
   interface Window {
     api: ElectronAPI
-    electron: any
+    electron: unknown
   }
 }
 

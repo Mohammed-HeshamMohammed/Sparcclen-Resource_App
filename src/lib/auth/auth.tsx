@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase'; // Import the single client instance
-import { initAuthCleanup } from '../services/authCleanup';
 import { saveWrite } from '../system/saveClient';
 
 // Auth context types and context
@@ -24,7 +23,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null)
       // Persist login info if session exists
       if (session?.user?.email) {
-        try { await saveWrite({ loggedInBefore: true, lastEmail: session.user.email }) } catch {}
+        try {
+          const userMetaSource = session.user as unknown as {
+            user_metadata?: Record<string, unknown>
+            raw_user_meta_data?: Record<string, unknown>
+          }
+          const meta: Record<string, unknown> =
+            userMetaSource?.user_metadata ?? userMetaSource?.raw_user_meta_data ?? {}
+          const pickStr = (obj: Record<string, unknown>, key: string): string | undefined =>
+            typeof obj[key] === 'string' ? (obj[key] as string) : undefined
+          const derivedName =
+            pickStr(meta, 'display_name') ||
+            pickStr(meta, 'full_name') ||
+            pickStr(meta, 'name') ||
+            (session.user.email?.split('@')[0] ?? null)
+          await saveWrite({ loggedInBefore: true, lastEmail: session.user.email, displayName: derivedName ?? null })
+        } catch {}
       }
       setLoading(false)
     }
@@ -37,27 +51,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
         // Persist login info if session exists
         if (session?.user?.email) {
-          try { await saveWrite({ loggedInBefore: true, lastEmail: session.user.email }) } catch {}
+          try {
+            const userMetaSource = session.user as unknown as {
+              user_metadata?: Record<string, unknown>
+              raw_user_meta_data?: Record<string, unknown>
+            }
+            const meta: Record<string, unknown> =
+              userMetaSource?.user_metadata ?? userMetaSource?.raw_user_meta_data ?? {}
+            const pickStr = (obj: Record<string, unknown>, key: string): string | undefined =>
+              typeof obj[key] === 'string' ? (obj[key] as string) : undefined
+            const derivedName =
+              pickStr(meta, 'display_name') ||
+              pickStr(meta, 'full_name') ||
+              pickStr(meta, 'name') ||
+              (session.user.email?.split('@')[0] ?? null)
+            await saveWrite({ loggedInBefore: true, lastEmail: session.user.email, displayName: derivedName ?? null })
+          } catch {}
         }
         setLoading(false)
       }
     )
 
-    // Initialize auth cleanup service only when explicitly enabled
-    const metaEnv: Record<string, any> = typeof import.meta !== 'undefined' ? (import.meta as any).env : {};
-    const nodeEnv = typeof process !== 'undefined' ? (process.env as Record<string, string | undefined>) : undefined;
-    const enableCleanup = (metaEnv.VITE_ENABLE_AUTH_CLEANUP === 'true') || (nodeEnv?.VITE_ENABLE_AUTH_CLEANUP === 'true');
-
-    let cleanupShutdown: (() => void) | null = null;
-    if (enableCleanup) {
-      cleanupShutdown = initAuthCleanup();
-    }
-
     return () => {
       subscription.unsubscribe()
-      if (cleanupShutdown) cleanupShutdown() // Stop cleanup service on unmount
     }
-  }, [supabase.auth])
+  }, [])
 
   const signOut = async () => {
     try {
@@ -70,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Always clear local user state regardless of API success
     setUser(null)
+    try { await saveWrite({ offlineSession: false }) } catch {}
   }
 
   return (

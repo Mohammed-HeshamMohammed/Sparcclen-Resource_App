@@ -12,7 +12,7 @@ export function runInContext() {
     return context || {}
   }
   
-  export function runInNewContext(code, context) {
+  export function runInNewContext() {
     // Return empty object - not used at runtime
     return {}
   }

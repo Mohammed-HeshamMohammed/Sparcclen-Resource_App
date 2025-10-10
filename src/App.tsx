@@ -1,17 +1,9 @@
+import { readSave } from './lib/system/saveClient';
 import React, { useState, useEffect } from 'react';
-import { SplashScreen } from './components/Layout/SplashScreen';
-import { Shell } from './components/Layout/Shell';
-import { ThemeSelection } from './components/Layout/ThemeSelection';
-import { ThemeProvider } from './components/Layout/ThemeProvider';
+import { SplashScreen, Shell, ThemeSelection, ThemeProvider, WindowControls, useTheme } from './components/Layout';
 import { AuthProvider, useAuth } from './lib/auth';
-import { useTheme } from './components/Layout/ThemeProvider';
-import Login from './components/Auth/Login';
-import SignUp from './components/Auth/SignUp';
-import ForgotPassword from './components/Auth/ForgotPassword';
-import UpdatePassword from './components/Auth/UpdatePassword';
-import AuthConfirm from './components/Auth/AuthConfirm';
-import AuthError from './components/Auth/AuthError';
-import { WindowControls } from './components/Layout/WindowControls';
+import { SonnerToaster } from './lib/toast';
+import { Login, SignUp, ForgotPassword, UpdatePassword, AuthConfirm, AuthError, OfflineInterstitial } from './components/Auth';
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
 
@@ -40,6 +32,10 @@ function AuthFlow() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   const [showMainApp, setShowMainApp] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [offlineSession, setOfflineSession] = useState<boolean>(false);
+  const [showOfflineInterstitial, setShowOfflineInterstitial] = useState(false);
+  const [offlineInterstitialDone, setOfflineInterstitialDone] = useState(false);
 
   const handleThemeSelect = (theme: 'system' | 'light' | 'dark') => {
     // Theme is applied immediately for preview
@@ -63,25 +59,61 @@ function AuthFlow() {
     return () => clearTimeout(timer);
   }, [isFirstTime]);
 
-  // Handle transition from auth success to main app
+  // Track connectivity + load offlineSession from save
   useEffect(() => {
-    if (user && !showStartupSplash) {
+    const updateOnline = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnline);
+    window.addEventListener('offline', updateOnline);
+    setIsOnline(navigator.onLine);
+    (async () => {
+      try {
+        const s = await readSave();
+        setOfflineSession(!!s.offlineSession);
+      } catch {}
+    })();
+    // React to persisted save updates (e.g., offlineSession toggled)
+    const onSaveUpdated = (e: CustomEvent) => {
+      try {
+        const detail = e?.detail;
+        if (typeof detail?.offlineSession === 'boolean') {
+          setOfflineSession(!!detail.offlineSession);
+        }
+      } catch {}
+    };
+    window.addEventListener('save:updated', onSaveUpdated as EventListener);
+    return () => {
+      window.removeEventListener('online', updateOnline);
+      window.removeEventListener('offline', updateOnline);
+      window.removeEventListener('save:updated', onSaveUpdated as EventListener);
+    };
+  }, []);
+
+  // Handle transition from auth success to main app (gate on offline interstitial if needed)
+  useEffect(() => {
+    const allowOffline = offlineSession && !isOnline;
+    if ((user || allowOffline) && !showStartupSplash) {
+      // If we're offline and should show the interstitial, wait for it to finish
+      if (allowOffline && showOfflineInterstitial && !offlineInterstitialDone) {
+        setShowMainApp(false);
+        return;
+      }
       if (isAuthSuccess) {
         // Wait for card slide down animation to complete, then show main app
         const timer = setTimeout(() => {
           setShowMainApp(true);
-        }, 600); // Match the slide-down animation duration
+        }, 600);
         return () => clearTimeout(timer);
-      } else {
-        // User is already authenticated (e.g., page refresh), show app immediately
-        setShowMainApp(true);
       }
-    } else if (!user) {
-      // User logged out, reset animation states
+      // Already authenticated or offline session active
+      setShowMainApp(true);
+    } else if (!user && !allowOffline) {
+      // Logged out and no offline session, reset
       setIsAuthSuccess(false);
       setShowMainApp(false);
+      setShowOfflineInterstitial(false);
+      setOfflineInterstitialDone(false);
     }
-  }, [isAuthSuccess, user, showStartupSplash]);
+  }, [isAuthSuccess, user, showStartupSplash, offlineSession, isOnline, showOfflineInterstitial, offlineInterstitialDone]);
 
   useEffect(() => {
     // Listen for window resize events from main process
@@ -203,7 +235,37 @@ function AuthFlow() {
     );
   }
 
-  if (user && !showStartupSplash) {
+  // Show offline interstitial between auth and shell
+  if ((offlineSession && !isOnline) && showOfflineInterstitial && !offlineInterstitialDone && !showStartupSplash) {
+    return (
+      <div className={`h-screen w-screen overflow-hidden`}>
+        <div className="h-full flex flex-col relative">
+          <div
+            className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+            style={{
+              WebkitAppRegion: 'drag'
+            } as React.CSSProperties}
+          >
+            <div className="flex items-center space-x-4">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
+                Sparcclen
+              </h1>
+            </div>
+            <WindowControls
+              className="flex-shrink-0"
+              isMaximized={isMaximized}
+              onMaximizeToggle={() => setIsMaximized(!isMaximized)}
+            />
+          </div>
+          <div className="flex-1">
+            <OfflineInterstitial onDone={() => setOfflineInterstitialDone(true)} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if ((user || (offlineSession && !isOnline)) && !showStartupSplash) {
     return (
       <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
@@ -235,6 +297,11 @@ function AuthFlow() {
 
   const handleAuthSuccess = () => {
     setIsAuthSuccess(true);
+    // If offline, show playful interstitial before entering the shell
+    if (!isOnline) {
+      setShowOfflineInterstitial(true);
+      setOfflineInterstitialDone(false);
+    }
     // Auth state will be handled by the auth context
   };
 
@@ -270,7 +337,6 @@ function AuthFlow() {
           <SignUp
             onSuccess={handleBackToLogin}
             onBackToLogin={handleBackToLogin}
-            onForgotPassword={() => handleAuthStateChange('forgot-password')}
             isTransitioning={isTransitioning}
           />
         );
@@ -336,6 +402,7 @@ function AuthFlow() {
 function App() {
   return (
     <ThemeProvider>
+      <SonnerToaster position="bottom-right" toastOptions={{ unstyled: true, className: 'flex justify-end' }} />
       <AuthProvider>
         <AuthFlow />
       </AuthProvider>

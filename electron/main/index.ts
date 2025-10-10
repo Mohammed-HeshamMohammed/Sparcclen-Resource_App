@@ -3,8 +3,8 @@ import { join } from 'path'
 import { promises as fs } from 'fs'
 import { existsSync, mkdirSync } from 'fs'
 
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { CredentialManager } from './credentialManager'
+import { electronApp, is } from '@electron-toolkit/utils'
+import { CredentialManager } from './credentialManager.ts'
 
 // Initialize credential manager
 const credentialManager = new CredentialManager()
@@ -34,6 +34,12 @@ if (!gotTheLock) {
 
 function createWindow(): void {
   // Create the browser window.
+  // Resolve preload path for both production build and ts-node dev.
+  const prodPreload = join(__dirname, 'preload.js')
+  const devPreloadBuilt = join(__dirname, '..', 'preload', 'index.js')
+  const devPreloadRegister = join(__dirname, '..', 'preload', 'register.cjs')
+  // Prefer built JS preload first to avoid ts-node/vm in renderer
+  const preloadResolved = [prodPreload, devPreloadBuilt, devPreloadRegister].find(p => existsSync(p))
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 900,
@@ -46,7 +52,7 @@ function createWindow(): void {
     hasShadow: true,
     // backgroundColor removed to allow theme system to control colors
     webPreferences: {
-      preload: join(__dirname, 'preload.js'),
+      ...(preloadResolved ? { preload: preloadResolved } : {}),
       sandbox: false,
       nodeIntegration: false,
       contextIsolation: true,
@@ -63,13 +69,8 @@ function createWindow(): void {
         responseHeaders: {
           ...details.responseHeaders,
           'Content-Security-Policy': [
-            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-            "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data: https:; " +
-            "font-src 'self' data:; " +
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* ws://localhost:*; " +
-            "frame-src 'none';"
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://127.0.0.1:5175 http://localhost:5175; " +
+            "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://*.supabase.co wss://*.supabase.co;"
           ]
         }
       })
@@ -117,6 +118,8 @@ function createWindow(): void {
     theme: 'system' | 'light' | 'dark'
     loggedInBefore: boolean
     lastEmail: string | null
+    displayName: string | null
+    offlineSession?: boolean
     updatedAt: string
   }
 
@@ -127,6 +130,8 @@ function createWindow(): void {
     theme: 'system',
     loggedInBefore: false,
     lastEmail: null,
+    displayName: null,
+    offlineSession: false,
     updatedAt: new Date().toISOString()
   }
 
@@ -205,15 +210,16 @@ function createWindow(): void {
 
   // Load the app
   if (is.dev) {
-    const devUrl = process.env['VITE_DEV_SERVER_URL'] || 'http://127.0.0.1:5173'
-    // Try dev server; if it's not running, fall back to built renderer
-    mainWindow.loadURL(devUrl).catch(() => {
-      mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'))
+    const devUrl = process.env['VITE_DEV_SERVER_URL'] || 'http://127.0.0.1:5175'
+    // Loading dev server URL
+    
+    // Load dev server and add proper error handling
+    mainWindow.loadURL(devUrl).catch((error) => {
+      console.error('Failed to load dev server:', error)
+      // Don't fall back to local file in development - this usually means dev server isn't ready
     })
-    // If initial navigation fails later, also fallback
-    mainWindow.webContents.once('did-fail-load', () => {
-      mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'))
-    })
+    
+    // Open DevTools if explicitly requested
     if (process.env['ELECTRON_OPEN_DEVTOOLS'] === 'true') {
       mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
@@ -228,8 +234,8 @@ function createWindow(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
 
-  app.on('browser-window-created', (_, window) => {
-    // optimizer.watch(window) // TODO: Check electron-toolkit optimizer API
+  app.on('browser-window-created', () => {
+    // Additional window setup could go here
   })
 
   createWindow()

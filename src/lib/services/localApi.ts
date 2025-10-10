@@ -1,4 +1,4 @@
-import type { Category, Resource, Tag, SearchFilters } from '../../types';
+import type { Category, Resource, Tag, SearchFilters } from '@/types';
 
 // Local in-memory store + localStorage-backed favorites
 class LocalStore {

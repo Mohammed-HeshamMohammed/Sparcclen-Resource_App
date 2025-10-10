@@ -341,7 +341,7 @@ function createWindow() {
         responseHeaders: {
           ...details.responseHeaders,
           "Content-Security-Policy": [
-            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* ws://localhost:*; frame-src 'none';"
+            "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; worker-src 'self' blob:; child-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; frame-src 'none';"
           ]
         }
       });
@@ -381,6 +381,8 @@ function createWindow() {
     theme: "system",
     loggedInBefore: false,
     lastEmail: null,
+    displayName: null,
+    offlineSession: false,
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
   async function ensureSaveDir() {

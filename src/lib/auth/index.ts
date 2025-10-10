@@ -1,7 +1,3 @@
 // Authentication utilities
 export { AuthProvider, useAuth } from './auth';
-export {
-  createUserDev,
-  getRolesForUser,
-  type Role
-} from './userManager';
+// Dev user management utilities removed as unused
