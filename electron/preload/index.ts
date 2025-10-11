@@ -20,7 +20,7 @@ const api = {
 
   // Persistent save access
   readSave: () => ipcRenderer.invoke('save:read'),
-  saveWrite: (patch: any) => ipcRenderer.invoke('save:write', patch),
+  saveWrite: (patch: Record<string, unknown>) => ipcRenderer.invoke('save:write', patch),
 
   // Windows Credential Manager
   credentials: {
@@ -31,6 +31,11 @@ const api = {
     has: (email: string) => ipcRenderer.invoke('credentials:has', email),
     delete: (email: string) => ipcRenderer.invoke('credentials:delete', email),
     promptHello: (email: string) => ipcRenderer.invoke('credentials:promptHello', email),
+  },
+  // Upload lifecycle notifications
+  uploads: {
+    begin: () => ipcRenderer.invoke('uploads:begin'),
+    end: () => ipcRenderer.invoke('uploads:end'),
   },
 }
 
@@ -45,8 +50,8 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-expect-error (define in global dts for non-isolated context)
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
+  // @ts-expect-error (define in global dts for non-isolated context)
   window.api = api
 }

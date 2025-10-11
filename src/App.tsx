@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { SplashScreen, Shell, ThemeSelection, ThemeProvider, WindowControls, useTheme } from './components/Layout';
 import { AuthProvider, useAuth } from './lib/auth';
 import { SonnerToaster } from './lib/toast';
+import { ProfileProvider } from './lib/contexts/ProfileContext';
 import { Login, SignUp, ForgotPassword, UpdatePassword, AuthConfirm, AuthError, OfflineInterstitial } from './components/Auth';
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
@@ -404,7 +405,9 @@ function App() {
     <ThemeProvider>
       <SonnerToaster position="bottom-right" toastOptions={{ unstyled: true, className: 'flex justify-end' }} />
       <AuthProvider>
-        <AuthFlow />
+        <ProfileProvider>
+          <AuthFlow />
+        </ProfileProvider>
       </AuthProvider>
     </ThemeProvider>
   );

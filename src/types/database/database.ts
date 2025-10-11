@@ -41,6 +41,45 @@ export interface Database {
           updated_at?: string
         }
       }
+      ,
+      profiles: {
+        Row: {
+          user_id: string
+          display_name_enc: string
+          email_enc: string
+          account_type_enc: string
+          imported_resources_enc: string
+          member_since_enc: string
+          last_active_enc: string
+          picture_enc: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          display_name_enc: string
+          email_enc: string
+          account_type_enc: string
+          imported_resources_enc: string
+          member_since_enc: string
+          last_active_enc: string
+          picture_enc?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          display_name_enc?: string
+          email_enc?: string
+          account_type_enc?: string
+          imported_resources_enc?: string
+          member_since_enc?: string
+          last_active_enc?: string
+          picture_enc?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

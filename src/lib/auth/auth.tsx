@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase'; // Import the single client instance
 import { saveWrite } from '../system/saveClient';
+import { fetchProfileDecrypted, saveProfileEncrypted } from '../services/profileCloud';
+import { getOrCreateProfileKey } from '../services/profileKey';
 
 // Auth context types and context
 interface AuthContextType {
@@ -40,6 +42,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await saveWrite({ loggedInBefore: true, lastEmail: session.user.email, displayName: derivedName ?? null })
         } catch {}
       }
+      // Background: ensure profile exists and sync name (non-blocking)
+      try {
+        if (session?.user?.email) {
+          void ensureProfileForUser(session.user)
+        }
+      } catch {}
+
       setLoading(false)
     }
 
@@ -67,6 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               (session.user.email?.split('@')[0] ?? null)
             await saveWrite({ loggedInBefore: true, lastEmail: session.user.email, displayName: derivedName ?? null })
           } catch {}
+          // Background: ensure profile exists and sync name (non-blocking)
+          try {
+            void ensureProfileForUser(session.user)
+          } catch {}
         }
         setLoading(false)
       }
@@ -76,6 +89,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe()
     }
   }, [])
+
+  async function ensureProfileForUser(u: User) {
+    try {
+      const mail = u.email || ''
+      if (!mail) return
+      const password = await getOrCreateProfileKey(mail)
+      const got = await fetchProfileDecrypted(password)
+      if (got.ok) {
+        const name = got.data.displayName
+        try { await saveWrite({ displayName: name }) } catch {}
+        const currentMetaName = (u.user_metadata as Record<string, unknown> | undefined)?.['display_name']
+        if (typeof currentMetaName !== 'string' || currentMetaName !== name) {
+          try { await supabase.auth.updateUser({ data: { display_name: name } }) } catch {}
+        }
+        return
+      }
+      if (got.error === 'Profile not found') {
+        const meta = (u.user_metadata || {}) as Record<string, unknown>
+        const pickStr = (obj: Record<string, unknown>, key: string): string | undefined =>
+          typeof obj[key] === 'string' ? (obj[key] as string) : undefined
+        const baseName = pickStr(meta, 'display_name') || pickStr(meta, 'full_name') || pickStr(meta, 'name') || u.email?.split('@')[0] || 'User'
+        const profile = {
+          displayName: baseName,
+          email: mail,
+          memberSince: u.created_at || new Date().toISOString(),
+          accountType: 'free',
+          importedResources: 0,
+          lastActive: new Date().toISOString(),
+        }
+        await saveProfileEncrypted(profile, password)
+        try { await supabase.auth.updateUser({ data: { display_name: profile.displayName } }) } catch {}
+        try { await saveWrite({ displayName: profile.displayName }) } catch {}
+      }
+    } catch {}
+  }
 
   const signOut = async () => {
     try {

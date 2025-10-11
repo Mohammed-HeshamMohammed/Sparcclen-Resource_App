@@ -6,6 +6,9 @@ import { existsSync, mkdirSync } from 'fs'
 import { electronApp, is } from '@electron-toolkit/utils'
 import { CredentialManager } from './credentialManager.ts'
 
+// Track background uploads across windows
+let pendingUploads = 0
+
 // Initialize credential manager
 const credentialManager = new CredentialManager()
 
@@ -15,6 +18,8 @@ if (is.dev) {
   const devUserData = join(app.getPath('appData'), 'SparcclenDev')
   // Also ensure cache dir is unique in dev to avoid lock conflicts
   app.setPath('cache', join(devUserData, 'Cache'))
+  // Suppress CSP warnings in development
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
 }
 
 // Ensure only one Electron instance runs; focus existing if re-launched
@@ -102,7 +107,22 @@ function createWindow(): void {
     return true
   })
 
+  ipcMain.handle('uploads:begin', () => {
+    pendingUploads += 1
+    return pendingUploads
+  })
+
+  ipcMain.handle('uploads:end', () => {
+    pendingUploads = Math.max(0, pendingUploads - 1)
+    return pendingUploads
+  })
+
   ipcMain.handle('win:close', () => {
+    // If there are uploads in progress, keep the app alive and hide the window
+    if (pendingUploads > 0) {
+      mainWindow.hide()
+      return false
+    }
     mainWindow.close()
     return true
   })
@@ -247,8 +267,12 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', () => {
+  // If uploads are in progress, keep app running (Windows/Linux). macOS stays alive by default.
   if (process.platform !== 'darwin') {
-    app.quit()
+    if (pendingUploads === 0) {
+      app.quit()
+    }
+    // else: keep alive until uploads:end reduces to 0 and user quits explicitly
   }
 })
 

@@ -12,3 +12,11 @@ export {
 } from './localApi';
 
 export { supabase } from './supabase';
+
+// Cloud encrypted profiles API
+export {
+  saveProfileEncrypted,
+  fetchProfileDecrypted,
+  uploadProfilePictureEncrypted,
+  downloadProfilePictureDecrypted,
+} from './profileCloud';
