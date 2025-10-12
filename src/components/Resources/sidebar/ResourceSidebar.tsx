@@ -79,7 +79,7 @@ export function ResourceSidebar({
   return (
     <Sidebar open={open} setOpen={setOpen}>
       <SidebarBody className="justify-between gap-4">
-        <div className="flex flex-col flex-1 px-1 overflow-y-auto overflow-x-hidden">
+        <div className="flex flex-col flex-1 px-2 overflow-y-auto overflow-x-hidden">
           <Logo open={open} />
           
           {/* Navigation Items */}
@@ -166,10 +166,10 @@ export function ResourceSidebar({
                 >
                   <button
                     onClick={() => signOut()}
-                    className="p-1 rounded hover:bg-gray-700 transition-colors"
+                    className="p-2 rounded hover:bg-gray-700 transition-colors"
                     title="Logout"
                   >
-                    <LogOut className="h-4 w-4 text-gray-400 hover:text-white" />
+                    <LogOut className="h-5 w-5 text-gray-400 hover:text-white" />
                   </button>
                 </motion.div>
               </div>

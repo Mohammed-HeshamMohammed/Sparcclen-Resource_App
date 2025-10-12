@@ -132,6 +132,11 @@ class LocalStore {
 
     this.resources = [
       makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
+      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
+      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
+      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
+      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
+      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
       makeResource('High-Contrast Display Font', catFontsId, subDisplayFontsId, ['fonts', 'display'], 'font'),
     ];
 

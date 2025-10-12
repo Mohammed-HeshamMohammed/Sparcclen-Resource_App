@@ -66,13 +66,15 @@ export function TopBar({
         </div>
 
         {/* Category Filter */}
-        <CategoryFilter
-          categories={categories}
-          activeCategory={activeCategory}
-          activeSubcategory={activeSubcategory}
-          onSelectCategory={onSelectCategory}
-          onClearFilter={onClearCategoryFilter}
-        />
+        <div className="mt-4">
+          <CategoryFilter
+            categories={categories}
+            activeCategory={activeCategory}
+            activeSubcategory={activeSubcategory}
+            onSelectCategory={onSelectCategory}
+            onClearFilter={onClearCategoryFilter}
+          />
+        </div>
       </div>
     </div>
   );

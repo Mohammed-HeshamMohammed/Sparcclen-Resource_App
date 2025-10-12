@@ -206,7 +206,7 @@ export function Shell() {
                 <main className="flex-1 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
                     {
                     !showSettings && !showProfile && (
-                        <div className="pt-4">
+                        <div className="pt-8">
                             <TopBar searchQuery={searchQuery}
                                 onSearchChange={handleSearchChange}
                                 onToggleFavoritesView={handleToggleFavoritesView}
