@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { promises as fs } from 'fs'
 import { existsSync, mkdirSync } from 'fs'
@@ -68,21 +68,6 @@ function createWindow(): void {
       experimentalFeatures: false
     }
   })
-
-  // Set Content Security Policy for development
-  if (is.dev) {
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://127.0.0.1:5175 http://localhost:5175; " +
-            "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://*.supabase.co wss://*.supabase.co;"
-          ]
-        }
-      })
-    })
-  }
 
   // Show window only when it's ready to avoid white flashes and "background only" runs
   mainWindow.once('ready-to-show', () => {
