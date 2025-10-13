@@ -1,12 +1,12 @@
 import {useState, useEffect, useCallback} from 'react';
 import { ResourceSidebar, ResourceGrid, ResourceDetailModal } from '@/components/Resources';
+import { ImportPage } from '@/components/Resources/ImportPage';
 import { RoleManagement } from '@/components/Admin/RoleManagement';
 import { Dashboard } from '@/components/Dashboard';
 import { TopBar } from './TopBar';
 import { SkeletonLoader } from '@/components/ui';
 import { Settings, Profile } from '@/components/User';
 import {useKeyboardShortcuts} from '@/hooks/useKeyboardShortcuts';
-import { favoritesService } from '@/lib/services/favoritesService';
 // useTheme from '@/components/Layout' available if needed
 import type {Category, Resource, SearchFilters}
 from '@/types';
@@ -34,9 +34,8 @@ export function Shell() {
     const [showSettings, setShowSettings] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
     const [showRoles, setShowRoles] = useState(false);
-    // Active main tab: Dashboard or Library
-    const [activeTab, setActiveTab] = useState<'Dashboard' | 'Library'>('Dashboard');
-    const [userFavorites, setUserFavorites] = useState<string[]>([]);
+    // Active main tab: Dashboard, Library, or Imports
+    const [activeTab, setActiveTab] = useState<'Dashboard' | 'Library' | 'Imports'>('Dashboard');
 
     const loadCategories = async () => {
         try {
@@ -91,10 +90,10 @@ export function Shell() {
         const loadFavorites = async () => {
             if (user?.id && user?.email) {
                 try {
-                    const favorites = await favoritesService.getFavorites(user.id, user.email, true);
-                    setUserFavorites(favorites);
-                    // Sync with online in background
-                    favoritesService.syncWithOnline(user.id, user.email);
+                    const storedFavorites = localStorage.getItem(`favorites_${user.id}`);
+                    if (storedFavorites) {
+                        JSON.parse(storedFavorites);
+                    }
                 } catch (error) {
                     console.error('Error loading favorites:', error);
                 }
@@ -130,27 +129,22 @@ export function Shell() {
     const handleToggleFavorite = async (resourceId : string) => {
         if (!user?.id || !user?.email) return;
         try {
-            const isFav = userFavorites.includes(resourceId);
-            let success = false;
+            const storedFavorites = localStorage.getItem(`favorites_${user.id}`);
+            let favorites = storedFavorites ? JSON.parse(storedFavorites) : [];
+            const isFav = favorites.includes(resourceId);
             
             if (isFav) {
-                success = await favoritesService.removeFavorite(user.id, user.email, resourceId);
-                if (success) {
-                    setUserFavorites(prev => prev.filter(id => id !== resourceId));
-                }
+                favorites = favorites.filter((id: string) => id !== resourceId);
             } else {
-                success = await favoritesService.addFavorite(user.id, user.email, resourceId);
-                if (success) {
-                    setUserFavorites(prev => [...prev, resourceId]);
-                }
+                favorites.push(resourceId);
             }
             
-            if (success) {
-                // Update resource state
-                setResources((prev) => prev.map((r) => r.id === resourceId ? { ...r, is_favorite: !isFav } : r));
-                if (selectedResource?.id === resourceId) {
-                    setSelectedResource((prev) => prev ? { ...prev, is_favorite: !isFav } : null);
-                }
+            localStorage.setItem(`favorites_${user.id}`, JSON.stringify(favorites));
+            
+            // Update resource state
+            setResources((prev) => prev.map((r) => r.id === resourceId ? { ...r, is_favorite: !isFav } : r));
+            if (selectedResource?.id === resourceId) {
+                setSelectedResource((prev) => prev ? { ...prev, is_favorite: !isFav } : null);
             }
         } catch (error) {
             console.error('Failed to toggle favorite:', error);
@@ -167,10 +161,6 @@ export function Shell() {
                 console.error('Failed to increment view count:', error);
             }
         }
-    };
-
-    const handleOpenExternal = (url : string) => {
-        window.open(url, '_blank', 'noopener,noreferrer');
     };
 
     const handleOpenSettings = () => {
@@ -209,6 +199,17 @@ export function Shell() {
         setFavoritesOnly(false);
     };
 
+    const handleOpenImports = () => {
+        setActiveTab('Imports');
+        setShowProfile(false);
+        setShowSettings(false);
+        setShowRoles(false);
+        setActiveCategory(null);
+        setActiveSubcategory(null);
+        setSearchQuery('');
+        setFavoritesOnly(false);
+    };
+
     const handleOpenLibraryCategory = (slug: string) => {
         setActiveTab('Library');
         setShowProfile(false);
@@ -224,8 +225,8 @@ export function Shell() {
             .replace(/[^a-z0-9]/g, '');
 
         const normSlug = normalize(slug);
-        const match = categories.find((c: any) => {
-            const nm = (c?.name || '').toString();
+        const match = categories.find((c: Category) => {
+            const nm = (c?.title || '').toString();
             const cslug = slugify(nm);
             const normName = normalize(nm);
             const normCslug = normalize(cslug);
@@ -282,6 +283,10 @@ export function Shell() {
         },
     ]);
 
+    function handleOpenExternal(_url: string): void {
+        throw new Error('Function not implemented.');
+    }
+
     return (
         <div className="h-full flex flex-col relative overflow-hidden bg-gray-900 dark:bg-gray-800">
 
@@ -297,6 +302,7 @@ export function Shell() {
                         onOpenRoles={handleOpenRoles}
                         onOpenDashboard={handleOpenDashboard}
                         onOpenLibrary={handleOpenLibrary}
+                        onOpenImports={handleOpenImports}
                         onOpenLibraryCategory={handleOpenLibraryCategory}
                         isLibraryActive={activeTab === 'Library'}
                     />
@@ -334,12 +340,13 @@ export function Shell() {
                                 resources={resources}
                                 categories={categories}
                                 onOpenResource={handleOpenResource}
-                                onToggleFavorite={handleToggleFavorite}
                                 onOpenLibrary={handleOpenLibrary}
                                 onOpenProfile={handleOpenProfile}
                                 onOpenSettings={handleOpenSettings}
                                 onOpenRoles={handleOpenRoles}
                             />
+                        ) : activeTab === 'Imports' ? (
+                            <ImportPage />
                         ) : (
                             <ResourceGrid
                                 resources={resources}

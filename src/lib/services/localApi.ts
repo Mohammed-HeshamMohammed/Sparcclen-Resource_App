@@ -36,6 +36,7 @@ class LocalStore {
 
     const catColorsId = this.genId();
     const catFontsId = this.genId();
+    const catToolsId = this.genId();
 
     const subTwoColorId = this.genId();
     const subDisplayFontsId = this.genId();
@@ -90,7 +91,20 @@ class LocalStore {
       ],
     };
 
-    this.categories = [colors, fonts];
+    const tools: Category = {
+      id: catToolsId,
+      slug: this.slugify('Tools'),
+      title: 'Tools',
+      description: 'Development tools and utilities',
+      parent_id: null,
+      sort_order: 2,
+      item_count: 0,
+      created_at,
+      updated_at,
+      subcategories: [],
+    };
+
+    this.categories = [colors, fonts, tools];
 
     const makeResource = (
       title: string,
@@ -138,6 +152,8 @@ class LocalStore {
       makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
       makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
       makeResource('High-Contrast Display Font', catFontsId, subDisplayFontsId, ['fonts', 'display'], 'font'),
+      makeResource('Code Editor', catToolsId, null, ['development', 'editor'], 'tool'),
+      makeResource('Version Control', catToolsId, null, ['git', 'version-control'], 'tool'),
     ];
 
     // Update item_count on categories

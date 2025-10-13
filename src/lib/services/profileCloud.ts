@@ -41,7 +41,7 @@ async function dec<T>(cipherText: string, password: string): Promise<T> {
 }
 
 // Map plain -> encrypted row
-async function toEncryptedRow(userId: string, profile: ProfileData, password: string): Promise<Database['public']['Tables']['profiles']['Insert']> {
+async function toEncryptedRow(userId: string, profile: ProfileData, password: string, preservePicture?: boolean): Promise<Database['public']['Tables']['profiles']['Insert']> {
   // Intentionally omit picture_path here to avoid resetting it during profile saves.
   return {
     user_id: userId,
@@ -51,6 +51,7 @@ async function toEncryptedRow(userId: string, profile: ProfileData, password: st
     imported_resources_enc: await enc(profile.importedResources, password),
     member_since_enc: await enc(profile.memberSince, password),
     last_active_enc: await enc(profile.lastActive, password),
+    ...(preservePicture ? {} : { picture_enc: undefined }), // Only set to undefined if not preserving
   }
 }
 
@@ -67,11 +68,11 @@ async function fromEncryptedRow(row: Database['public']['Tables']['profiles']['R
 }
 
 // Public API
-export async function saveProfileEncrypted(profile: ProfileData, password: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function saveProfileEncrypted(profile: ProfileData, password: string, preservePicture: boolean = false): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     ensureSupabaseConfigured()
     const userId = await getUserId()
-    const row = await toEncryptedRow(userId, profile, password)
+    const row = await toEncryptedRow(userId, profile, password, preservePicture)
     // TS struggles to infer typed Insert here in some tooling; runtime is correct.
     // @ts-expect-error Supabase type inference returns never for Insert in some setups
     const { error } = await supabase.from('profiles').upsert(row, { onConflict: 'user_id' })
@@ -116,7 +117,7 @@ function fromBase64(b64: string): Uint8Array {
   return out
 }
 
-export async function uploadProfilePictureEncrypted(file: Blob | ArrayBuffer | Uint8Array, password: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function uploadProfilePicture(file: Blob | ArrayBuffer | Uint8Array): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     ensureSupabaseConfigured()
     const userId = await getUserId()
@@ -130,7 +131,6 @@ export async function uploadProfilePictureEncrypted(file: Blob | ArrayBuffer | U
     const bytes = new Uint8Array(buf)
     const b64 = toBase64(bytes)
     const payload = JSON.stringify({ mime: mime || 'image/jpeg', b64 })
-    const encText = await encrypt(payload, password)
 
     // Ensure a profile row exists to satisfy NOT NULL columns
     const { data: existsRow, error: existsErr } = await supabase
@@ -157,15 +157,14 @@ export async function uploadProfilePictureEncrypted(file: Blob | ArrayBuffer | U
         importedResources: 0,
         lastActive: new Date().toISOString(),
       }
-      const initRow = await toEncryptedRow(userId, profile, password)
+      const initRow = await toEncryptedRow(userId, profile, 'dummy') // Password not needed for picture
       // @ts-expect-error See note above about inference for upsert
       const { error: initErr } = await supabase.from('profiles').insert(initRow)
       if (initErr) return { ok: false, error: initErr.message }
     }
 
-    // Store encrypted base64 directly in the profile row (update, not upsert)
-    // Workaround: Use string-based query to avoid Supabase type inference issues
-    const updatePayload = { picture_enc: encText }
+    // Store plain base64 directly in the profile row
+    const updatePayload = { picture_enc: payload }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: updateErr } = await (supabase as any)
       .from('profiles')
@@ -179,7 +178,7 @@ export async function uploadProfilePictureEncrypted(file: Blob | ArrayBuffer | U
   }
 }
 
-export async function downloadProfilePictureDecrypted(password: string): Promise<{ ok: true; blob: Blob } | { ok: false; error: string }> {
+export async function downloadProfilePicture(): Promise<{ ok: true; blob: Blob } | { ok: false; error: string }> {
   try {
     ensureSupabaseConfigured()
     const userId = await getUserId()
@@ -190,19 +189,18 @@ export async function downloadProfilePictureDecrypted(password: string): Promise
       .maybeSingle<{ picture_enc: string | null }>()
 
     if (selErr) return { ok: false, error: selErr.message }
-    const encText = row?.picture_enc
-    if (!encText) return { ok: false, error: 'No profile picture set' }
+    const payload = row?.picture_enc
+    if (!payload) return { ok: false, error: 'No profile picture set' }
 
-    const decrypted = await decrypt(encText, password)
     let mime = 'image/jpeg'
     let b64: string
     try {
-      const parsed = JSON.parse(decrypted) as { mime?: string; b64: string }
+      const parsed = JSON.parse(payload) as { mime?: string; b64: string }
       b64 = parsed.b64
       if (parsed.mime) mime = parsed.mime
     } catch {
-      // Backward compatibility: previous format stored raw base64 only
-      b64 = decrypted
+      // Backward compatibility: if not JSON, treat as raw base64
+      b64 = payload
     }
     const bytes = fromBase64(b64)
     const blob = new Blob([bytes], { type: mime })

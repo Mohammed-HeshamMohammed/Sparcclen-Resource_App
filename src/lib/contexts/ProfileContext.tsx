@@ -55,11 +55,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setIsInitialLoad(true)
       setIsSyncing(false)
       fetchedForUserRef.current = null
+      // Clear avatar cache for previous user
+      avatarService.clearAllAvatarCaches()
       return
     }
 
     const uid = user.id
     if (!uid) return
+    if (fetchedForUserRef.current && fetchedForUserRef.current !== uid) {
+      // User changed, clear avatar cache for previous user
+      avatarService.clearAllAvatarCaches()
+    }
     if (fetchedForUserRef.current === uid) return
     fetchedForUserRef.current = uid
 
@@ -145,31 +151,58 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                     ...fetched.data,
                     accountType: authRole,
                   }
-                  await saveProfileEncrypted(updated, password)
+                  await saveProfileEncrypted(updated, password, true) // Preserve picture_enc
                   setProfile(prev => ({ ...prev, accountType: authRole }))
                 }
               } catch {}
             } else if (fetched.error === 'Profile not found') {
-              // Create new profile initialized from auth metadata role if available
-              const newProfile = {
-                displayName: dn,
-                email: mail,
-                memberSince: user.created_at || new Date().toISOString(),
-                accountType: ((meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || 'Free'),
-                importedResources: 0,
-                lastActive: new Date().toISOString(),
+              // Check if profile row exists but fetch failed due to missing picture_enc or other fields
+              const { data: existingRow } = await supabase
+                .from('profiles')
+                .select('picture_enc')
+                .eq('user_id', user.id)
+                .maybeSingle()
+
+              if (existingRow) {
+                // Profile row exists, just update the missing fields without touching picture_enc
+                const updatedProfile = {
+                  displayName: dn,
+                  email: mail,
+                  memberSince: user.created_at || new Date().toISOString(),
+                  accountType: ((meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || 'Free'),
+                  importedResources: 0,
+                  lastActive: new Date().toISOString(),
+                }
+                await saveProfileEncrypted(updatedProfile, password, true) // Preserve existing picture_enc
+                
+                setProfile(prev => ({
+                  ...prev,
+                  memberSince: updatedProfile.memberSince,
+                  accountType: updatedProfile.accountType,
+                  lastActive: updatedProfile.lastActive,
+                }))
+              } else {
+                // Truly no profile row, create new one
+                const newProfile = {
+                  displayName: dn,
+                  email: mail,
+                  memberSince: user.created_at || new Date().toISOString(),
+                  accountType: ((meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || 'Free'),
+                  importedResources: 0,
+                  lastActive: new Date().toISOString(),
+                }
+                await saveProfileEncrypted(newProfile, password)
+                
+                setProfile(prev => ({
+                  ...prev,
+                  memberSince: newProfile.memberSince,
+                  accountType: newProfile.accountType,
+                  lastActive: newProfile.lastActive,
+                }))
               }
-              await saveProfileEncrypted(newProfile, password)
               
-              setProfile(prev => ({
-                ...prev,
-                memberSince: newProfile.memberSince,
-                accountType: newProfile.accountType,
-                lastActive: newProfile.lastActive,
-              }))
-              
-              try { await supabase.auth.updateUser({ data: { display_name: newProfile.displayName } }) } catch {}
-              try { await saveWrite({ displayName: newProfile.displayName }) } catch {}
+              try { await supabase.auth.updateUser({ data: { display_name: dn } }) } catch {}
+              try { await saveWrite({ displayName: dn }) } catch {}
             }
           } catch (error) {
             console.warn('Failed to sync online profile data:', error)
@@ -204,7 +237,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       lastActive: new Date().toISOString(),
     }
     
-    await saveProfileEncrypted(profileData, password)
+    await saveProfileEncrypted(profileData, password, true) // Preserve picture_enc
     
     // Update local state immediately
     setProfile(prev => ({ ...prev, displayName: name }))
@@ -227,7 +260,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       lastActive: new Date().toISOString(),
     }
 
-    await saveProfileEncrypted(profileData, password)
+    await saveProfileEncrypted(profileData, password, true) // Preserve picture_enc
 
     // Update local state immediately
     setProfile(prev => ({ ...prev, accountType: type }))

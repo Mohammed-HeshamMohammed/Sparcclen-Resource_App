@@ -17,8 +17,8 @@ export { supabase } from './supabase';
 export {
   saveProfileEncrypted,
   fetchProfileDecrypted,
-  uploadProfilePictureEncrypted,
-  downloadProfilePictureDecrypted,
+  uploadProfilePicture,
+  downloadProfilePicture,
 } from './profileCloud';
 
 // Avatar service with online/offline support

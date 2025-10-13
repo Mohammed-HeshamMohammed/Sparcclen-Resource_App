@@ -40,9 +40,9 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
-create policy "profiles_select_owner"
+create policy "Allow all authenticated users to read profiles"
 on public.profiles for select
-using (auth.uid() = user_id);
+using (auth.role() = 'authenticated');
 
 create policy "profiles_insert_owner"
 on public.profiles for insert
@@ -86,9 +86,10 @@ if (result.ok) {
 }
 ```
 
-## 6) Notes
+## 8) Notes
 - The app encrypts each field with AES-GCM using `src/lib/utils/crypto.ts`. The base64 output includes salt and IV.
 - The email is stored encrypted by default. If you need plaintext indexing/search by email, consider a server-side HMAC(email) computed with a secret pepper (not implemented here).
 - Profile picture uploads are encrypted as base64 text and stored inline in `picture_enc`.
 - The code expects an authenticated Supabase session (`supabase.auth.getUser()`).
+- RLS policies allow all authenticated users to read profiles, enabling dashboard features for admin views.
 ```

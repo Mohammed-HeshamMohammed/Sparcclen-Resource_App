@@ -168,7 +168,7 @@ export const SidebarLink = ({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center justify-start gap-3 group/sidebar py-3  transition-all duration-200 hover:scale-105 w-full text-left",
+        "flex items-center justify-start gap-3 group/sidebar py-3 transition-all duration-200 w-full text-left",
         className
       )}
       {...props}
@@ -185,7 +185,7 @@ export const SidebarLink = ({
           duration: 0.15,
           ease: "easeInOut"
         }}
-        className="text-gray-200 dark:text-gray-300 text-lg font-medium group-hover/sidebar:translate-x-1 transition duration-150 whitespace-nowrap overflow-hidden min-w-22"
+        className="text-gray-200 dark:text-gray-300 text-lg font-medium transition duration-150 whitespace-nowrap overflow-hidden min-w-22"
       >
         {link.label}
       </motion.span>

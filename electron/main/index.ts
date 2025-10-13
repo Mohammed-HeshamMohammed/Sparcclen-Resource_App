@@ -48,8 +48,8 @@ function createWindow(): void {
   // Prefer built JS preload first to avoid ts-node/vm in renderer
   const preloadResolved = [prodPreload, devPreloadBuilt, devPreloadRegister].find(p => existsSync(p))
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 900,
+    width: 1100,
+    height: 850,
     minWidth: 1000,
     minHeight: 850,
     show: false,
@@ -222,10 +222,17 @@ function createWindow(): void {
   ipcMain.handle('fs:writeFile', async (_event, relativePath: string, data: string) => {
     try {
       const { promises: fs } = await import('fs')
-      const { join } = await import('path')
+      const { resolve } = await import('path')
       const { app } = await import('electron')
       
-      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      const documentsPath = app.getPath('documents')
+      let adjustedPath = relativePath
+      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
+        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
+      } else {
+        adjustedPath = 'Sparcclen/' + adjustedPath
+      }
+      const fullPath = resolve(documentsPath, adjustedPath)
       await fs.writeFile(fullPath, data, 'utf-8')
       return true
     } catch (error) {
@@ -237,10 +244,17 @@ function createWindow(): void {
   ipcMain.handle('fs:readFile', async (_event, relativePath: string) => {
     try {
       const { promises: fs } = await import('fs')
-      const { join } = await import('path')
+      const { resolve } = await import('path')
       const { app } = await import('electron')
       
-      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      const documentsPath = app.getPath('documents')
+      let adjustedPath = relativePath
+      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
+        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
+      } else {
+        adjustedPath = 'Sparcclen/' + adjustedPath
+      }
+      const fullPath = resolve(documentsPath, adjustedPath)
       const data = await fs.readFile(fullPath, 'utf-8')
       return data
     } catch (error) {
@@ -252,10 +266,17 @@ function createWindow(): void {
   ipcMain.handle('fs:exists', async (_event, relativePath: string) => {
     try {
       const { promises: fs } = await import('fs')
-      const { join } = await import('path')
+      const { resolve } = await import('path')
       const { app } = await import('electron')
       
-      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      const documentsPath = app.getPath('documents')
+      let adjustedPath = relativePath
+      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
+        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
+      } else {
+        adjustedPath = 'Sparcclen/' + adjustedPath
+      }
+      const fullPath = resolve(documentsPath, adjustedPath)
       await fs.access(fullPath)
       return true
     } catch {
@@ -266,10 +287,17 @@ function createWindow(): void {
   ipcMain.handle('fs:ensureDir', async (_event, relativePath: string) => {
     try {
       const { promises: fs } = await import('fs')
-      const { join } = await import('path')
+      const { resolve } = await import('path')
       const { app } = await import('electron')
       
-      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      const documentsPath = app.getPath('documents')
+      let adjustedPath = relativePath
+      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
+        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
+      } else {
+        adjustedPath = 'Sparcclen/' + adjustedPath
+      }
+      const fullPath = resolve(documentsPath, adjustedPath)
       await fs.mkdir(fullPath, { recursive: true })
       return true
     } catch (error) {
@@ -291,17 +319,24 @@ function createWindow(): void {
     }
   }
 
+  interface SupabaseAdminUser {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+    app_metadata?: Record<string, unknown>;
+  }
+
   ipcMain.handle('admin:listUsers', async () => {
     const admin = getAdminClient()
     if (!admin) return { ok: false, error: 'Admin API not configured' }
     try {
       const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
       if (error) return { ok: false, error: error.message }
-      const users = (data?.users || []).map(u => ({
+      const users = (data?.users || []).map((u: SupabaseAdminUser) => ({
         id: u.id,
         email: u.email ?? null,
         user_metadata: u.user_metadata || {},
-        app_metadata: (u as any).app_metadata || {},
+        app_metadata: u.app_metadata || {},
       }))
       return { ok: true, users }
     } catch (e) {

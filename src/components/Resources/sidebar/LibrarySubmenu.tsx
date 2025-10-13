@@ -1,4 +1,4 @@
-import { Brain, Globe, FlaskConical, BookOpen } from 'lucide-react';
+import { Brain, Globe, FlaskConical, BookOpen, Wrench } from 'lucide-react';
 
 interface LibrarySubmenuProps {
   isOpen: boolean; // Library selected (expanded with labels)
@@ -13,6 +13,7 @@ export function LibrarySubmenu({ isOpen, sidebarOpen, onSelect }: LibrarySubmenu
     { label: 'Web & Design', slug: 'web-and-design', Icon: Globe },
     { label: 'R&D', slug: 'rnd', Icon: FlaskConical },
     { label: 'Studying', slug: 'studying', Icon: BookOpen },
+    { label: 'Tools', slug: 'tools', Icon: Wrench },
   ];
 
   return (

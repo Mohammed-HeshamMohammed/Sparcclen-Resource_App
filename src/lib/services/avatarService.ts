@@ -1,6 +1,4 @@
-import { downloadProfilePictureDecrypted, uploadProfilePictureEncrypted } from './profileCloud'
-import { getOrCreateProfileKey } from './profileKey'
-import { encrypt, decrypt } from '@/lib/utils/crypto'
+import { downloadProfilePicture, uploadProfilePicture } from './profileCloud'
 
 // Types for preload API (Electron)
 type PreloadAPI = {
@@ -36,8 +34,8 @@ const AVATAR_TIMESTAMP_PREFIX = 'avatar_timestamp:'
 
 /**
  * Avatar service that handles both online and offline scenarios
- * - Online: Fetches from encrypted cloud storage (Supabase)
- * - Offline: Uses locally cached encrypted avatar data
+ * - Online: Fetches from cloud storage (Supabase)
+ * - Offline: Uses locally cached base64 data
  * - Electron: Uses file system for better performance
  * - Web: Uses localStorage as fallback
  */
@@ -48,13 +46,13 @@ export class AvatarService {
    * Get the local cache path for avatar (Electron only)
    */
   private getAvatarCachePath(email: string): string {
-    return `Documents/Sparcclen/avatars/${email.replace(/[^a-zA-Z0-9]/g, '_')}.enc`
+    return `avatars/${email.replace(/[^a-zA-Z0-9]/g, '_')}.json`
   }
 
   /**
-   * Store avatar data locally (encrypted)
+   * Store avatar data locally (plain base64)
    */
-  private async storeAvatarLocally(email: string, blob: Blob, password: string): Promise<boolean> {
+  private async storeAvatarLocally(email: string, blob: Blob): Promise<boolean> {
     try {
       // Convert blob to base64
       const arrayBuffer = await blob.arrayBuffer()
@@ -73,22 +71,19 @@ export class AvatarService {
         size: blob.size
       })
 
-      // Encrypt the payload
-      const encryptedData = await encrypt(payload, password)
-
       const api = getPreloadApi()
       if (isElectron() && api?.fs) {
         // Store in file system (Electron)
         const cachePath = this.getAvatarCachePath(email)
-        await api.fs.ensureDir('Documents/Sparcclen/avatars')
-        return await api.fs.writeFile(cachePath, encryptedData)
+        await api.fs.ensureDir('avatars')
+        return await api.fs.writeFile(cachePath, payload)
       } else {
         // Store in localStorage (Web)
         const cacheKey = AVATAR_CACHE_PREFIX + email
         const timestampKey = AVATAR_TIMESTAMP_PREFIX + email
         
         if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(cacheKey, encryptedData)
+          localStorage.setItem(cacheKey, payload)
           localStorage.setItem(timestampKey, Date.now().toString())
           return true
         }
@@ -102,32 +97,31 @@ export class AvatarService {
   }
 
   /**
-   * Load avatar data from local storage (encrypted)
+   * Load avatar data from local storage (plain base64)
    */
-  private async loadAvatarLocally(email: string, password: string): Promise<Blob | null> {
+  private async loadAvatarLocally(email: string): Promise<Blob | null> {
     try {
-      let encryptedData: string | null = null
+      let payload: string | null = null
 
       const api = getPreloadApi()
       if (isElectron() && api?.fs) {
         // Load from file system (Electron)
         const cachePath = this.getAvatarCachePath(email)
         if (await api.fs.exists(cachePath)) {
-          encryptedData = await api.fs.readFile(cachePath)
+          payload = await api.fs.readFile(cachePath)
         }
       } else {
         // Load from localStorage (Web)
         const cacheKey = AVATAR_CACHE_PREFIX + email
         if (typeof localStorage !== 'undefined') {
-          encryptedData = localStorage.getItem(cacheKey)
+          payload = localStorage.getItem(cacheKey)
         }
       }
 
-      if (!encryptedData) return null
+      if (!payload) return null
 
-      // Decrypt the data
-      const decryptedPayload = await decrypt(encryptedData, password)
-      const payload = JSON.parse(decryptedPayload) as {
+      // Parse the payload
+      const data = JSON.parse(payload) as {
         mime: string
         base64: string
         timestamp: number
@@ -135,24 +129,23 @@ export class AvatarService {
       }
 
       // Convert base64 back to blob
-      const binary = atob(payload.base64)
+      const binary = atob(data.base64)
       const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) {
         bytes[i] = binary.charCodeAt(i)
       }
 
-      return new Blob([bytes], { type: payload.mime })
+      return new Blob([bytes], { type: data.mime })
     } catch (error) {
       console.error('[AvatarService] Failed to load avatar locally:', error)
       return null
     }
   }
 
-
   /**
-   * Get avatar URL with offline-first loading
+   * Get avatar URL with offline-first loading and sync
    */
-  async getAvatarUrl(email: string, prioritizeOffline: boolean = false): Promise<string | null> {
+  async getAvatarUrl(email: string, _prioritizeOffline: boolean = false): Promise<string | null> {
     if (!email) return null
 
     // Check memory cache first
@@ -162,42 +155,34 @@ export class AvatarService {
     }
 
     try {
-      const password = await getOrCreateProfileKey(email)
       let blob: Blob | null = null
+      let localTimestamp: number = 0
+      let onlineTimestamp: number = 0
 
-      // Offline-first strategy: try local cache first, then online
-      if (prioritizeOffline || !isOnline()) {
-        console.log('[AvatarService] Loading avatar from local cache (offline-first)...')
-        blob = await this.loadAvatarLocally(email, password)
-        if (blob) {
-          console.log('[AvatarService] Avatar loaded from local cache')
-        }
+      // Step 1: Load from local cache first
+      blob = await this.loadAvatarLocally(email)
+      if (blob) {
+        const localData = await this.getLocalTimestamp(email)
+        localTimestamp = localData || 0
+        console.log('[AvatarService] Avatar loaded from local cache')
       }
 
-      // If no offline avatar and we're online, try fetching from cloud
-      if (!blob && isOnline()) {
+      // Step 2: Try to fetch from online and compare timestamps
+      if (isOnline()) {
         try {
-          console.log('[AvatarService] Attempting to fetch avatar online...')
-          const result = await downloadProfilePictureDecrypted(password)
+          console.log('[AvatarService] Checking for online updates...')
+          const result = await downloadProfilePicture()
           if (result.ok) {
-            blob = result.blob
-            // Cache locally for future offline use
-            await this.storeAvatarLocally(email, blob, password)
-            console.log('[AvatarService] Avatar fetched online and cached locally')
-          } else {
-            console.log('[AvatarService] No avatar found online:', result.error)
+            onlineTimestamp = Date.now() // Use current time as online timestamp
+            if (!blob || onlineTimestamp > localTimestamp) {
+              // Online is newer or no local, update local
+              await this.storeAvatarLocally(email, result.blob)
+              blob = result.blob
+              console.log('[AvatarService] Avatar updated from online')
+            }
           }
         } catch (error) {
           console.warn('[AvatarService] Failed to fetch avatar online:', error)
-        }
-      }
-
-      // If still no blob and we haven't tried offline yet, try it now
-      if (!blob && !prioritizeOffline && isOnline()) {
-        console.log('[AvatarService] Falling back to local cache...')
-        blob = await this.loadAvatarLocally(email, password)
-        if (blob) {
-          console.log('[AvatarService] Avatar loaded from local cache as fallback')
         }
       }
 
@@ -212,7 +197,7 @@ export class AvatarService {
             this.memoryCache.delete(cacheKey)
             try {
               URL.revokeObjectURL(url)
-            } catch (e) {
+            } catch {
               // Ignore revoke errors
             }
           }
@@ -237,10 +222,8 @@ export class AvatarService {
     }
 
     try {
-      const password = await getOrCreateProfileKey(email)
-
       // Always store locally first
-      const localStored = await this.storeAvatarLocally(email, blob, password)
+      const localStored = await this.storeAvatarLocally(email, blob)
       if (!localStored) {
         console.warn('[AvatarService] Failed to store avatar locally')
       }
@@ -248,7 +231,7 @@ export class AvatarService {
       // Try to upload online if connected
       if (isOnline()) {
         try {
-          const result = await uploadProfilePictureEncrypted(blob, password)
+          const result = await uploadProfilePicture(blob)
           if (result.ok) {
             console.log('[AvatarService] Avatar uploaded online successfully')
           } else {
@@ -280,7 +263,7 @@ export class AvatarService {
         this.memoryCache.delete(cacheKey)
         try {
           URL.revokeObjectURL(oldUrl)
-        } catch (e) {
+        } catch {
           // Ignore revoke errors
         }
       }
@@ -289,6 +272,55 @@ export class AvatarService {
     } catch (error) {
       console.error('[AvatarService] Failed to upload avatar:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Get local timestamp for comparison
+   */
+  private async getLocalTimestamp(email: string): Promise<number | null> {
+    const api = getPreloadApi()
+    if (isElectron() && api?.fs) {
+      // For Electron, we'd need to read the file to get timestamp
+      // For simplicity, return null and rely on file existence
+      return null
+    } else {
+      const timestampKey = AVATAR_TIMESTAMP_PREFIX + email
+      if (typeof localStorage !== 'undefined') {
+        const ts = localStorage.getItem(timestampKey)
+        return ts ? parseInt(ts, 10) : null
+      }
+    }
+    return null
+  }
+
+  /**
+   * Clear all avatar caches
+   */
+  async clearAllAvatarCaches(): Promise<void> {
+    try {
+      // Clear memory cache
+      this.memoryCache.clear()
+
+      // Clear local storage for all users
+      const api = getPreloadApi()
+      if (isElectron() && api?.fs) {
+        // For Electron, we can't easily clear all files, but we can clear memory
+      } else {
+        // Clear localStorage keys that match our prefixes
+        if (typeof localStorage !== 'undefined') {
+          const keysToRemove: string[] = []
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && (key.startsWith(AVATAR_CACHE_PREFIX) || key.startsWith(AVATAR_TIMESTAMP_PREFIX))) {
+              keysToRemove.push(key)
+            }
+          }
+          keysToRemove.forEach(key => localStorage.removeItem(key))
+        }
+      }
+    } catch (error) {
+      console.error('[AvatarService] Failed to clear all avatar caches:', error)
     }
   }
 
@@ -304,7 +336,7 @@ export class AvatarService {
         this.memoryCache.delete(cacheKey)
         try {
           URL.revokeObjectURL(oldUrl)
-        } catch (e) {
+        } catch {
           // Ignore revoke errors
         }
       }

@@ -8,25 +8,25 @@ import { Login, SignUp, ForgotPassword, UpdatePassword, AuthConfirm, AuthError, 
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
 
+interface WindowSize {
+  width: number;
+  height: number;
+}
+
 function MainApp() {
   const { profile, isInitialLoad } = useProfile()
   const [showWelcome, setShowWelcome] = useState(true)
   const [isMaximized, setIsMaximized] = useState(false)
 
-  // Auto-dismiss welcome screen once initial load is complete
   useEffect(() => {
     if (!isInitialLoad && showWelcome) {
-      // Give a small delay to ensure user sees their data loaded
-      const timer = setTimeout(() => {
-        // Welcome screen will handle its own completion animation
-      }, 500)
+      const timer = setTimeout(() => {}, 500)
       return () => clearTimeout(timer)
     }
   }, [isInitialLoad, showWelcome])
 
-  // Handle window resize events
   useEffect(() => {
-    const handleWindowResize = (size: { width: number; height: number }) => {
+    const handleWindowResize = (size: WindowSize) => {
       const screenWidth = window.screen.width
       const screenHeight = window.screen.height
       setIsMaximized(size.width >= screenWidth - 50 && size.height >= screenHeight - 50)
@@ -43,7 +43,6 @@ function MainApp() {
     }
   }, [])
 
-  // Show welcome screen during initial load or while welcome animation is playing
   if (showWelcome) {
     return (
       <div className="h-screen w-screen overflow-hidden">
@@ -76,7 +75,6 @@ function MainApp() {
     )
   }
 
-  // Show main app
   return (
     <div className="h-screen w-screen overflow-hidden">
       <div className="h-full flex flex-col relative">
@@ -109,11 +107,9 @@ function AuthFlow() {
   const [showStartupSplash, setShowStartupSplash] = useState(true);
   const [showThemeSelection, setShowThemeSelection] = useState(false);
   const [authState, setAuthState] = useState<AuthState>(() => {
-    // Check URL parameters to determine initial state
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
-    // Check both query params and hash fragment for Supabase tokens
     if ((urlParams.get('token_hash') || hashParams.get('token_hash')) && 
         (urlParams.get('type') || hashParams.get('type'))) {
       return 'auth-confirm';
@@ -134,12 +130,10 @@ function AuthFlow() {
   const [offlineInterstitialDone, setOfflineInterstitialDone] = useState(false);
 
   const handleThemeSelect = (theme: 'system' | 'light' | 'dark') => {
-    // Theme is applied immediately for preview
     setTheme(theme);
   };
 
   const handleThemeConfirm = () => {
-    // Confirm button was clicked, close the selection screen
     markFirstTimeComplete();
     setShowThemeSelection(false);
   };
@@ -147,15 +141,13 @@ function AuthFlow() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowStartupSplash(false);
-      // Show theme selection for first-time users
       if (isFirstTime) {
         setShowThemeSelection(true);
       }
-    }, 2000); // Reduced splash time for better UX
+    }, 2000);
     return () => clearTimeout(timer);
   }, [isFirstTime]);
 
-  // Track connectivity + load offlineSession from save
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
     window.addEventListener('online', updateOnline);
@@ -167,7 +159,6 @@ function AuthFlow() {
         setOfflineSession(!!s.offlineSession);
       } catch {}
     })();
-    // React to persisted save updates (e.g., offlineSession toggled)
     const onSaveUpdated = (e: CustomEvent) => {
       try {
         const detail = e?.detail;
@@ -184,26 +175,21 @@ function AuthFlow() {
     };
   }, []);
 
-  // Handle transition from auth success to main app (gate on offline interstitial if needed)
   useEffect(() => {
     const allowOffline = offlineSession && !isOnline;
     if ((user || allowOffline) && !showStartupSplash) {
-      // If we're offline and should show the interstitial, wait for it to finish
       if (allowOffline && showOfflineInterstitial && !offlineInterstitialDone) {
         setShowMainApp(false);
         return;
       }
       if (isAuthSuccess) {
-        // Wait for card slide down animation to complete, then show main app
         const timer = setTimeout(() => {
           setShowMainApp(true);
         }, 600);
         return () => clearTimeout(timer);
       }
-      // Already authenticated or offline session active
       setShowMainApp(true);
     } else if (!user && !allowOffline) {
-      // Logged out and no offline session, reset
       setIsAuthSuccess(false);
       setShowMainApp(false);
       setShowOfflineInterstitial(false);
@@ -212,9 +198,7 @@ function AuthFlow() {
   }, [isAuthSuccess, user, showStartupSplash, offlineSession, isOnline, showOfflineInterstitial, offlineInterstitialDone]);
 
   useEffect(() => {
-    // Listen for window resize events from main process
-    const handleWindowResize = (size: { width: number; height: number }) => {
-      // Consider window maximized if it's close to screen size
+    const handleWindowResize = (size: WindowSize) => {
       const screenWidth = window.screen.width;
       const screenHeight = window.screen.height;
       setIsMaximized(size.width >= screenWidth - 50 && size.height >= screenHeight - 50);
@@ -223,14 +207,12 @@ function AuthFlow() {
     if (window.api?.onWindowResize && window.api?.getWindowSize) {
       const removeListener = window.api.onWindowResize(handleWindowResize);
 
-      // Initial check with error handling
       window.api.getWindowSize()
-        .then((size: { width: number; height: number }) => {
+        .then((size: WindowSize) => {
           handleWindowResize(size);
         })
-        .catch((error) => {
+        .catch((error: unknown) => {
           console.warn('Failed to get window size:', error);
-          // Fallback: assume not maximized
           setIsMaximized(false);
         });
 
@@ -238,7 +220,6 @@ function AuthFlow() {
         removeListener();
       };
     } else {
-      // Fallback: assume not maximized if API is not available
       setIsMaximized(false);
     }
   }, []);
@@ -272,7 +253,6 @@ function AuthFlow() {
     );
   }
 
-  // Show theme selection for first-time users
   if (showThemeSelection) {
     return (
       <div className={`h-screen w-screen overflow-hidden`}>
@@ -331,7 +311,6 @@ function AuthFlow() {
     );
   }
 
-  // Show offline interstitial between auth and shell
   if ((offlineSession && !isOnline) && showOfflineInterstitial && !offlineInterstitialDone && !showStartupSplash) {
     return (
       <div className={`h-screen w-screen overflow-hidden`}>
@@ -367,12 +346,10 @@ function AuthFlow() {
 
   const handleAuthSuccess = () => {
     setIsAuthSuccess(true);
-    // If offline, show playful interstitial before entering the shell
     if (!isOnline) {
       setShowOfflineInterstitial(true);
       setOfflineInterstitialDone(false);
     }
-    // Auth state will be handled by the auth context
   };
 
   const handleBackToLogin = () => {
@@ -439,7 +416,6 @@ function AuthFlow() {
   return (
     <div className={`h-screen w-screen overflow-hidden`}>
       <div className="h-full flex flex-col relative">
-        {/* Custom Title Bar - Always Visible */}
         <div
           className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
           style={{
@@ -458,7 +434,6 @@ function AuthFlow() {
           />
         </div>
 
-         {/* Auth Content with swipe-in after splash ends */}
          <div className="flex-1 flex items-center justify-center overflow-auto bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
            <div className={`${showStartupSplash ? 'opacity-0' : isAuthSuccess ? 'animate-slide-down' : 'animate-swipe-in'}`}>
              {renderAuthScreen()}

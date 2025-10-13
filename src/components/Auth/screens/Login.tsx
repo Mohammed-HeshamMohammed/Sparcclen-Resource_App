@@ -185,7 +185,7 @@ export function Login({ onSuccess, onSignUp, onForgotPassword, isTransitioning =
   }
 
   return (
-    <div className={`${isOnline ? 'w-[900px] h-[750px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl' : 'w-full h-full bg-transparent rounded-none shadow-none'}`}>
+    <div className={`${isOnline ? 'w-[850px] h-[700px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl' : 'w-full h-full bg-transparent rounded-none shadow-none'}`}>
       <div className="flex w-full h-full">
         {/* Left side - Login form */}
         <div className={`${isOnline ? 'w-1/2' : 'w-full'} p-10 md:p-12 flex flex-col`}>

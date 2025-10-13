@@ -43,7 +43,7 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
 
   if (success) {
     return (
-      <div className="w-[900px] h-[750px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
+      <div className="w-[850px] h-[700px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
         <div className="flex w-full h-full">
           {/* Left side - Success message */}
           <div className="w-1/2 p-12 flex flex-col justify-center">

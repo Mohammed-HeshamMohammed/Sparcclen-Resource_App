@@ -57,9 +57,12 @@ Date: 2025-10-09
 
 ## 5. Data & Services
 - Local resource API: `src/lib/services/localApi.ts`
-{{ ... }}
-    - `getCategories()`, `getResources()`, `searchResources()`, `toggleFavorite()`, `incrementViewCount()`, `getFavoritedResources()`, `getTags()`, `getTagsByCategory()`.
+  - `getCategories()`, `getResources()`, `searchResources()`, `toggleFavorite()`, `incrementViewCount()`, `getFavoritedResources()`, `getTags()`, `getTagsByCategory()`.
   - Favorites persisted in `localStorage` keyed by `userId`.
+- Profile service: `src/lib/services/profileCloud.ts`
+  - Handles encrypted profile data and pictures in Supabase `profiles` table.
+- Avatar service: `src/lib/services/avatarService.ts`
+  - Manages profile picture display and uploads.
 - Types: `src/types/index.ts` for `Category`, `Resource`, `Tag`, `Favorite`, `AppSettings`, `SearchFilters`, `ViewMode`.
 - System save: `src/lib/system/saveClient.ts` uses `window.api` in Electron, falling back to `localStorage` in the browser build. Dispatches a `save:updated` event after writes so UI reacts immediately (e.g., switching to Shell after offline auth).
 - Services index: `src/lib/services/index.ts` re-exports local API functions and `supabase`.
@@ -88,12 +91,21 @@ Date: 2025-10-09
     - `TopBar.tsx`: Search, favorites toggle, category filter.
     - `ResourceGrid.tsx`: Displays `ResourceCard` items; uses `SkeletonLoader` while loading.
     - `ResourceDetailModal.tsx`: Focused view with metadata and actions.
-    - `Settings.tsx`, `Profile.tsx` as content pages.
+  - `Settings.tsx`, `Profile.tsx` as content pages.
+  - `Dashboard.tsx`: Overview with charts, stats, top resources, favorites, recent activity, and user management with avatars.
   - Data flows from `lib/services` (currently the local in-memory API) and `useAuth()` for user context.
 
 ---
 
-## 8. Reusable UI & Utilities
+## 8. Admin & User Management
+- `src/components/Admin/RoleManagement.tsx`
+  - Allows admins to view and update user roles (Free, Premium, Admin, CEO).
+  - Integrates with Supabase for role management.
+  - Displays user list with avatars and role indicators.
+
+---
+
+## 9. Reusable UI & Utilities
 - `src/components/ui/`
   - `button.tsx`, `card.tsx`, `input.tsx`, `label.tsx` built on utility `cn()` from `@/lib/utils`.
   - `sidebar.tsx`: composable sidebar used by resources area.
@@ -105,15 +117,17 @@ Date: 2025-10-09
 
 ---
 
-## 9. Supabase Functions & DB
+## 10. Supabase Functions & DB
 - **Single root**: Edge Functions live under `supabase/functions/`.
 - **Functions**:
   - `get_user_by_email`
+- **Tables**:
+  - `profiles`: Encrypted user profile data including pictures
   
 
 ---
 
-## 10. Build and Config
+## 11. Build and Config
 - `tsconfig.json` sets `baseUrl: ./src` with alias `@/*` used across the code.
 - `vite.config.ts`
   - Root set to `src/`; tsconfig paths plugin; node polyfills; code-splitting (supabase, react, framer, icons).
@@ -121,21 +135,21 @@ Date: 2025-10-09
 
 ---
 
-## 11. Legacy/Removed (housekeeping already applied)
+## 12. Legacy/Removed (housekeeping already applied)
 - Deleted unused: `src/components/ui/bar.tsx`, `src/components/User/SettingsModal.tsx`, `src/components/Admin/Users.tsx`, `src/lib/services/client.ts`, `src/lib/library/`.
 - Cleaned `src/lib/index.ts` and `src/lib/auth/index.ts` to remove dangling exports.
 - Windows Hello via DPAPI (native prompt) removed from the auth flow; WebAuthn is the single path (online/offline).
 
 ---
 
-## 12. Known Environment & Secrets
+## 13. Known Environment & Secrets
 - `.env` expected to include Supabase URL/Key:
   - `SUPABASE_URL`/`VITE_SUPABASE_URL`, `SUPABASE_KEY`/`VITE_SUPABASE_ANON_KEY`.
  
 
 ---
 
-## 13. Suggested Improvements (actionable)
+## 14. Suggested Improvements (actionable)
 - **Data layer abstraction**
   - Introduce a `ResourceService` interface (remote vs local). Toggle via env flag. Gradually replace `localApi` usage with injected implementation.
 - **Type safety end-to-end**
@@ -166,7 +180,7 @@ Date: 2025-10-09
 
 ---
 
-## 14. Inspiration for New Features
+## 15. Inspiration for New Features
 - **Resource intelligence**
   - AI-assisted tagging, summarization, and deduplication of resources. Smart recommendations based on favorites and usage.
 - **Collections & Sharing**
@@ -186,10 +200,10 @@ Date: 2025-10-09
 
 ---
 
-## 15. Quick Map of Key Files
-- Entry/UI: `src/App.tsx`, `src/components/Layout/*`, `src/components/Resources/*`, `src/components/Auth/*`
+## 16. Quick Map of Key Files
+- Entry/UI: `src/App.tsx`, `src/components/Layout/*`, `src/components/Resources/*`, `src/components/Auth/*`, `src/components/Dashboard/*`, `src/components/Admin/*`
 - Auth: `src/lib/auth/auth.tsx`, `src/lib/services/supabase.ts`, `src/lib/services/webauthn.ts`
-- Data: `src/lib/services/localApi.ts`, `src/types/index.ts`
+- Data: `src/lib/services/localApi.ts`, `src/lib/services/profileCloud.ts`, `src/lib/services/avatarService.ts`, `src/types/index.ts`
 - Theming: `src/hooks/useTheme.ts`, `src/components/Layout/ThemeProvider.tsx`, `src/components/Layout/ThemeSelection.tsx`
 - Electron: `electron/main/index.ts`, `electron/preload/index.ts`, `electron/main/credentialManager.ts`
 - System save: `src/lib/system/saveClient.ts`
