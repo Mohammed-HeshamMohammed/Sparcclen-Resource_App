@@ -37,6 +37,20 @@ const api = {
     begin: () => ipcRenderer.invoke('uploads:begin'),
     end: () => ipcRenderer.invoke('uploads:end'),
   },
+
+  // File system operations for avatar caching
+  fs: {
+    writeFile: (path: string, data: string) => ipcRenderer.invoke('fs:writeFile', path, data),
+    readFile: (path: string) => ipcRenderer.invoke('fs:readFile', path),
+    exists: (path: string) => ipcRenderer.invoke('fs:exists', path),
+    ensureDir: (path: string) => ipcRenderer.invoke('fs:ensureDir', path),
+  },
+
+  // Admin (role management) operations via main process (service role key lives in main only)
+  admin: {
+    listUsers: () => ipcRenderer.invoke('admin:listUsers'),
+    updateUserRole: (userId: string, role: string) => ipcRenderer.invoke('admin:updateUserRole', userId, role),
+  },
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

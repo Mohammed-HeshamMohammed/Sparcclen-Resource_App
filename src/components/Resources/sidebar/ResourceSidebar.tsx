@@ -1,21 +1,30 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sidebar, SidebarBody, SidebarLink } from '@/components/ui';
-import { Database, LayoutDashboard, Settings, User, LogOut } from 'lucide-react';
+import { Database, LayoutDashboard, Settings, User, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/lib/contexts/ProfileContext';
 import { readSave, type SaveData } from '@/lib/system/saveClient';
+import { LibrarySubmenu } from './LibrarySubmenu';
 
 interface ResourceSidebarProps {
-  onSelectCategory: (categoryId: string, subcategoryId?: string) => void;
   onOpenSettings: () => void;
   onOpenProfile: () => void;
+  onOpenRoles: () => void;
+  onOpenDashboard: () => void;
+  onOpenLibrary: () => void;
+  onOpenLibraryCategory: (slug: string) => void;
+  isLibraryActive: boolean;
 }
 
 export function ResourceSidebar({
-  onSelectCategory,
   onOpenSettings,
   onOpenProfile,
+  onOpenRoles,
+  onOpenDashboard,
+  onOpenLibrary,
+  onOpenLibraryCategory,
+  isLibraryActive,
 }: ResourceSidebarProps) {
   const [open, setOpen] = useState(false);
   const { user, signOut } = useAuth();
@@ -47,22 +56,49 @@ export function ResourceSidebar({
 
   const handleNavigation = (label: string) => {
     if (label === 'Dashboard') {
-      // Clear category selection to show all resources
-      onSelectCategory('');
+      onOpenDashboard();
+    } else if (label === 'Library') {
+      onOpenLibrary();
     } else if (label === 'Profile') {
       // Open profile as content replacement
       onOpenProfile();
     } else if (label === 'Settings') {
       // Open settings modal
       onOpenSettings();
+    } else if (label === 'Role Management') {
+      onOpenRoles();
     }
   };
+
+  const roleFromMeta = ((user?.user_metadata || {}) as Record<string, unknown>)['role']
+  const role = (typeof profile.accountType === 'string' && profile.accountType) || (typeof roleFromMeta === 'string' ? roleFromMeta : undefined)
+
+  // Role badge styles
+
+  const badgeClass = (() => {
+    switch (role) {
+      case 'CEO':
+        return 'bg-purple-600 text-white'
+      case 'Admin':
+        return 'bg-amber-500 text-white'
+      case 'Premium':
+        return 'bg-emerald-500 text-white'
+      case 'Free':
+      default:
+        return 'bg-gray-500 text-white'
+    }
+  })()
 
   const navigationItems = [
     {
       label: 'Dashboard',
       href: '/shell',
       icon: <LayoutDashboard className="h-8 w-8 text-gray-300" />,
+    },
+    {
+      label: 'Library',
+      href: '/library',
+      icon: <Database className="h-8 w-8 text-gray-300" />,
     },
     {
       label: 'Profile',
@@ -74,7 +110,18 @@ export function ResourceSidebar({
       href: '/settings',
       icon: <Settings className="h-8 w-8 text-gray-300" />,
     },
-  ];
+  ] as Array<{ label: string; href: string; icon: JSX.Element }>;
+
+  
+
+  // Conditionally add Role Management for CEO/Admin and only when online
+  if (isOnline && role && ['CEO', 'Admin'].includes(role)) {
+    navigationItems.splice(2, 0, {
+      label: 'Role Management',
+      href: '/roles',
+      icon: <Shield className="h-8 w-8 text-gray-300" />,
+    })
+  }
 
   return (
     <Sidebar open={open} setOpen={setOpen}>
@@ -85,38 +132,88 @@ export function ResourceSidebar({
           {/* Navigation Items */}
           <div className="mt-8 flex flex-col gap-0.5">
             {navigationItems.map((item) => (
-              <SidebarLink
-                key={item.label}
-                link={item}
-                onClick={() => handleNavigation(item.label)}
-              />
+              <div key={item.label}>
+                <SidebarLink
+                  link={item}
+                  onClick={() => handleNavigation(item.label)}
+                />
+                {item.label === 'Library' && (
+                  <LibrarySubmenu
+                    isOpen={isLibraryActive}
+                    sidebarOpen={open}
+                    onSelect={(slug) => {
+                      handleNavigation('Library');
+                      onOpenLibraryCategory(slug);
+                    }}
+                  />
+                )}
+              </div>
             ))}
           </div>
         </div>
 
         {/* User Avatar with Name and Logout (online or offline) */}
         {(user || offlineActive) && (
-          <div className="relative flex items-center justify-left">
-            {/* Fixed avatar position */}
-            <div className="w-14 h-14 rounded-full flex items-center justify-Left flex-shrink-0 overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 relative z-20">
-              {user && profile.avatarUrl ? (
-                <img 
-                  src={profile.avatarUrl} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover object-center rounded-full" 
-                />
-              ) : (
-                <span className="text-white text-xl font-semibold">
-                  {user ? (profile.displayName?.charAt(0).toUpperCase() || profile.email?.charAt(0).toUpperCase() || 'U') : offlineDisplayName.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
+          <div className="relative flex items-center justify-start">
+            {/* Avatar with role-based ring (CEO: rotating conic ring + glow; others: static colored ring) */}
+            {role === 'CEO' ? (
+              <div className="relative z-20 w-14 h-14 flex-shrink-0">
+                {/* Rotating color ring */}
+                <div className="absolute inset-0 rounded-full">
+                  <div className="absolute inset-0 rounded-full bg-[conic-gradient(#ff005e,#ffbe0b,#00f5d4,#00bbf9,#9b5de5,#ff005e)] animate-rotate-slow"></div>
+                  {/* Rotating glow */}
+                  <div className="absolute -inset-1 rounded-full bg-[conic-gradient(#ff005e,#ffbe0b,#00f5d4,#00bbf9,#9b5de5,#ff005e)] blur-md opacity-40 animate-rotate-slow"></div>
+                </div>
+                {/* Inner circle (static) */}
+                <div className="absolute inset-[3px] rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  {user && profile.avatarUrl ? (
+                    <img 
+                      src={profile.avatarUrl} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover object-center rounded-full" 
+                    />
+                  ) : (
+                    <span className="text-white text-xl font-semibold leading-none">
+                      {user ? (profile.displayName?.charAt(0).toUpperCase() || profile.email?.charAt(0).toUpperCase() || 'U') : offlineDisplayName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                {role && (
+                  <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-[10px] leading-none rounded-full font-semibold shadow ${badgeClass}`}>
+                    {role}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="relative z-20 w-14 h-14 rounded-full flex-shrink-0">
+                <div className="absolute inset-0 rounded-full"></div>
+                <div className={`w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ring-2 ring-offset-2 dark:ring-offset-gray-950 ring-offset-white ${
+                  role === 'Admin' ? 'ring-amber-500 shadow-[0_0_12px_#f59e0b40]' : role === 'Premium' ? 'ring-emerald-500 shadow-[0_0_12px_#10b98140]' : 'ring-gray-400 shadow-[0_0_10px_#9ca3af40]'
+                }`}>
+                  {user && profile.avatarUrl ? (
+                    <img 
+                      src={profile.avatarUrl} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover object-center rounded-full" 
+                    />
+                  ) : (
+                    <span className="text-white text-xl font-semibold leading-none">
+                      {user ? (profile.displayName?.charAt(0).toUpperCase() || profile.email?.charAt(0).toUpperCase() || 'U') : offlineDisplayName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                {role && (
+                  <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-[10px] leading-none rounded-full font-semibold shadow ${badgeClass}`}>
+                    {role}
+                  </span>
+                )}
+              </div>
+            )}
             
             {/* Animated background that grows from behind the avatar */}
             <motion.div
               className="absolute inset-0 flex items-center justify-between rounded-full"
               animate={{
-                backgroundColor: "transparent",
                 paddingLeft: open ? "12px" : "0px",
                 paddingRight: open ? "12px" : "0px",
                 paddingTop: open ? "6px" : "0px",

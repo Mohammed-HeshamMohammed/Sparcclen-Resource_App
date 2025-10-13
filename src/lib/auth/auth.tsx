@@ -103,10 +103,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (typeof currentMetaName !== 'string' || currentMetaName !== name) {
           try { await supabase.auth.updateUser({ data: { display_name: name } }) } catch {}
         }
+        // Reconcile account type to auth role if different
+        try {
+          const metaSource = u as unknown as { user_metadata?: Record<string, unknown>; raw_user_meta_data?: Record<string, unknown>; app_metadata?: Record<string, unknown> }
+          const meta = metaSource.user_metadata ?? metaSource.raw_user_meta_data ?? {}
+          const appMeta = metaSource.app_metadata ?? {}
+          const authRole = (meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || undefined
+          const norm = (s?: string | null) => (s || '').trim().toLowerCase()
+          if (authRole && norm(authRole) !== norm(got.data.accountType)) {
+            await saveProfileEncrypted({ ...got.data, accountType: authRole }, password)
+          }
+        } catch {}
         return
       }
       if (got.error === 'Profile not found') {
-        const meta = (u.user_metadata || {}) as Record<string, unknown>
+        const metaSource = u as unknown as { user_metadata?: Record<string, unknown>; raw_user_meta_data?: Record<string, unknown>; app_metadata?: Record<string, unknown> }
+        const meta = metaSource.user_metadata ?? metaSource.raw_user_meta_data ?? {}
+        const appMeta = metaSource.app_metadata ?? {}
         const pickStr = (obj: Record<string, unknown>, key: string): string | undefined =>
           typeof obj[key] === 'string' ? (obj[key] as string) : undefined
         const baseName = pickStr(meta, 'display_name') || pickStr(meta, 'full_name') || pickStr(meta, 'name') || u.email?.split('@')[0] || 'User'
@@ -114,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: baseName,
           email: mail,
           memberSince: u.created_at || new Date().toISOString(),
-          accountType: 'free',
+          accountType: (pickStr(meta, 'role') || pickStr(appMeta, 'role') || 'Free'),
           importedResources: 0,
           lastActive: new Date().toISOString(),
         }

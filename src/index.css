@@ -148,8 +148,11 @@
   }
 
   .scrollbar-hide {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Safari and Chrome */
   }
 
   /* Floating animations for auth pages */
@@ -284,4 +287,22 @@
   .animate-fade-in-up {
     animation: fade-in-up 400ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
+}
+
+/* Slow rotation animation for gradient rings */
+@keyframes rotate-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animate-rotate-slow {
+  animation: rotate-slow 6s linear infinite;
+}
+
+/* Hide scrollbars while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
 }

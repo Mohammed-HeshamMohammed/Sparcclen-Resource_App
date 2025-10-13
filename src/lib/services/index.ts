@@ -20,3 +20,6 @@ export {
   uploadProfilePictureEncrypted,
   downloadProfilePictureDecrypted,
 } from './profileCloud';
+
+// Avatar service with online/offline support
+export { avatarService } from './avatarService';

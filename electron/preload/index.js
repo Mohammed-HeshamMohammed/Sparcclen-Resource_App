@@ -43,6 +43,20 @@ const api = {
     delete: (email) => ipcRenderer.invoke('credentials:delete', email),
     promptHello: (email) => ipcRenderer.invoke('credentials:promptHello', email),
   },
+
+  // File system operations for avatar caching (mirror TS preload)
+  fs: {
+    writeFile: (path, data) => ipcRenderer.invoke('fs:writeFile', path, data),
+    readFile: (path) => ipcRenderer.invoke('fs:readFile', path),
+    exists: (path) => ipcRenderer.invoke('fs:exists', path),
+    ensureDir: (path) => ipcRenderer.invoke('fs:ensureDir', path),
+  },
+
+  // Admin (role management) operations via main process
+  admin: {
+    listUsers: () => ipcRenderer.invoke('admin:listUsers'),
+    updateUserRole: (userId, role) => ipcRenderer.invoke('admin:updateUserRole', userId, role),
+  },
 }
 
 if (process.contextIsolated) {

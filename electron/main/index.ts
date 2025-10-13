@@ -1,7 +1,9 @@
+import 'dotenv/config'
 import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { promises as fs } from 'fs'
 import { existsSync, mkdirSync } from 'fs'
+import { createClient } from '@supabase/supabase-js'
 
 import { electronApp, is } from '@electron-toolkit/utils'
 import { CredentialManager } from './credentialManager.ts'
@@ -208,7 +210,6 @@ function createWindow(): void {
   ipcMain.handle('credentials:has', async (_event, email: string) => {
     return credentialManager.hasCredentials(email)
   })
-
   ipcMain.handle('credentials:delete', async (_event, email: string) => {
     return credentialManager.deleteCredentials(email)
   })
@@ -217,10 +218,107 @@ function createWindow(): void {
     return credentialManager.promptWindowsHello(email)
   })
 
-  // Listen for window resize events and notify renderer
-  mainWindow.on('resize', () => {
-    const bounds = mainWindow.getBounds()
-    mainWindow.webContents.send('win:resize', { width: bounds.width, height: bounds.height })
+  // File system IPC handlers for avatar caching
+  ipcMain.handle('fs:writeFile', async (_event, relativePath: string, data: string) => {
+    try {
+      const { promises: fs } = await import('fs')
+      const { join } = await import('path')
+      const { app } = await import('electron')
+      
+      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      await fs.writeFile(fullPath, data, 'utf-8')
+      return true
+    } catch (error) {
+      console.error('[fs:writeFile] Error:', error)
+      return false
+    }
+  })
+
+  ipcMain.handle('fs:readFile', async (_event, relativePath: string) => {
+    try {
+      const { promises: fs } = await import('fs')
+      const { join } = await import('path')
+      const { app } = await import('electron')
+      
+      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      const data = await fs.readFile(fullPath, 'utf-8')
+      return data
+    } catch (error) {
+      console.error('[fs:readFile] Error:', error)
+      return null
+    }
+  })
+
+  ipcMain.handle('fs:exists', async (_event, relativePath: string) => {
+    try {
+      const { promises: fs } = await import('fs')
+      const { join } = await import('path')
+      const { app } = await import('electron')
+      
+      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      await fs.access(fullPath)
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  ipcMain.handle('fs:ensureDir', async (_event, relativePath: string) => {
+    try {
+      const { promises: fs } = await import('fs')
+      const { join } = await import('path')
+      const { app } = await import('electron')
+      
+      const fullPath = join(app.getPath('documents'), 'Sparcclen', relativePath)
+      await fs.mkdir(fullPath, { recursive: true })
+      return true
+    } catch (error) {
+      console.error('[fs:ensureDir] Error:', error)
+      return false
+    }
+  })
+
+  // Admin (service role) IPC handlers
+  function getAdminClient() {
+    const url = process.env['SUPABASE_URL'] || process.env['VITE_SUPABASE_URL'] || ''
+    const key = process.env['SUPABASE_SERVICE_ROLE_KEY'] || process.env['VITE_SUPABASE_SERVICE_ROLE_KEY'] || ''
+    if (!url || !key) return null
+    try {
+      return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+    } catch (e) {
+      console.warn('[admin] failed to create client', e)
+      return null
+    }
+  }
+
+  ipcMain.handle('admin:listUsers', async () => {
+    const admin = getAdminClient()
+    if (!admin) return { ok: false, error: 'Admin API not configured' }
+    try {
+      const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
+      if (error) return { ok: false, error: error.message }
+      const users = (data?.users || []).map(u => ({
+        id: u.id,
+        email: u.email ?? null,
+        user_metadata: u.user_metadata || {},
+        app_metadata: (u as any).app_metadata || {},
+      }))
+      return { ok: true, users }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
+  ipcMain.handle('admin:updateUserRole', async (_event, userId: string, role: string) => {
+    const admin = getAdminClient()
+    if (!admin) return { ok: false, error: 'Admin API not configured' }
+    try {
+      const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: { role }, app_metadata: { role } })
+      if (error) return { ok: false, error: error.message }
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
   })
 
   // Ensure save file exists during startup (splash period)

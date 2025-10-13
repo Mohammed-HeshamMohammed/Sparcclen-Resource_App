@@ -1,12 +1,107 @@
 import { readSave } from './lib/system/saveClient';
 import React, { useState, useEffect } from 'react';
-import { SplashScreen, Shell, ThemeSelection, ThemeProvider, WindowControls, useTheme } from './components/Layout';
+import { SplashScreen, Shell, ThemeSelection, ThemeProvider, WindowControls, useTheme, WelcomeLoading } from './components/Layout';
 import { AuthProvider, useAuth } from './lib/auth';
 import { SonnerToaster } from './lib/toast';
-import { ProfileProvider } from './lib/contexts/ProfileContext';
+import { ProfileProvider, useProfile } from './lib/contexts/ProfileContext';
 import { Login, SignUp, ForgotPassword, UpdatePassword, AuthConfirm, AuthError, OfflineInterstitial } from './components/Auth';
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
+
+function MainApp() {
+  const { profile, isInitialLoad } = useProfile()
+  const [showWelcome, setShowWelcome] = useState(true)
+  const [isMaximized, setIsMaximized] = useState(false)
+
+  // Auto-dismiss welcome screen once initial load is complete
+  useEffect(() => {
+    if (!isInitialLoad && showWelcome) {
+      // Give a small delay to ensure user sees their data loaded
+      const timer = setTimeout(() => {
+        // Welcome screen will handle its own completion animation
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [isInitialLoad, showWelcome])
+
+  // Handle window resize events
+  useEffect(() => {
+    const handleWindowResize = (size: { width: number; height: number }) => {
+      const screenWidth = window.screen.width
+      const screenHeight = window.screen.height
+      setIsMaximized(size.width >= screenWidth - 50 && size.height >= screenHeight - 50)
+    }
+
+    if (window.api?.onWindowResize && window.api?.getWindowSize) {
+      const removeListener = window.api.onWindowResize(handleWindowResize)
+      window.api.getWindowSize()
+        .then(handleWindowResize)
+        .catch(() => setIsMaximized(false))
+      return removeListener
+    } else {
+      setIsMaximized(false)
+    }
+  }, [])
+
+  // Show welcome screen during initial load or while welcome animation is playing
+  if (showWelcome) {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <div className="h-full flex flex-col relative">
+          <div
+            className="h-10 bg-gray-900 dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+            style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+          >
+            <div className="flex items-center space-x-4">
+              <h1 className="text-lg font-semibold text-white transition-colors duration-300">
+                Sparcclen
+              </h1>
+            </div>
+            <WindowControls
+              className="flex-shrink-0"
+              isMaximized={isMaximized}
+              onMaximizeToggle={() => setIsMaximized(!isMaximized)}
+            />
+          </div>
+          <div className="flex-1">
+            <WelcomeLoading
+              displayName={profile.displayName}
+              avatarUrl={profile.avatarUrl}
+              onComplete={() => setShowWelcome(false)}
+              duration={2500}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show main app
+  return (
+    <div className="h-screen w-screen overflow-hidden">
+      <div className="h-full flex flex-col relative">
+        <div
+          className="h-10 bg-gray-900 dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          <div className="flex items-center space-x-4">
+            <h1 className="text-lg font-semibold text-white transition-colors duration-300">
+              Sparcclen
+            </h1>
+          </div>
+          <WindowControls
+            className="flex-shrink-0"
+            isMaximized={isMaximized}
+            onMaximizeToggle={() => setIsMaximized(!isMaximized)}
+          />
+        </div>
+        <div className="flex-1 overflow-hidden bg-gray-900 dark:bg-gray-800 animate-fade-in-up">
+          <Shell />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function AuthFlow() {
   const { user, loading } = useAuth();
@@ -266,34 +361,8 @@ function AuthFlow() {
     );
   }
 
-  if ((user || (offlineSession && !isOnline)) && !showStartupSplash) {
-    return (
-      <div className={`h-screen w-screen overflow-hidden`}>
-        <div className="h-full flex flex-col relative">
-          {/* Custom Title Bar - Always Visible */}
-          <div
-            className="h-10 bg-gray-900 dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
-            style={{
-              WebkitAppRegion: 'drag'
-            } as React.CSSProperties}
-          >
-            <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-white transition-colors duration-300">
-                Sparcclen
-              </h1>
-            </div>
-            <WindowControls
-              className="flex-shrink-0"
-              isMaximized={isMaximized}
-              onMaximizeToggle={() => setIsMaximized(!isMaximized)}
-            />
-          </div>
-          <div className={`flex-1 overflow-hidden bg-gray-900 dark:bg-gray-800 ${showMainApp ? 'animate-fade-in-up' : 'opacity-0'}`}>
-            <Shell />
-          </div>
-        </div>
-      </div>
-    );
+  if ((user || (offlineSession && !isOnline)) && !showStartupSplash && showMainApp) {
+    return <MainApp />;
   }
 
   const handleAuthSuccess = () => {

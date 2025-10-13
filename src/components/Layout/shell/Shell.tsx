@@ -1,9 +1,12 @@
 import {useState, useEffect, useCallback} from 'react';
 import { ResourceSidebar, ResourceGrid, ResourceDetailModal } from '@/components/Resources';
+import { RoleManagement } from '@/components/Admin/RoleManagement';
+import { Dashboard } from '@/components/Dashboard';
 import { TopBar } from './TopBar';
 import { SkeletonLoader } from '@/components/ui';
 import { Settings, Profile } from '@/components/User';
 import {useKeyboardShortcuts} from '@/hooks/useKeyboardShortcuts';
+import { favoritesService } from '@/lib/services/favoritesService';
 // useTheme from '@/components/Layout' available if needed
 import type {Category, Resource, SearchFilters}
 from '@/types';
@@ -11,7 +14,6 @@ import {
     getCategories,
     getResources,
     searchResources,
-    toggleFavorite,
     incrementViewCount
 } from '@/lib/services';
 import {useAuth} from '@/lib/auth';
@@ -31,6 +33,10 @@ export function Shell() {
     const [isLoadingCategories, setIsLoadingCategories] = useState(true);
     const [showSettings, setShowSettings] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
+    const [showRoles, setShowRoles] = useState(false);
+    // Active main tab: Dashboard or Library
+    const [activeTab, setActiveTab] = useState<'Dashboard' | 'Library'>('Dashboard');
+    const [userFavorites, setUserFavorites] = useState<string[]>([]);
 
     const loadCategories = async () => {
         try {
@@ -80,6 +86,23 @@ export function Shell() {
         loadResources();
     }, [loadResources]);
 
+    // Load user favorites
+    useEffect(() => {
+        const loadFavorites = async () => {
+            if (user?.id && user?.email) {
+                try {
+                    const favorites = await favoritesService.getFavorites(user.id, user.email, true);
+                    setUserFavorites(favorites);
+                    // Sync with online in background
+                    favoritesService.syncWithOnline(user.id, user.email);
+                } catch (error) {
+                    console.error('Error loading favorites:', error);
+                }
+            }
+        };
+        loadFavorites();
+    }, [user]);
+
     const debouncedSearch = useCallback(
         (query: string) => {
             const debouncedFn = debounce(() => {
@@ -99,29 +122,35 @@ export function Shell() {
         setActiveSubcategory(subcategoryId || null);
         setSearchQuery('');
         setFavoritesOnly(false);
-        // Close profile and settings when navigating to dashboard
+        // Close profile and settings when navigating within library
         setShowProfile(false);
         setShowSettings(false);
     };
 
     const handleToggleFavorite = async (resourceId : string) => {
-        if (!user) 
-            return;
-        
-
+        if (!user?.id || !user?.email) return;
         try {
-            const result = await toggleFavorite(resourceId, user.id);
-
-            setResources((prev) => prev.map((r) => r.id === resourceId ? {
-                ...r,
-                is_favorite: result.favorite
-            } : r));
-
-            if (selectedResource ?. id === resourceId) {
-                setSelectedResource((prev) => prev ? {
-                    ...prev,
-                    is_favorite: result.favorite
-                } : null);
+            const isFav = userFavorites.includes(resourceId);
+            let success = false;
+            
+            if (isFav) {
+                success = await favoritesService.removeFavorite(user.id, user.email, resourceId);
+                if (success) {
+                    setUserFavorites(prev => prev.filter(id => id !== resourceId));
+                }
+            } else {
+                success = await favoritesService.addFavorite(user.id, user.email, resourceId);
+                if (success) {
+                    setUserFavorites(prev => [...prev, resourceId]);
+                }
+            }
+            
+            if (success) {
+                // Update resource state
+                setResources((prev) => prev.map((r) => r.id === resourceId ? { ...r, is_favorite: !isFav } : r));
+                if (selectedResource?.id === resourceId) {
+                    setSelectedResource((prev) => prev ? { ...prev, is_favorite: !isFav } : null);
+                }
             }
         } catch (error) {
             console.error('Failed to toggle favorite:', error);
@@ -130,14 +159,10 @@ export function Shell() {
 
     const handleOpenResource = async (resource : Resource) => {
         setSelectedResource(resource);
-
         if (user) {
             try {
                 await incrementViewCount(resource.id);
-                setResources((prev) => prev.map((r) => r.id === resource.id ? {
-                    ...r,
-                    view_count: r.view_count + 1
-                } : r));
+                setResources((prev) => prev.map((r) => r.id === resource.id ? { ...r, view_count: (r.view_count || 0) + 1 } : r));
             } catch (error) {
                 console.error('Failed to increment view count:', error);
             }
@@ -151,11 +176,79 @@ export function Shell() {
     const handleOpenSettings = () => {
         setShowSettings(true);
         setShowProfile(false);
+        setShowRoles(false);
     };
 
     const handleOpenProfile = () => {
         setShowProfile(true);
         setShowSettings(false);
+        setShowRoles(false);
+    };
+
+    const handleOpenRoles = () => {
+        setShowRoles(true);
+        setShowProfile(false);
+        setShowSettings(false);
+    };
+
+    const handleOpenDashboard = () => {
+        setActiveTab('Dashboard');
+        setShowProfile(false);
+        setShowSettings(false);
+        setShowRoles(false);
+    };
+
+    const handleOpenLibrary = () => {
+        setActiveTab('Library');
+        setShowProfile(false);
+        setShowSettings(false);
+        setShowRoles(false);
+        setActiveCategory(null);
+        setActiveSubcategory(null);
+        setSearchQuery('');
+        setFavoritesOnly(false);
+    };
+
+    const handleOpenLibraryCategory = (slug: string) => {
+        setActiveTab('Library');
+        setShowProfile(false);
+        setShowSettings(false);
+        setShowRoles(false);
+
+        const slugify = (s: string) => s.toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        const normalize = (s: string) => s.toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]/g, '');
+
+        const normSlug = normalize(slug);
+        const match = categories.find((c: any) => {
+            const nm = (c?.name || '').toString();
+            const cslug = slugify(nm);
+            const normName = normalize(nm);
+            const normCslug = normalize(cslug);
+            return (
+                cslug === slug ||
+                cslug.includes(slug) ||
+                slug.includes(cslug) ||
+                normName === normSlug ||
+                normCslug === normSlug ||
+                normSlug.includes(normName) ||
+                normName.includes(normSlug)
+            );
+        });
+
+        if (match) {
+            setActiveCategory(match.id);
+            setActiveSubcategory(null);
+        } else {
+            setActiveCategory(null);
+            setActiveSubcategory(null);
+        }
+        setSearchQuery('');
+        setFavoritesOnly(false);
     };
 
     const handleToggleFavoritesView = () => {
@@ -167,16 +260,18 @@ export function Shell() {
             key: 'k',
             ctrlKey: true,
             handler: () => {
-                const searchInput = document.querySelector('input[type="text"]')as HTMLInputElement;
-                searchInput ?. focus();
+                const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+                searchInput?.focus();
             },
             description: 'Focus search'
-        }, {
+        },
+        {
             key: 'f',
             ctrlKey: true,
             handler: handleToggleFavoritesView,
             description: 'Toggle favorites'
-        }, {
+        },
+        {
             key: 'Escape',
             handler: () => {
                 if (selectedResource) {
@@ -191,23 +286,27 @@ export function Shell() {
         <div className="h-full flex flex-col relative overflow-hidden bg-gray-900 dark:bg-gray-800">
 
             <div className="flex-1 flex overflow-hidden relative">
-                {
-                isLoadingCategories ? (
+                {isLoadingCategories ? (
                     <div className="w-[360px] flex-shrink-0">
                         <SkeletonLoader type="sidebar"/>
                     </div>
                 ) : (
-                    <ResourceSidebar onSelectCategory={handleSelectCategory}
+                    <ResourceSidebar
                         onOpenSettings={handleOpenSettings}
-                        onOpenProfile={handleOpenProfile}/>
-                )
-            }
+                        onOpenProfile={handleOpenProfile}
+                        onOpenRoles={handleOpenRoles}
+                        onOpenDashboard={handleOpenDashboard}
+                        onOpenLibrary={handleOpenLibrary}
+                        onOpenLibraryCategory={handleOpenLibraryCategory}
+                        isLibraryActive={activeTab === 'Library'}
+                    />
+                )}
 
                 <main className="flex-1 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
-                    {
-                    !showSettings && !showProfile && (
+                    {!showSettings && !showProfile && !showRoles && activeTab === 'Library' && (
                         <div className="pt-8">
-                            <TopBar searchQuery={searchQuery}
+                            <TopBar
+                                searchQuery={searchQuery}
                                 onSearchChange={handleSearchChange}
                                 onToggleFavoritesView={handleToggleFavoritesView}
                                 favoritesOnly={favoritesOnly}
@@ -215,33 +314,50 @@ export function Shell() {
                                 activeCategory={activeCategory}
                                 activeSubcategory={activeSubcategory}
                                 onSelectCategory={handleSelectCategory}
-                                onClearCategoryFilter={
-                                    () => {
-                                        setActiveCategory(null);
-                                        setActiveSubcategory(null);
-                                    }
-                                }/>
+                                onClearCategoryFilter={() => {
+                                    setActiveCategory(null);
+                                    setActiveSubcategory(null);
+                                }}
+                            />
                         </div>
-                    )
-                }
-                    {
-                    showProfile ? (
-                        <Profile/>) : showSettings ? (
-                        <Settings/>) : (
-                        <ResourceGrid resources={resources}
-                            onOpenResource={handleOpenResource}
-                            onToggleFavorite={handleToggleFavorite}
-                            isLoading={isLoading}/>
-                    )
-                } </main>
+                    )}
+
+                    {showProfile ? (
+                        <Profile/>
+                    ) : showSettings ? (
+                        <Settings/>
+                    ) : showRoles ? (
+                        <RoleManagement/>
+                    ) : (
+                        activeTab === 'Dashboard' ? (
+                            <Dashboard
+                                resources={resources}
+                                categories={categories}
+                                onOpenResource={handleOpenResource}
+                                onToggleFavorite={handleToggleFavorite}
+                                onOpenLibrary={handleOpenLibrary}
+                                onOpenProfile={handleOpenProfile}
+                                onOpenSettings={handleOpenSettings}
+                                onOpenRoles={handleOpenRoles}
+                            />
+                        ) : (
+                            <ResourceGrid
+                                resources={resources}
+                                onOpenResource={handleOpenResource}
+                                onToggleFavorite={handleToggleFavorite}
+                                isLoading={isLoading}
+                            />
+                        )
+                    )}
+                </main>
             </div>
 
-            <ResourceDetailModal resource={selectedResource}
-                onClose={
-                    () => setSelectedResource(null)
-                }
+            <ResourceDetailModal
+                resource={selectedResource}
+                onClose={() => setSelectedResource(null)}
                 onToggleFavorite={handleToggleFavorite}
-                onOpenExternal={handleOpenExternal}/>
+                onOpenExternal={handleOpenExternal}
+            />
         </div>
     );
 }

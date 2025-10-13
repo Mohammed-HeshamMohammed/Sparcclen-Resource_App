@@ -1,9 +1,10 @@
 import { createContext, useContext, useRef, useState, useEffect, ReactNode } from 'react'
 import { useAuth } from '@/lib/auth'
 import { getOrCreateProfileKey } from '@/lib/services/profileKey'
-import { fetchProfileDecrypted, saveProfileEncrypted, downloadProfilePictureDecrypted } from '@/lib/services'
+import { fetchProfileDecrypted, saveProfileEncrypted } from '@/lib/services'
 import { supabase } from '@/lib/services'
 import { saveWrite } from '@/lib/system/saveClient'
+import { avatarService } from '@/lib/services/avatarService'
 
 interface ProfileData {
   displayName: string
@@ -18,8 +19,11 @@ interface ProfileData {
 interface ProfileContextType {
   profile: ProfileData
   isLoading: boolean
+  isInitialLoad: boolean
+  isSyncing: boolean
   updateDisplayName: (name: string) => Promise<void>
   updateAvatar: (blob: Blob) => Promise<void>
+  updateAccountType: (type: string) => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
@@ -34,9 +38,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     importedResources: 0,
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [isSyncing, setIsSyncing] = useState(false)
   const fetchedForUserRef = useRef<string | null>(null)
 
-  // Fetch profile exactly once per user session
+  // Load profile with offline-first strategy
   useEffect(() => {
     if (!user) {
       // Reset profile when user logs out
@@ -46,6 +52,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         avatarUrl: null,
         importedResources: 0,
       })
+      setIsInitialLoad(true)
+      setIsSyncing(false)
       fetchedForUserRef.current = null
       return
     }
@@ -55,74 +63,131 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     if (fetchedForUserRef.current === uid) return
     fetchedForUserRef.current = uid
 
-    const fetchProfile = async () => {
+    const loadProfile = async () => {
       setIsLoading(true)
+      setIsInitialLoad(true)
+      
       try {
-        const dn = (user.user_metadata?.display_name as string) || user.email?.split('@')[0] || 'User'
+        const metaSource = user as unknown as { user_metadata?: Record<string, unknown>; raw_user_meta_data?: Record<string, unknown>; app_metadata?: Record<string, unknown> }
+        const meta = metaSource.user_metadata ?? metaSource.raw_user_meta_data ?? {}
+        const appMeta = metaSource.app_metadata ?? {}
+        const dn = (meta['display_name'] as string) || user.email?.split('@')[0] || 'User'
         const email = user.email ?? null
-        
-        // Set basic info immediately
-        setProfile(prev => ({
-          ...prev,
-          displayName: dn,
-          email,
-        }))
-
         const mail = user.email || ''
-        if (!mail) return
 
-        const password = await getOrCreateProfileKey(mail)
-        const fetched = await fetchProfileDecrypted(password)
-        
-        if (fetched.ok) {
-          // Update with decrypted profile data
+        // Step 1: Load offline data immediately (from save file and local avatar cache)
+        try {
+          const saveData = await import('@/lib/system/saveClient').then(m => m.readSave())
+          const offlineDisplayName = saveData.displayName || dn
+          
+          // Set offline data immediately
           setProfile(prev => ({
             ...prev,
-            displayName: fetched.data.displayName,
-            importedResources: fetched.data.importedResources ?? 0,
-            memberSince: fetched.data.memberSince,
-            accountType: fetched.data.accountType,
-            lastActive: fetched.data.lastActive,
+            displayName: offlineDisplayName,
+            email,
           }))
-          
-          try { await saveWrite({ displayName: fetched.data.displayName }) } catch {}
-          
-          // Try download avatar if exists
-          const pic = await downloadProfilePictureDecrypted(password)
-          if (pic.ok) {
-            const url = URL.createObjectURL(pic.blob)
-            setProfile(prev => ({ ...prev, avatarUrl: url }))
+
+          // Load offline avatar immediately
+          if (mail) {
+            const avatarUrl = await avatarService.getAvatarUrl(mail, true) // prioritize offline
+            if (avatarUrl) {
+              setProfile(prev => ({ ...prev, avatarUrl }))
+            }
           }
-        } else if (fetched.error === 'Profile not found') {
-          // Create new profile
-          const newProfile = {
+
+          // Mark initial load as complete - user sees their data now
+          setIsInitialLoad(false)
+        } catch (error) {
+          console.warn('Failed to load offline data:', error)
+          // Fallback to basic info
+          setProfile(prev => ({
+            ...prev,
             displayName: dn,
-            email: mail,
-            memberSince: user.created_at || new Date().toISOString(),
-            accountType: 'free',
-            importedResources: 0,
-            lastActive: new Date().toISOString(),
-          }
-          await saveProfileEncrypted(newProfile, password)
-          
-          setProfile(prev => ({
-            ...prev,
-            memberSince: newProfile.memberSince,
-            accountType: newProfile.accountType,
-            lastActive: newProfile.lastActive,
+            email,
           }))
+          setIsInitialLoad(false)
+        }
+
+        // Step 2: Sync with online data in background
+        if (mail) {
+          setIsSyncing(true)
           
-          try { await supabase.auth.updateUser({ data: { display_name: newProfile.displayName } }) } catch {}
-          try { await saveWrite({ displayName: newProfile.displayName }) } catch {}
+          try {
+            const password = await getOrCreateProfileKey(mail)
+            const fetched = await fetchProfileDecrypted(password)
+            
+            if (fetched.ok) {
+              // Update with fresh online data
+              setProfile(prev => ({
+                ...prev,
+                displayName: fetched.data.displayName,
+                importedResources: fetched.data.importedResources ?? 0,
+                memberSince: fetched.data.memberSince,
+                accountType: fetched.data.accountType,
+                lastActive: fetched.data.lastActive,
+              }))
+
+              // Save updated display name offline
+              try { await saveWrite({ displayName: fetched.data.displayName }) } catch {}
+
+              // Refresh avatar (will update if there's a newer version online)
+              const avatarUrl = await avatarService.getAvatarUrl(mail)
+              if (avatarUrl) {
+                setProfile(prev => ({ ...prev, avatarUrl }))
+              }
+
+              // Reconcile: if auth role differs from encrypted profile role, update the encrypted profile to auth role
+              try {
+                const authRole = (meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || undefined
+                const norm = (s?: string | null) => (s || '').trim().toLowerCase()
+                if (authRole && norm(authRole) !== norm(fetched.data.accountType)) {
+                  const updated = {
+                    ...fetched.data,
+                    accountType: authRole,
+                  }
+                  await saveProfileEncrypted(updated, password)
+                  setProfile(prev => ({ ...prev, accountType: authRole }))
+                }
+              } catch {}
+            } else if (fetched.error === 'Profile not found') {
+              // Create new profile initialized from auth metadata role if available
+              const newProfile = {
+                displayName: dn,
+                email: mail,
+                memberSince: user.created_at || new Date().toISOString(),
+                accountType: ((meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || 'Free'),
+                importedResources: 0,
+                lastActive: new Date().toISOString(),
+              }
+              await saveProfileEncrypted(newProfile, password)
+              
+              setProfile(prev => ({
+                ...prev,
+                memberSince: newProfile.memberSince,
+                accountType: newProfile.accountType,
+                lastActive: newProfile.lastActive,
+              }))
+              
+              try { await supabase.auth.updateUser({ data: { display_name: newProfile.displayName } }) } catch {}
+              try { await saveWrite({ displayName: newProfile.displayName }) } catch {}
+            }
+          } catch (error) {
+            console.warn('Failed to sync online profile data:', error)
+            // Continue with offline data - no error thrown
+          } finally {
+            setIsSyncing(false)
+          }
         }
       } catch (error) {
-        console.error('Failed to fetch profile:', error)
+        console.error('Failed to load profile:', error)
+        setIsInitialLoad(false)
+        setIsSyncing(false)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchProfile()
+    loadProfile()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
@@ -134,7 +199,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       displayName: name,
       email: user.email,
       memberSince: profile.memberSince || user.created_at || new Date().toISOString(),
-      accountType: profile.accountType || 'free',
+      accountType: profile.accountType || 'Free',
       importedResources: profile.importedResources,
       lastActive: new Date().toISOString(),
     }
@@ -149,19 +214,47 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     try { await saveWrite({ displayName: name }) } catch {}
   }
 
+  const updateAccountType = async (type: string) => {
+    if (!user?.email) throw new Error('No user email')
+
+    const password = await getOrCreateProfileKey(user.email)
+    const profileData = {
+      displayName: profile.displayName || (user.user_metadata?.display_name as string) || user.email?.split('@')[0] || 'User',
+      email: user.email,
+      memberSince: profile.memberSince || user.created_at || new Date().toISOString(),
+      accountType: type,
+      importedResources: profile.importedResources,
+      lastActive: new Date().toISOString(),
+    }
+
+    await saveProfileEncrypted(profileData, password)
+
+    // Update local state immediately
+    setProfile(prev => ({ ...prev, accountType: type }))
+
+    // Also sync auth metadata so current session reflects the new role
+    try { await supabase.auth.updateUser({ data: { role: type } }) } catch {}
+  }
+
   const updateAvatar = async (blob: Blob) => {
     if (!user?.email) throw new Error('No user email')
     
-    const { uploadProfilePictureEncrypted } = await import('@/lib/services')
-    const password = await getOrCreateProfileKey(user.email)
-    await uploadProfilePictureEncrypted(blob, password)
+    // Use the new avatar service for upload
+    const result = await avatarService.uploadAvatar(user.email, blob)
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to upload avatar')
+    }
     
-    // Update local state immediately
-    const croppedUrl = URL.createObjectURL(blob)
+    // Get the new avatar URL
+    const avatarUrl = await avatarService.getAvatarUrl(user.email)
+    
+    // Clean up old avatar URL
     if (profile.avatarUrl) {
       try { URL.revokeObjectURL(profile.avatarUrl) } catch {}
     }
-    setProfile(prev => ({ ...prev, avatarUrl: croppedUrl }))
+    
+    // Update local state
+    setProfile(prev => ({ ...prev, avatarUrl }))
   }
 
   const refreshProfile = async () => {
@@ -178,8 +271,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     <ProfileContext.Provider value={{
       profile,
       isLoading,
+      isInitialLoad,
+      isSyncing,
       updateDisplayName,
       updateAvatar,
+      updateAccountType,
       refreshProfile,
     }}>
       {children}
