@@ -137,57 +137,56 @@ export function ImportPage() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="h-full bg-gray-50 dark:bg-gray-950 flex flex-col">
+      {/* Fixed Header */}
+      <div className="px-6 py-6 flex-shrink-0">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Import Resources</h1>
+        <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-300 max-w-4xl mb-8">
+          Import curated resources with a guided workflow. Choose the destination category, refine with a subcategory, and upload JSON that follows the required schema to keep your collection consistent.
+        </p>
+      </div>
+
+      {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        <div style={{ padding: '64px 64px 80px 64px' }} className="mx-auto w-full space-y-20">
-          <div className="space-y-5">
-            <div className="space-y-3.5">
-              <div className="inline-block rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 shadow-lg">
-                <h1 className="text-4xl font-extrabold tracking-tight text-white">Import Resources</h1>
-              </div>
-              <p className="max-w-4xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-                Import curated resources with a guided workflow. Choose the destination category, refine with a subcategory, and upload JSON that follows the required schema to keep your collection consistent.
-              </p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:gap-6">
-              <div className="flex h-full flex-col gap-4 rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-200">
-                    {SelectedIcon ? <SelectedIcon className="h-6 w-6" /> : <CheckCircle className="h-6 w-6 text-blue-500" />}
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Current selection</p>
-                    <p className="text-xl font-semibold text-blue-900 dark:text-blue-100">
-                      {selectedCategoryInfo?.label ?? 'Choose a category'}
-                    </p>
-                  </div>
+        <div className="px-6 py-8 space-y-20 max-w-7xl mx-auto">
+          <div className="grid gap-4 md:grid-cols-2 lg:gap-6">
+            <div className="flex h-full flex-col gap-4 rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-200">
+                  {SelectedIcon ? <SelectedIcon className="h-6 w-6" /> : <CheckCircle className="h-6 w-6 text-blue-500" />}
                 </div>
-                <p className="text-sm text-blue-700/80 dark:text-blue-200/70">
-                  {selectedCategoryInfo ? (
-                    hasSubcategories ? (
-                      selectedSubcategoryInfo ? (
-                        <>Subcategory: {selectedSubcategoryInfo.label}</>
-                      ) : (
-                        'Select a subcategory to narrow the import.'
-                      )
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Current selection</p>
+                  <p className="text-xl font-semibold text-blue-900 dark:text-blue-100">
+                    {selectedCategoryInfo?.label ?? 'Choose a category'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-blue-700/80 dark:text-blue-200/70">
+                {selectedCategoryInfo ? (
+                  hasSubcategories ? (
+                    selectedSubcategoryInfo ? (
+                      <>Subcategory: {selectedSubcategoryInfo.label}</>
                     ) : (
-                      'This category does not require a subcategory.'
+                      'Select a subcategory to narrow the import.'
                     )
                   ) : (
-                    'Start by selecting a category below.'
-                  )}
-                </p>
-              </div>
-              <div className="flex h-full flex-col rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300">Process overview</p>
-                <div className="mt-3 space-y-3 text-sm leading-5 text-slate-600 dark:text-slate-300">
-                  {['Choose a category to define where the resources belong.', 'Refine with a subcategory or confirm that none is needed.', 'Prepare JSON that matches the schema and import.'].map((text, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
-                      <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-500" />
-                      <span><strong className="font-semibold">Step {idx + 1}.</strong> {text}</span>
-                    </div>
-                  ))}
-                </div>
+                    'This category does not require a subcategory.'
+                  )
+                ) : (
+                  'Start by selecting a category below.'
+                )}
+              </p>
+            </div>
+            <div className="flex h-full flex-col rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300">Process overview</p>
+              <div className="mt-3 space-y-3 text-sm leading-5 text-slate-600 dark:text-slate-300">
+                {['Choose a category to define where the resources belong.', 'Refine with a subcategory or confirm that none is needed.', 'Prepare JSON that matches the schema and import.'].map((text, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-500" />
+                    <span><strong className="font-semibold">Step {idx + 1}.</strong> {text}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -198,19 +197,19 @@ export function ImportPage() {
               <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">Category Selection</span>
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
             </div>
-            <div className="grid gap-8 lg:gap-10 xl:grid-cols-[1.7fr_1fr]">
-              <div className="rounded-3xl border-2 border-gray-200 bg-white p-8 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+            <div className="max-w-7xl mx-auto">
+              <div className="rounded-3xl border-2 border-gray-200 bg-white p-10 shadow-lg dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 1</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Choose a category</h2>
-                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Pick the resource family that best matches the content you plan to import.</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Choose a category</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white">Pick the resource family that best matches the content you plan to import.</p>
                   </div>
                   <span className="self-start rounded-full border border-blue-200/70 bg-blue-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:border-blue-700/60 dark:bg-blue-900/30 dark:text-blue-200">
                     {selectedCategoryInfo?.label ?? 'Not selected'}
                   </span>
                 </div>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:gap-5">
+                <div className="mt-6 grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {categories.map(category => {
                     const Icon = category.icon;
                     const isActive = selectedCategory === category.id;
@@ -266,8 +265,8 @@ export function ImportPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 2</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Refine the focus</h2>
-                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Pick a subcategory to keep your resources organized.</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Refine the focus</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white">Pick a subcategory to keep your resources organized.</p>
                   </div>
                   <span className="self-start rounded-full border border-purple-200/70 bg-purple-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-purple-600 dark:border-purple-700/60 dark:bg-purple-900/30 dark:text-purple-200">
                     {selectedSubcategoryInfo?.label ?? (hasSubcategories ? 'None selected' : 'Not required')}
@@ -275,7 +274,7 @@ export function ImportPage() {
                 </div>
 
                 {hasSubcategories ? (
-                  <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {activeSubcategories.map(subcategory => {
                       const isActive = selectedSubcategory === subcategory.id;
                       return (
@@ -336,14 +335,14 @@ export function ImportPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 3</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Prepare your JSON</h2>
-                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Use the schema template. You can upload arrays with multiple resources at once.</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Prepare your JSON</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white">Use the schema template. You can upload arrays with multiple resources at once.</p>
                   </div>
                 </div>
 
                 <div className="mt-6 rounded-2xl border-2 border-gray-200 bg-gray-50 p-5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900">
                   <div className="h-1 w-full rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500"></div>
-                  <pre className="mt-4 max-h-72 overflow-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+                  <pre className="mt-4 max-h-72 overflow-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-slate-200 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-track]:bg-gray-800 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb:hover]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb:hover]:bg-gray-500">
                     <span className="text-blue-600 dark:text-blue-400">[</span>{'\n'}
                     <span className="text-gray-600 dark:text-gray-400 ml-2">{`{`}</span>{'\n'}
                     <span className="text-purple-600 dark:text-purple-400 ml-4">"title": </span><span className="text-green-600 dark:text-green-400">"Introduction to Machine Learning"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
@@ -405,40 +404,56 @@ export function ImportPage() {
             <div className="rounded-3xl border-2 border-gray-200 bg-white p-8 shadow-lg dark:border-gray-800 dark:bg-gray-900">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 4</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Match the schema</h2>
-                <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Validate each resource against the required and optional fields.</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Match the schema</h2>
+                <p className="mt-1.5 text-sm text-slate-600 dark:text-white">Validate each resource against the required and optional fields.</p>
               </div>
 
-              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-red-500 dark:text-red-300">Required fields</h3>
-                  <div className="mt-3 flex flex-wrap gap-3">
+              <div className="mt-6 grid grid-cols-1 gap-8 xl:grid-cols-[1fr_1fr] 2xl:grid-cols-[1.2fr_0.8fr]">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 w-3 rounded-full bg-gradient-to-r from-red-500 to-red-600"></div>
+                    <h3 className="text-lg font-bold text-red-600 dark:text-red-400">Required fields</h3>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {requiredFields.map(field => (
-                      <div key={field.key} className="rounded-xl border-2 border-red-200/80 bg-red-50/60 px-4 py-3 dark:border-red-800/70 dark:bg-red-950/30 hover:border-red-300 dark:hover:border-red-700 transition-colors">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-400 flex-shrink-0"></span>
-                          <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold !text-black border border-red-200 dark:border-red-800">
-                            {field.key}
-                          </span>
+                      <div key={field.key} className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-50/90 via-white to-red-50/80 p-5 shadow-lg ring-2 ring-red-400/80 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:ring-red-500 hover:scale-[1.02] dark:from-red-950/40 dark:via-gray-900 dark:to-red-950/30 dark:ring-red-600/60 dark:hover:ring-red-500">
+                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-red-500/5 to-transparent opacity-50"></div>
+                        <div className="relative flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-2 min-w-0">
+                            <div className="inline-flex items-center rounded-full bg-red-500/15 px-3 py-1 text-sm font-semibold text-red-700 dark:bg-red-400/15 dark:text-red-300 text-left">
+                              {field.key}
+                            </div>
+                            <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 break-words text-left">{field.description}</p>
+                          </div>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/15 transition-all duration-300 group-hover:bg-red-500/25 group-hover:scale-110 dark:bg-red-400/15 dark:group-hover:bg-red-400/25 flex-shrink-0">
+                            <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-400"></span>
+                          </div>
                         </div>
-                        <p className="text-sm text-red-700/90 dark:text-red-200/90 text-left">{field.description}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Optional fields</h3>
-                  <div className="mt-3 flex flex-wrap gap-3">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 w-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-600"></div>
+                    <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400">Optional fields</h3>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {optionalFields.map(field => (
-                      <div key={field.key} className="rounded-xl border-2 border-slate-200/70 bg-slate-50/70 px-4 py-3 dark:border-slate-700/70 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400 flex-shrink-0"></span>
-                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold !text-black border border-blue-200 dark:border-blue-800">
-                            {field.key}
-                          </span>
+                      <div key={field.key} className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50/90 via-white to-blue-50/80 p-5 shadow-lg ring-2 ring-blue-400/80 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:ring-blue-500 hover:scale-[1.02] dark:from-blue-950/40 dark:via-gray-900 dark:to-blue-950/30 dark:ring-blue-600/60 dark:hover:ring-blue-500">
+                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-500/5 to-transparent opacity-50"></div>
+                        <div className="relative flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-2 min-w-0">
+                            <div className="inline-flex items-center rounded-full bg-blue-500/15 px-3 py-1 text-sm font-semibold text-blue-700 dark:bg-blue-400/15 dark:text-blue-300 text-left">
+                              {field.key}
+                            </div>
+                            <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 break-words text-left">{field.description}</p>
+                          </div>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/15 transition-all duration-300 group-hover:bg-blue-500/25 group-hover:scale-110 dark:bg-blue-400/15 dark:group-hover:bg-blue-400/25 flex-shrink-0">
+                            <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400"></span>
+                          </div>
                         </div>
-                        <p className="text-sm text-slate-600 dark:text-slate-300 text-left">{field.description}</p>
                       </div>
                     ))}
                   </div>
@@ -457,7 +472,7 @@ export function ImportPage() {
               <div className="rounded-3xl border-l-4 border-amber-400 bg-white p-8 shadow-lg dark:border-amber-500/70 dark:bg-gray-900">
                 <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">Helpful tips</h3>
                 <p className="mt-2 text-sm text-amber-800/90 dark:text-amber-100/80">
-                  You can omit the <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs">category</code> and <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs">subcategory</code> fields and they will default to your selections above.
+                  You can omit the <code className="rounded bg-amber-100 px-1.5 py-0.5 text-sm dark:text-black">category</code> and <code className="rounded bg-amber-100 px-1.5 py-0.5 text-sm dark:text-black">subcategory</code> fields and they will default to your selections above.
                 </p>
                 <ul className="mt-4 space-y-2 text-sm text-amber-800/90 dark:text-amber-100/80">
                   <li>Bundle resources with similar metadata to speed up review.</li>
