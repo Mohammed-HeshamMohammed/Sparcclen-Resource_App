@@ -1,398 +1,493 @@
 import { useState } from 'react';
-import { Brain, Globe, FlaskConical, BookOpen, Wrench, FileJson, Upload, Crown } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
+import {
+  Brain,
+  Globe,
+  FlaskConical,
+  BookOpen,
+  Wrench,
+  Upload,
+  Crown,
+  CheckCircle,
+  Loader2,
+  AlertCircle
+} from 'lucide-react';
 
-type CategoryType = 'ai-and-ml' | 'web-and-design' | 'rnd' | 'studying' | 'tools' | 'ceo';
+type CategoryType = 'ai-and-ml' | 'web-and-design' | 'rnd' | 'studying' | 'tools';
+type SubcategoryType = string;
+
+interface Subcategory {
+  id: SubcategoryType;
+  label: string;
+  description: string;
+}
+
+const subcategories: Record<CategoryType, Subcategory[]> = {
+  'ai-and-ml': [
+    { id: 'tools', label: 'Tools', description: 'AI and ML development tools and frameworks' },
+    { id: 'guides', label: 'Guides', description: 'Tutorials and guides for AI/ML concepts' },
+    { id: 'offline-llms', label: 'Free Offline LLMs', description: 'Free offline Large Language Models content' },
+    { id: 'training-ml', label: 'Training ML', description: 'Machine learning training materials and courses' },
+    { id: 'vision', label: 'Vision', description: 'Computer vision and image processing resources' }
+  ],
+  'web-and-design': [
+    { id: 'colors', label: 'Colors', description: 'Color palettes and design systems' },
+    { id: 'mockups', label: 'Mockups', description: 'Website and app mockup templates' },
+    { id: 'ui-ux-plugins', label: 'UI/UX Plugins', description: 'Design plugins and extensions' },
+    { id: 'tools', label: 'Tools', description: 'Web development and design tools' },
+    { id: 'fonts', label: 'Fonts', description: 'Typography and font collections' },
+    { id: 'library', label: 'Library', description: 'Design assets and component libraries' }
+  ],
+  rnd: [
+    { id: 'research-papers', label: 'Research Papers', description: 'Academic research papers and publications' },
+    { id: 'innovation', label: 'Innovation', description: 'Innovation methodologies and frameworks' }
+  ],
+  studying: [
+    { id: 'books', label: 'Books', description: 'Educational books and textbooks' },
+    { id: 'roadmaps', label: 'Roadmaps', description: 'Learning paths and study roadmaps' },
+    { id: 'youtube-videos', label: 'YouTube Videos', description: 'Educational video content' }
+  ],
+  tools: [
+    { id: 'editing', label: 'Editing', description: 'Content editing and processing tools' },
+    { id: 'video-generation', label: 'Video Generation', description: 'AI-powered video creation tools' }
+  ]
+};
+
+const categories = [
+  {
+    id: 'ai-and-ml' as CategoryType,
+    label: 'AI & ML',
+    icon: Brain,
+    description: 'AI and machine learning resources, tools, and guides.'
+  },
+  {
+    id: 'web-and-design' as CategoryType,
+    label: 'Web & Design',
+    icon: Globe,
+    description: 'Web development and design assets, tools, and libraries.'
+  },
+  {
+    id: 'rnd' as CategoryType,
+    label: 'RnD',
+    icon: FlaskConical,
+    description: 'Research papers, innovation frameworks, and experimental work.'
+  },
+  {
+    id: 'studying' as CategoryType,
+    label: 'Studying',
+    icon: BookOpen,
+    description: 'Educational books, learning roadmaps, and video content.'
+  },
+  {
+    id: 'tools' as CategoryType,
+    label: 'Tools',
+    icon: Wrench,
+    description: 'Development tools for editing and content creation.'
+  }
+];
+
+const requiredFields = [
+  { key: 'title', description: 'Resource title' },
+  { key: 'description', description: 'Brief description' },
+  { key: 'url', description: 'Valid URL to resource' }
+];
+
+const optionalFields = [
+  { key: 'tags', description: 'Array of tags' },
+  { key: 'difficulty', description: 'Skill level' },
+  { key: 'estimatedTime', description: 'Time estimate' },
+  { key: 'author', description: 'Resource creator' },
+  { key: 'language', description: 'Language code' },
+  { key: 'thumbnail', description: 'Thumbnail image URL' },
+  { key: 'subcategory', description: 'Subcategory (auto-assigned if omitted)' },
+  { key: 'category', description: 'Category (auto-assigned if omitted)' }
+];
 
 export function ImportPage() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryType>('ai-and-ml');
-  const { user } = useAuth();
-
-  // Check if user is CEO
-  const isCEO = user?.user_metadata?.role === 'CEO' || user?.app_metadata?.role === 'CEO';
-
-  const categories = [
-    {
-      id: 'ai-and-ml' as CategoryType,
-      label: 'AI & ML',
-      icon: Brain,
-      description: 'Artificial Intelligence and Machine Learning resources'
-    },
-    {
-      id: 'web-and-design' as CategoryType,
-      label: 'Web & Design',
-      icon: Globe,
-      description: 'Web development and design resources'
-    },
-    {
-      id: 'rnd' as CategoryType,
-      label: 'R&D',
-      icon: FlaskConical,
-      description: 'Research and Development resources'
-    },
-    {
-      id: 'studying' as CategoryType,
-      label: 'Studying',
-      icon: BookOpen,
-      description: 'Educational and study materials'
-    },
-    {
-      id: 'tools' as CategoryType,
-      label: 'Tools',
-      icon: Wrench,
-      description: 'Development tools and utilities'
-    },
-    {
-      id: 'ceo' as CategoryType,
-      label: 'CEO',
-      icon: Crown,
-      description: 'Leadership and executive management resources'
-    }
-  ];
+  const [selectedSubcategory, setSelectedSubcategory] = useState<SubcategoryType>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedCategoryInfo = categories.find(cat => cat.id === selectedCategory);
+  const SelectedIcon = selectedCategoryInfo?.icon;
+  const activeSubcategories = subcategories[selectedCategory] ?? [];
+  const selectedSubcategoryInfo = selectedSubcategory
+    ? activeSubcategories.find(sub => sub.id === selectedSubcategory)
+    : undefined;
+  const hasSubcategories = activeSubcategories.length > 0;
+
+  const handleImport = async () => {
+    if (hasSubcategories && !selectedSubcategory) {
+      setError('Please choose a subcategory before importing.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const subcategoryLabel = selectedSubcategoryInfo ? ` (${selectedSubcategoryInfo.label})` : '';
+      alert(`Import placeholder: ${selectedCategoryInfo?.label ?? 'Category'}${subcategoryLabel} resources will be processed here.`);
+    } catch {
+      setError('Import failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Scrollable content container without visible scrollbar */}
+    <div className="flex h-full flex-col bg-gray-50 dark:bg-gray-950">
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        <div className="w-full p-6 space-y-8">
-          {/* Header */}
-          <div className="text-left space-y-2">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Import Resources
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Import resources by selecting a category and using the provided JSON format
-            </p>
-          </div>
-
-          {/* Category Selection and JSON Import - Side by Side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Category Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-                Select Category
-              </h2>
-              <div className="grid grid-cols-1 gap-4">
-                {categories.map((category) => {
-                  const Icon = category.icon;
-                  return (
-                    <label
-                      key={category.id}
-                      className={`relative flex flex-col items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                        selectedCategory === category.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="category"
-                        value={category.id}
-                        checked={selectedCategory === category.id}
-                        onChange={(e) => setSelectedCategory(e.target.value as CategoryType)}
-                        className="sr-only"
-                      />
-                      <Icon className={`h-8 w-8 mb-2 ${
-                        selectedCategory === category.id
-                          ? 'text-blue-500'
-                          : 'text-gray-600 dark:text-gray-400'
-                      }`} />
-                      <span className={`font-medium text-center ${
-                        selectedCategory === category.id
-                          ? 'text-blue-700 dark:text-blue-300'
-                          : 'text-gray-900 dark:text-white'
-                      }`}>
-                        {category.label}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
-                        {category.description}
-                      </span>
-                    </label>
-                  );
-                })}
+        <div style={{ padding: '64px 64px 80px 64px' }} className="mx-auto w-full space-y-20">
+          <div className="space-y-5">
+            <div className="space-y-3.5">
+              <div className="inline-block rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 shadow-lg">
+                <h1 className="text-4xl font-extrabold tracking-tight text-white">Import Resources</h1>
+              </div>
+              <p className="max-w-4xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+                Import curated resources with a guided workflow. Choose the destination category, refine with a subcategory, and upload JSON that follows the required schema to keep your collection consistent.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:gap-6">
+              <div className="flex h-full flex-col gap-4 rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-200">
+                    {SelectedIcon ? <SelectedIcon className="h-6 w-6" /> : <CheckCircle className="h-6 w-6 text-blue-500" />}
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Current selection</p>
+                    <p className="text-xl font-semibold text-blue-900 dark:text-blue-100">
+                      {selectedCategoryInfo?.label ?? 'Choose a category'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-blue-700/80 dark:text-blue-200/70">
+                  {selectedCategoryInfo ? (
+                    hasSubcategories ? (
+                      selectedSubcategoryInfo ? (
+                        <>Subcategory: {selectedSubcategoryInfo.label}</>
+                      ) : (
+                        'Select a subcategory to narrow the import.'
+                      )
+                    ) : (
+                      'This category does not require a subcategory.'
+                    )
+                  ) : (
+                    'Start by selecting a category below.'
+                  )}
+                </p>
+              </div>
+              <div className="flex h-full flex-col rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300">Process overview</p>
+                <div className="mt-3 space-y-3 text-sm leading-5 text-slate-600 dark:text-slate-300">
+                  {['Choose a category to define where the resources belong.', 'Refine with a subcategory or confirm that none is needed.', 'Prepare JSON that matches the schema and import.'].map((text, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-500" />
+                      <span><strong className="font-semibold">Step {idx + 1}.</strong> {text}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+          </div>
 
-            {/* JSON Example and Import Button */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-                JSON Format Example
-              </h2>
-              <div className="space-y-4">
-                <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                  <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap overflow-x-auto">
-{selectedCategory === 'ai-and-ml' && `[
-  {
-    "title": "Introduction to Machine Learning",
-    "description": "Comprehensive guide to ML basics with hands-on examples",
-    "url": "https://example.com/ml-intro",
-    "tags": ["machine-learning", "python", "scikit-learn", "beginner"],
-    "difficulty": "Beginner",
-    "estimatedTime": "2 hours",
-    "author": "Dr. Sarah Chen",
-    "language": "en",
-    "thumbnail": "https://example.com/ml-thumb.jpg",
-    "category": "ai-and-ml"
-  },
-  {
-    "title": "Deep Learning with TensorFlow",
-    "description": "Advanced neural networks and deep learning architectures",
-    "url": "https://example.com/tensorflow-guide",
-    "tags": ["deep-learning", "tensorflow", "neural-networks", "advanced"],
-    "difficulty": "Advanced",
-    "estimatedTime": "4 hours",
-    "author": "Prof. Michael Rodriguez",
-    "language": "en",
-    "thumbnail": "https://example.com/tf-thumb.jpg",
-    "category": "ai-and-ml"
-  }
-]`}
+          <div>
+            <div className="mb-8 flex items-center gap-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
+              <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">Category Selection</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
+            </div>
+            <div className="grid gap-8 lg:gap-10 xl:grid-cols-[1.7fr_1fr]">
+              <div className="rounded-3xl border-2 border-gray-200 bg-white p-8 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 1</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Choose a category</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Pick the resource family that best matches the content you plan to import.</p>
+                  </div>
+                  <span className="self-start rounded-full border border-blue-200/70 bg-blue-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:border-blue-700/60 dark:bg-blue-900/30 dark:text-blue-200">
+                    {selectedCategoryInfo?.label ?? 'Not selected'}
+                  </span>
+                </div>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:gap-5">
+                  {categories.map(category => {
+                    const Icon = category.icon;
+                    const isActive = selectedCategory === category.id;
+                    return (
+                      <label
+                        key={category.id}
+                        className={`group relative flex items-start gap-4 rounded-2xl border-2 p-6 transition-all duration-200 ${
+                          isActive
+                            ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/10 dark:border-blue-500 dark:bg-blue-900/30'
+                            : 'border-gray-200 bg-white hover:border-blue-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="category"
+                          value={category.id}
+                          checked={isActive}
+                          onChange={e => {
+                            setSelectedCategory(e.target.value as CategoryType);
+                            setSelectedSubcategory('');
+                            setError(null);
+                          }}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center gap-4">
+                          <Icon className={`h-14 w-14 transition-colors duration-200 ${
+                            isActive ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-600 dark:text-gray-300 dark:group-hover:text-blue-200'
+                          }`} />
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-semibold text-slate-900 dark:text-white">{category.label}</span>
+                              {isActive && <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-500/20 dark:text-blue-200">Selected</span>}
+                            </div>
+                            <p className="text-sm leading-relaxed text-slate-600 transition-colors duration-200 dark:text-slate-300">{category.description}</p>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
 
-{selectedCategory === 'web-and-design' && `[
-  {
-    "title": "Modern CSS Grid Layouts",
-    "description": "Master CSS Grid for responsive web design",
-    "url": "https://example.com/css-grid-guide",
-    "tags": ["css", "grid", "responsive-design", "frontend"],
-    "difficulty": "Intermediate",
-    "estimatedTime": "1.5 hours",
-    "author": "Emma Thompson",
-    "language": "en",
-    "thumbnail": "https://example.com/css-grid-thumb.jpg",
-    "category": "web-and-design"
-  },
-  {
-    "title": "React Hooks Deep Dive",
-    "description": "Complete guide to React Hooks with practical examples",
-    "url": "https://example.com/react-hooks",
-    "tags": ["react", "hooks", "javascript", "frontend"],
-    "difficulty": "Intermediate",
-    "estimatedTime": "2.5 hours",
-    "author": "Alex Kumar",
-    "language": "en",
-    "thumbnail": "https://example.com/react-hooks-thumb.jpg",
-    "category": "web-and-design"
-  }
-]`}
+          <div>
+            <div className="mb-8 flex items-center gap-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
+              <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">Import & Validation</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
+            </div>
+            <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
+              <div className="rounded-3xl border-2 border-gray-200 bg-white p-8 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 2</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Refine the focus</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Pick a subcategory to keep your resources organized.</p>
+                  </div>
+                  <span className="self-start rounded-full border border-purple-200/70 bg-purple-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-purple-600 dark:border-purple-700/60 dark:bg-purple-900/30 dark:text-purple-200">
+                    {selectedSubcategoryInfo?.label ?? (hasSubcategories ? 'None selected' : 'Not required')}
+                  </span>
+                </div>
 
-{selectedCategory === 'rnd' && `[
-  {
-    "title": "Research Methodology Fundamentals",
-    "description": "Essential research methods for R&D projects",
-    "url": "https://example.com/research-methods",
-    "tags": ["research", "methodology", "academic", "rnd"],
-    "difficulty": "Intermediate",
-    "estimatedTime": "3 hours",
-    "author": "Dr. Lisa Park",
-    "language": "en",
-    "thumbnail": "https://example.com/research-thumb.jpg",
-    "category": "rnd"
-  },
-  {
-    "title": "Innovation Management Strategies",
-    "description": "Managing innovation pipelines and R&D processes",
-    "url": "https://example.com/innovation-management",
-    "tags": ["innovation", "management", "strategy", "rnd"],
-    "difficulty": "Advanced",
-    "estimatedTime": "2 hours",
-    "author": "Prof. David Wilson",
-    "language": "en",
-    "thumbnail": "https://example.com/innovation-thumb.jpg",
-    "category": "rnd"
-  }
-]`}
+                {hasSubcategories ? (
+                  <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                    {activeSubcategories.map(subcategory => {
+                      const isActive = selectedSubcategory === subcategory.id;
+                      return (
+                        <label
+                          key={subcategory.id}
+                          className={`group relative flex flex-col gap-3 rounded-2xl border-2 p-4 transition-all duration-200 cursor-pointer ${
+                            isActive
+                              ? 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-500/10 dark:border-purple-500 dark:bg-purple-900/30'
+                              : 'border-gray-200 bg-white hover:border-purple-200 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-purple-500/40'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="subcategory"
+                            value={subcategory.id}
+                            checked={isActive}
+                            onChange={e => {
+                              setSelectedSubcategory(e.target.value);
+                              setError(null);
+                            }}
+                            className="sr-only"
+                          />
+                          <div className="flex items-center justify-between gap-3">
+                            <span className={`text-sm font-semibold ${isActive ? 'text-purple-600 dark:text-purple-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                              {subcategory.label}
+                            </span>
+                            {isActive ? (
+                              <CheckCircle className="h-5 w-5 text-purple-500" />
+                            ) : (
+                              <span className="h-2 w-2 rounded-full bg-slate-300 transition-colors duration-200 group-hover:bg-purple-400 dark:bg-slate-600 dark:group-hover:bg-purple-400"></span>
+                            )}
+                          </div>
+                          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{subcategory.description}</p>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-7 text-center dark:border-gray-600 dark:bg-gray-900">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-200">
+                      <CheckCircle className="h-6 w-6" />
+                    </div>
+                    <p className="mt-3 text-base font-semibold text-slate-800 dark:text-slate-100">No subcategories required</p>
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">This category currently imports everything at the top level. You can proceed directly to the JSON upload.</p>
+                  </div>
+                )}
 
-{selectedCategory === 'studying' && `[
-  {
-    "title": "Effective Study Techniques",
-    "description": "Science-backed methods for better learning outcomes",
-    "url": "https://example.com/study-techniques",
-    "tags": ["studying", "learning", "memory", "productivity"],
-    "difficulty": "Beginner",
-    "estimatedTime": "1 hour",
-    "author": "Dr. Maria Santos",
-    "language": "en",
-    "thumbnail": "https://example.com/study-thumb.jpg",
-    "category": "studying"
-  },
-  {
-    "title": "Note-Taking Strategies",
-    "description": "Advanced note-taking methods for different subjects",
-    "url": "https://example.com/note-taking",
-    "tags": ["note-taking", "studying", "organization", "academic"],
-    "difficulty": "Beginner",
-    "estimatedTime": "45 minutes",
-    "author": "Prof. Robert Kim",
-    "language": "en",
-    "thumbnail": "https://example.com/notes-thumb.jpg",
-    "category": "studying"
-  }
-]`}
+                {selectedSubcategoryInfo && (
+                  <div className="mt-6 flex justify-center">
+                    <div className="rounded-2xl border-2 border-purple-200 bg-purple-50 p-4 text-sm text-purple-700 dark:border-purple-600/70 dark:bg-purple-900/40 dark:text-purple-100">
+                      You will import resources into <strong>{selectedSubcategoryInfo.label}</strong> under <strong>{selectedCategoryInfo?.label}</strong>.
+                    </div>
+                  </div>
+                )}
+              </div>
 
-{selectedCategory === 'tools' && `[
-  {
-    "title": "Git and GitHub Workflow",
-    "description": "Complete guide to version control with Git and GitHub",
-    "url": "https://example.com/git-workflow",
-    "tags": ["git", "github", "version-control", "collaboration"],
-    "difficulty": "Intermediate",
-    "estimatedTime": "2 hours",
-    "author": "Carlos Mendez",
-    "language": "en",
-    "thumbnail": "https://example.com/git-thumb.jpg",
-    "category": "tools"
-  },
-  {
-    "title": "Docker Containerization Guide",
-    "description": "Learn Docker for development and deployment",
-    "url": "https://example.com/docker-guide",
-    "tags": ["docker", "containerization", "devops", "deployment"],
-    "difficulty": "Intermediate",
-    "estimatedTime": "3 hours",
-    "author": "Anna Volkov",
-    "language": "en",
-    "thumbnail": "https://example.com/docker-thumb.jpg",
-    "category": "tools"
-  }
-]`}
+              <div className="rounded-3xl border-2 border-gray-200 bg-white p-8 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 3</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Prepare your JSON</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Use the schema template. You can upload arrays with multiple resources at once.</p>
+                  </div>
+                </div>
 
-{selectedCategory === 'ceo' && `[
-  {
-    "title": "CEO Leadership Fundamentals",
-    "description": "Essential leadership skills for CEOs and executives",
-    "url": "https://example.com/ceo-leadership",
-    "tags": ["leadership", "management", "executive", "ceo"],
-    "difficulty": "Advanced",
-    "estimatedTime": "3 hours",
-    "author": "CEO Academy",
-    "language": "en",
-    "thumbnail": "https://example.com/ceo-leadership-thumb.jpg",
-    "category": "ceo"
-  },
-  {
-    "title": "Strategic Decision Making",
-    "description": "Advanced strategic thinking and decision-making frameworks",
-    "url": "https://example.com/strategic-decisions",
-    "tags": ["strategy", "decision-making", "leadership", "ceo"],
-    "difficulty": "Advanced",
-    "estimatedTime": "2.5 hours",
-    "author": "Dr. Jennifer Walsh",
-    "language": "en",
-    "thumbnail": "https://example.com/strategy-thumb.jpg",
-    "category": "ceo"
-  }
-]`}
+                <div className="mt-6 rounded-2xl border-2 border-gray-200 bg-gray-50 p-5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900">
+                  <div className="h-1 w-full rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500"></div>
+                  <pre className="mt-4 max-h-72 overflow-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+                    <span className="text-blue-600 dark:text-blue-400">[</span>{'\n'}
+                    <span className="text-gray-600 dark:text-gray-400 ml-2">{`{`}</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"title": </span><span className="text-green-600 dark:text-green-400">"Introduction to Machine Learning"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"description": </span><span className="text-green-600 dark:text-green-400">"Comprehensive guide to ML basics with hands-on examples"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"url": </span><span className="text-green-600 dark:text-green-400">"https://example.com/ml-intro"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"tags": </span><span className="text-blue-600 dark:text-blue-400">[</span><span className="text-green-600 dark:text-green-400">"machine-learning"</span><span className="text-gray-600 dark:text-gray-400">, </span><span className="text-green-600 dark:text-green-400">"python"</span><span className="text-blue-600 dark:text-blue-400">]</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"difficulty": </span><span className="text-green-600 dark:text-green-400">"Beginner"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"estimatedTime": </span><span className="text-green-600 dark:text-green-400">"2 hours"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"author": </span><span className="text-green-600 dark:text-green-400">"Dr. Sarah Chen"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"language": </span><span className="text-green-600 dark:text-green-400">"en"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"thumbnail": </span><span className="text-green-600 dark:text-green-400">"https://example.com/ml-thumb.jpg"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"subcategory": </span><span className="text-green-600 dark:text-green-400">"guides"</span><span className="text-gray-600 dark:text-gray-400">,</span>{'\n'}
+                    <span className="text-purple-600 dark:text-purple-400 ml-4">"category": </span><span className="text-green-600 dark:text-green-400">"ai-and-ml"</span>{'\n'}
+                    <span className="text-gray-600 dark:text-gray-400 ml-2">{`}`}</span>{'\n'}
+                    <span className="text-blue-600 dark:text-blue-400">]</span>
                   </pre>
                 </div>
 
-                <div className="flex items-center justify-center">
+                <div className="mt-6 flex flex-col gap-4">
                   <button
-                    onClick={() => alert(`Import functionality for ${selectedCategoryInfo?.label} category will be implemented here.`)}
-                    className="flex items-center space-x-2 px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 text-lg font-medium"
+                    onClick={handleImport}
+                    disabled={(hasSubcategories && !selectedSubcategory) || isLoading}
+                    className={`flex w-full items-center justify-center gap-3 rounded-2xl px-6 py-4 text-lg font-semibold transition-all duration-200 ${
+                      (hasSubcategories && !selectedSubcategory) || isLoading
+                        ? 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                        : 'bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 text-white shadow-lg shadow-blue-600/20 hover:-translate-y-px hover:shadow-xl'
+                    }`}
                   >
-                    <Upload className="h-5 w-5" />
-                    <span>Import {selectedCategoryInfo?.label} Resources</span>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                        <span>Importing…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-6 w-6" />
+                        <span>Import resources</span>
+                      </>
+                    )}
                   </button>
+
+                  {error && (
+                    <div className="flex items-center gap-2 rounded-xl border-2 border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                      <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* CEO Import Button - Only for CEO users */}
-          {isCEO && (
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-lg p-6">
-              <div className="text-center">
-                <div className="flex items-center justify-center mb-4">
-                  <Crown className="h-8 w-8 text-white mr-2" />
-                  <h2 className="text-xl font-semibold text-white">CEO Import Access</h2>
-                </div>
-                <p className="text-purple-100 mb-4">
-                  Import exclusive CEO leadership and management resources
-                </p>
-                <button
-                  onClick={() => alert('CEO import functionality will be implemented here.')}
-                  className="flex items-center space-x-2 px-8 py-4 bg-white hover:bg-gray-100 text-purple-600 rounded-lg transition-colors duration-200 text-lg font-bold mx-auto"
-                >
-                  <Upload className="h-5 w-5" />
-                  <span>Import CEO Resources</span>
-                </button>
-              </div>
+          <div>
+            <div className="mb-8 flex items-center gap-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
+              <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">Schema Validation</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
             </div>
-          )}
-
-          {/* Selected Category Info */}
-          {selectedCategoryInfo && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <div className="flex items-center space-x-2">
-                <selectedCategoryInfo.icon className="h-5 w-5 text-blue-500" />
-                <span className="font-medium text-blue-700 dark:text-blue-300">
-                  Selected: {selectedCategoryInfo.label}
-                </span>
-              </div>
-              <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-                {selectedCategoryInfo.description}
-              </p>
-            </div>
-          )}
-
-          {/* JSON Format Requirements - Full Width Below */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <FileJson className="h-5 w-5 text-green-500" />
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                JSON Format Requirements
-              </h2>
-            </div>
-
-            <div className="space-y-4 text-sm">
+            <div className="rounded-3xl border-2 border-gray-200 bg-white p-8 shadow-lg dark:border-gray-800 dark:bg-gray-900">
               <div>
-                <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                  Required JSON Structure:
-                </h3>
-                <pre className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-xs overflow-x-auto">
-{`[
-  {
-    "title": "Resource Title",
-    "description": "Brief description of the resource",
-    "url": "https://example.com/resource",
-    "tags": ["tag1", "tag2", "tag3"],
-    "difficulty": "Beginner|Intermediate|Advanced",
-    "estimatedTime": "30 minutes",
-    "author": "Resource Author",
-    "language": "en|es|fr|de|etc",
-    "thumbnail": "https://example.com/thumbnail.jpg",
-    "category": "ai-and-ml|web-and-design|rnd|studying|tools"
-  }
-]`}
-                </pre>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 4</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:!text-black">Match the schema</h2>
+                <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-700">Validate each resource against the required and optional fields.</p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                    Field Requirements:
-                  </h4>
-                  <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">title</code> - Required: Resource title</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">description</code> - Required: Brief description</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">url</code> - Required: Valid URL to resource</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">tags</code> - Optional: Array of tags</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">difficulty</code> - Optional: Skill level</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">estimatedTime</code> - Optional: Time estimate</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">author</code> - Optional: Resource creator</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">language</code> - Optional: Language code</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">thumbnail</code> - Optional: Thumbnail image URL</li>
-                    <li><code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">category</code> - Optional: Category (must match selected category)</li>
-                  </ul>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-red-500 dark:text-red-300">Required fields</h3>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {requiredFields.map(field => (
+                      <div key={field.key} className="rounded-xl border-2 border-red-200/80 bg-red-50/60 px-4 py-3 dark:border-red-800/70 dark:bg-red-950/30 hover:border-red-300 dark:hover:border-red-700 transition-colors">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="h-2 w-2 rounded-full bg-red-500 dark:bg-red-400 flex-shrink-0"></span>
+                          <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold !text-black border border-red-200 dark:border-red-800">
+                            {field.key}
+                          </span>
+                        </div>
+                        <p className="text-sm text-red-700/90 dark:text-red-200/90 text-left">{field.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Optional fields</h3>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {optionalFields.map(field => (
+                      <div key={field.key} className="rounded-xl border-2 border-slate-200/70 bg-slate-50/70 px-4 py-3 dark:border-slate-700/70 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400 flex-shrink-0"></span>
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold !text-black border border-blue-200 dark:border-blue-800">
+                            {field.key}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 text-left">{field.description}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-                <p className="text-yellow-800 dark:text-yellow-200 text-sm">
-                  <strong>Note:</strong> The <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">category</code> field should match your selected category above, or it can be omitted and will be automatically assigned based on your selection.
+          <div>
+            <div className="mb-8 flex items-center gap-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
+              <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">Additional Resources</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600"></div>
+            </div>
+            <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10">
+              <div className="rounded-3xl border-l-4 border-amber-400 bg-white p-8 shadow-lg dark:border-amber-500/70 dark:bg-gray-900">
+                <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">Helpful tips</h3>
+                <p className="mt-2 text-sm text-amber-800/90 dark:text-amber-100/80">
+                  You can omit the <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs">category</code> and <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs">subcategory</code> fields and they will default to your selections above.
                 </p>
+                <ul className="mt-4 space-y-2 text-sm text-amber-800/90 dark:text-amber-100/80">
+                  <li>Bundle resources with similar metadata to speed up review.</li>
+                  <li>Use descriptive titles and concise descriptions to help teammates find resources faster.</li>
+                </ul>
+              </div>
+
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600 via-pink-500 to-rose-500 p-8 text-white shadow-xl">
+                <div className="absolute inset-0 bg-black/10"></div>
+                <div className="relative space-y-5">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                      <Crown className="h-9 w-9" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Executive access</p>
+                      <h3 className="text-2xl font-bold">CEO Import Portal</h3>
+                    </div>
+                  </div>
+                  <p className="text-base text-white/80">
+                    Import high-priority leadership content with elevated privileges and curated review steps.
+                  </p>
+                  <button
+                    onClick={() => alert('CEO import functionality will be implemented here.')}
+                    className="inline-flex items-center justify-center gap-3 rounded-2xl bg-white px-6 py-3 text-lg font-semibold text-purple-600 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg"
+                  >
+                    <Upload className="h-6 w-6" />
+                    <span>Import CEO resources</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
