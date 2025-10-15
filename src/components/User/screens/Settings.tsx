@@ -24,7 +24,7 @@ export function Settings() {
   };
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-gray-950 flex flex-col">
+    <div className="h-full app-page-surface flex flex-col">
       {/* Settings Header */}
       <div className="px-6 py-6 flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
@@ -80,18 +80,24 @@ export function Settings() {
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Notifications</h2>
               </div>
 
-              <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300 mb-4 w-fit">
+                Coming soon
+              </div>
+
+              <div className="space-y-4 opacity-60 pointer-events-none select-none">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">Email Notifications</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Receive updates via email</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex items-center cursor-not-allowed">
                     <input
                       type="checkbox"
                       checked={notifications.email}
                       onChange={(e) => handleNotificationChange('email', e.target.checked)}
                       className="sr-only peer"
+                      disabled
+                      aria-disabled="true"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                   </label>
@@ -102,12 +108,14 @@ export function Settings() {
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">Push Notifications</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Receive browser notifications</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex items-center cursor-not-allowed">
                     <input
                       type="checkbox"
                       checked={notifications.push}
                       onChange={(e) => handleNotificationChange('push', e.target.checked)}
                       className="sr-only peer"
+                      disabled
+                      aria-disabled="true"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                   </label>
@@ -118,12 +126,14 @@ export function Settings() {
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">Update Notifications</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Get notified about new features</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex items-center cursor-not-allowed">
                     <input
                       type="checkbox"
                       checked={notifications.updates}
                       onChange={(e) => handleNotificationChange('updates', e.target.checked)}
                       className="sr-only peer"
+                      disabled
+                      aria-disabled="true"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                   </label>
@@ -138,13 +148,19 @@ export function Settings() {
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Privacy</h2>
               </div>
 
-              <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300 mb-4 w-fit">
+                Coming soon
+              </div>
+
+              <div className="space-y-4 opacity-60 pointer-events-none select-none">
                 <div>
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Profile Visibility</h3>
                   <select
                     value={privacy.profile}
                     onChange={(e) => handlePrivacyChange('profile', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled
+                    aria-disabled="true"
                   >
                     <option value="public">Public</option>
                     <option value="friends">Friends Only</option>
@@ -158,6 +174,8 @@ export function Settings() {
                     value={privacy.data}
                     onChange={(e) => handlePrivacyChange('data', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled
+                    aria-disabled="true"
                   >
                     <option value="private">Private</option>
                     <option value="anonymous">Anonymous</option>
@@ -173,13 +191,17 @@ export function Settings() {
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Data Management</h2>
               </div>
 
-              <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300 mb-4 w-fit">
+                Coming soon
+              </div>
+
+              <div className="space-y-4 opacity-60 pointer-events-none select-none">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">Export Data</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Download your data</p>
                   </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60" disabled aria-disabled="true">
                     Export
                   </button>
                 </div>
@@ -191,7 +213,9 @@ export function Settings() {
                   </div>
                   <button
                     onClick={() => localStorage.clear()}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-60"
+                    disabled
+                    aria-disabled="true"
                   >
                     Clear
                   </button>

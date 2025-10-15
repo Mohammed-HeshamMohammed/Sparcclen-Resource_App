@@ -24,13 +24,28 @@ export function formatDate(date: string | Date): string {
   })
 }
 
-export function debounce<T extends (...args: unknown[]) => unknown>(
+export function debounce<T extends (...args: unknown[]) => void>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout)
-    timeout = setTimeout(() => func(...args), wait)
+): ((...args: Parameters<T>) => void) & { cancel: () => void } {
+  let timeout: ReturnType<typeof setTimeout> | null = null
+
+  const debounced = ((...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout)
+    }
+    timeout = setTimeout(() => {
+      timeout = null
+      func(...args)
+    }, wait)
+  }) as ((...args: Parameters<T>) => void) & { cancel: () => void }
+
+  debounced.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout)
+      timeout = null
+    }
   }
+
+  return debounced
 }

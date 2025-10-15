@@ -48,11 +48,11 @@ function MainApp() {
       <div className="h-screen w-screen overflow-hidden">
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-gray-900 dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+            className="h-10 bg-[#87CEEB] dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
           >
             <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-white transition-colors duration-300">
+              <h1 className="text-lg font-semibold text-black dark:text-white transition-colors duration-300">
                 Sparcclen
               </h1>
             </div>
@@ -79,11 +79,11 @@ function MainApp() {
     <div className="h-screen w-screen overflow-hidden">
       <div className="h-full flex flex-col relative">
         <div
-          className="h-10 bg-gray-900 dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+          className="h-10 bg-[#87CEEB] dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
           <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-white transition-colors duration-300">
+            <h1 className="text-lg font-semibold text-black dark:text-white transition-colors duration-300">
               Sparcclen
             </h1>
           </div>
@@ -93,7 +93,7 @@ function MainApp() {
             onMaximizeToggle={() => setIsMaximized(!isMaximized)}
           />
         </div>
-        <div className="flex-1 overflow-hidden bg-gray-900 dark:bg-gray-800 animate-fade-in-up">
+        <div className="flex-1 overflow-hidden bg-[#87CEEB] dark:bg-gray-800 animate-fade-in-up">
           <Shell />
         </div>
       </div>
@@ -229,7 +229,7 @@ function AuthFlow() {
       <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+            className="h-10 bg-[#87CEEB] dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{
               WebkitAppRegion: 'drag'
             } as React.CSSProperties}
@@ -245,7 +245,7 @@ function AuthFlow() {
               onMaximizeToggle={() => setIsMaximized(!isMaximized)}
             />
           </div>
-          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+          <div className="flex-1 flex items-center justify-center bg-[#F0FFFF] dark:bg-gray-950">
             <SplashScreen onLoaded={() => {}} brandName="Sparcclen" tagline="Initiate the impossible" />
           </div>
         </div>
@@ -258,7 +258,7 @@ function AuthFlow() {
       <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-white dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 relative z-[60] transition-colors duration-300"
+            className="h-10 bg-[#87CEEB] dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 relative z-[60] transition-colors duration-300"
             style={{
               WebkitAppRegion: 'drag'
             } as React.CSSProperties}
@@ -274,7 +274,7 @@ function AuthFlow() {
               onMaximizeToggle={() => setIsMaximized(!isMaximized)}
             />
           </div>
-          <div className="flex-1 overflow-hidden bg-gray-50 dark:bg-gray-950">
+          <div className="flex-1 overflow-hidden bg-[#F0FFFF] dark:bg-gray-950">
             <ThemeSelection onThemeSelect={handleThemeSelect} onConfirm={handleThemeConfirm} isVisible={true} />
           </div>
         </div>
@@ -287,7 +287,7 @@ function AuthFlow() {
       <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+            className="h-10 bg-[#87CEEB] dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{
               WebkitAppRegion: 'drag'
             } as React.CSSProperties}
@@ -303,7 +303,7 @@ function AuthFlow() {
               onMaximizeToggle={() => setIsMaximized(!isMaximized)}
             />
           </div>
-          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+          <div className="flex-1 flex items-center justify-center bg-[#F0FFFF] dark:bg-gray-950">
             <SplashScreen onLoaded={() => {}} brandName="Sparcclen" tagline="Initiate the impossible" />
           </div>
         </div>
@@ -316,7 +316,7 @@ function AuthFlow() {
       <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+            className="h-10 bg-[#87CEEB] dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{
               WebkitAppRegion: 'drag'
             } as React.CSSProperties}
@@ -417,7 +417,7 @@ function AuthFlow() {
     <div className={`h-screen w-screen overflow-hidden`}>
       <div className="h-full flex flex-col relative">
         <div
-          className="h-10 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
+          className="h-10 bg-[#87CEEB] dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
           style={{
             WebkitAppRegion: 'drag'
           } as React.CSSProperties}
@@ -434,7 +434,7 @@ function AuthFlow() {
           />
         </div>
 
-         <div className="flex-1 flex items-center justify-center overflow-auto bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+         <div className="flex-1 flex items-center justify-center overflow-auto bg-[#F0FFFF] dark:bg-gray-950 transition-colors duration-300">
            <div className={`${showStartupSplash ? 'opacity-0' : isAuthSuccess ? 'animate-slide-down' : 'animate-swipe-in'}`}>
              {renderAuthScreen()}
            </div>

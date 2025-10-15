@@ -88,7 +88,7 @@ export const DesktopSidebar = ({
   return (
     <motion.div
       className={cn(
-        "h-full px-5 py-5 hidden md:flex md:flex-col bg-gray-900 dark:bg-gray-800 w-[420px] flex-shrink-0",
+        "h-full px-5 py-5 hidden md:flex md:flex-col app-sidebar-surface w-[420px] flex-shrink-0",
         className
       )}
       animate={{
@@ -113,13 +113,13 @@ export const MobileSidebar = ({
     <>
       <div
         className={cn(
-          "h-12 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-gray-900 dark:bg-gray-800 w-full"
+          "h-12 px-4 py-4 flex flex-row md:hidden items-center justify-between app-sidebar-surface w-full"
         )}
         {...props}
       >
         <div className="flex justify-end z-20 w-full">
           <Menu
-            className="text-gray-200 dark:text-gray-300 cursor-pointer"
+            className="sidebar-icon cursor-pointer transition-colors"
             onClick={() => setOpen(!open)}
           />
         </div>
@@ -134,12 +134,12 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed h-full w-full inset-0 bg-gray-900 dark:bg-gray-800 p-10 z-[100] flex flex-col justify-between",
+                "fixed h-full w-full inset-0 app-sidebar-surface p-10 z-[100] flex flex-col justify-between",
                 className
               )}
             >
               <div
-                className="absolute right-10 top-10 z-50 text-gray-200 dark:text-gray-300 cursor-pointer"
+                className="absolute right-10 top-10 z-50 sidebar-icon cursor-pointer transition-colors"
                 onClick={() => setOpen(!open)}
               >
                 <X />
@@ -168,7 +168,7 @@ export const SidebarLink = ({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center justify-start gap-3 group/sidebar py-3 transition-all duration-200 w-full text-left",
+        "flex items-center justify-start gap-3 group/sidebar py-3 px-3 transition-all duration-200 w-full text-left sidebar-button",
         className
       )}
       {...props}
@@ -185,7 +185,7 @@ export const SidebarLink = ({
           duration: 0.15,
           ease: "easeInOut"
         }}
-        className="text-gray-200 dark:text-gray-300 text-lg font-medium transition duration-150 whitespace-nowrap overflow-hidden min-w-22"
+        className="text-[var(--app-sidebar-text)] text-lg font-medium transition duration-150 whitespace-nowrap overflow-hidden min-w-22"
       >
         {link.label}
       </motion.span>

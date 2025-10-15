@@ -258,7 +258,7 @@ export function ThemeSelection({ onThemeSelect, onConfirm, isVisible = true }: T
                 key={option.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 1 }}
+                transition={{ delay: index * 0.5 }}
                 onClick={() => handleThemeClick(option.id)}
                 disabled={isRateLimited || isCooldownActive}
                 className={cn(

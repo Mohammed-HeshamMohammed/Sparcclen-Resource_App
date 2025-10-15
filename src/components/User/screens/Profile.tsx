@@ -142,7 +142,7 @@ export function Profile() {
 
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-gray-950 flex flex-col">
+    <div className="h-full app-page-surface flex flex-col">
       {/* Profile Header */}
       <div className="px-6 py-6 flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Profile</h1>

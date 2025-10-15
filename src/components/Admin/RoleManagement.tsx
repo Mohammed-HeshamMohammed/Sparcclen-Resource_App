@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/lib/contexts/ProfileContext'
 import { notify } from '@/lib/toast'
-import { avatarService } from '@/lib/services'
+import { avatarService, supabase } from '@/lib/services'
+import type { Database } from '@/types/database'
 
 // Define types locally since we removed the preload types file
 interface AdminApiUser {
@@ -29,6 +30,7 @@ interface AdminApi {
 }
 
 type Role = 'Free' | 'Premium' | 'Admin' | 'CEO'
+type ProfileAvatarRow = Pick<Database['public']['Tables']['profiles']['Row'], 'user_id' | 'picture_enc'>
 
 interface AdminUserRow {
   id: string
@@ -113,6 +115,97 @@ export function RoleManagement() {
     }
   }, [])
 
+  const refreshUsers = useCallback(
+    async (shouldUpdate?: () => boolean) => {
+      const admin = getAdminApi()
+      if (!admin?.listUsers) {
+        throw new Error('Admin API not configured')
+      }
+
+      const response: AdminListUsersResult = await admin.listUsers()
+      if (!response.ok) throw new Error(response.error ?? 'Admin API error')
+
+      const mappedUsers = (response.users ?? []).map(mapAdminUserToRow)
+
+      if (!shouldUpdate || shouldUpdate()) {
+        setUsers(mappedUsers)
+      }
+
+      if (mappedUsers.length === 0) {
+        if (!shouldUpdate || shouldUpdate()) {
+          setAvatarUrls({})
+        }
+        return mappedUsers
+      }
+
+      const userIds = mappedUsers.map(entry => entry.id)
+
+      const resolvedAvatars: Record<string, string | null> = {}
+
+      if (online && userIds.length > 0) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select<'user_id,picture_enc', ProfileAvatarRow>('user_id,picture_enc')
+            .in('user_id', userIds)
+
+          if (error) throw error
+
+          for (const row of data ?? []) {
+            if (!row.user_id || !row.picture_enc) continue
+            const pictureEnc = row.picture_enc
+            let mime = 'image/jpeg'
+            let base64: string | null = null
+
+            try {
+              const parsed = JSON.parse(pictureEnc) as { b64?: string; mime?: string }
+              base64 = typeof parsed?.b64 === 'string' ? parsed.b64 : null
+              if (parsed?.mime) {
+                mime = parsed.mime
+              }
+            } catch {
+              base64 = pictureEnc
+            }
+
+            if (base64) {
+              resolvedAvatars[row.user_id] = `data:${mime};base64,${base64}`
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to fetch encrypted profile pictures for role management:', error)
+        }
+      }
+
+      await Promise.all(
+        mappedUsers.map(async entry => {
+          if (resolvedAvatars[entry.id]) return
+          if (entry.avatarUrlMeta) {
+            resolvedAvatars[entry.id] = entry.avatarUrlMeta
+            return
+          }
+          if (!entry.email) {
+            resolvedAvatars[entry.id] = null
+            return
+          }
+          try {
+            const cached = await avatarService.getAvatarUrl(entry.email, true)
+            resolvedAvatars[entry.id] = cached ?? null
+          } catch (error) {
+            console.warn('Failed to load fallback avatar for user', entry.id, error)
+            resolvedAvatars[entry.id] = null
+          }
+        })
+      )
+
+      if (!shouldUpdate || shouldUpdate()) {
+        setAvatarUrls(resolvedAvatars)
+      }
+
+      return mappedUsers
+    },
+    [online]
+  )
+
   useEffect(() => {
     let mounted = true
 
@@ -125,25 +218,7 @@ export function RoleManagement() {
 
       setLoading(true)
       try {
-        const response: AdminListUsersResult = await admin.listUsers()
-        if (!response.ok) throw new Error(response.error ?? 'Admin API error')
-
-        const mappedUsers = (response.users ?? []).map(mapAdminUserToRow)
-        if (mounted) setUsers(mappedUsers)
-
-        await Promise.all(
-          mappedUsers.map(async (entry: AdminUserRow) => {
-            if (!entry.email) return
-            try {
-              const cached = await avatarService.getAvatarUrl(entry.email, true)
-              if (cached && mounted) {
-                setAvatarUrls(prev => ({ ...prev, [entry.id]: cached }))
-              }
-            } catch (error) {
-              console.warn('Failed to load avatar for user', entry.id, error)
-            }
-          })
-        )
+        await refreshUsers(() => mounted)
       } catch (error) {
         console.error('Failed to list users:', error)
         notify.error('Failed to load users')
@@ -157,21 +232,10 @@ export function RoleManagement() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [refreshUsers])
 
   const setBusy = (id: string, value: boolean) => {
     setBusyIds(prev => ({ ...prev, [id]: value }))
-  }
-
-  const refreshUsers = async () => {
-    const admin = getAdminApi()
-    if (!admin?.listUsers) return
-
-    const response: AdminListUsersResult = await admin.listUsers()
-    if (!response.ok) throw new Error(response.error ?? 'Admin API error')
-    const mappedUsers = (response.users ?? []).map(mapAdminUserToRow)
-    setUsers(mappedUsers)
-    return mappedUsers
   }
 
   async function updateRole(userId: string, newRole: Role) {
@@ -234,7 +298,7 @@ export function RoleManagement() {
   }
 
   return (
-    <div className="p-8 space-y-4">
+    <div className="p-6 lg:p-8 space-y-4 min-w-0 max-w-full">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Role Management</h2>
@@ -250,102 +314,129 @@ export function RoleManagement() {
       {loading ? (
         <div className="text-gray-600 dark:text-gray-400">Loading users...</div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Current Role</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-950 divide-y divide-gray-200 dark:divide-gray-800">
-              {users.map(userRow => {
-                const isMe = !!(userRow.email && userRow.email === user?.email)
-                const displayRole = isMe && profile.accountType ? String(profile.accountType) : String(userRow.role)
-                const isCEO = displayRole === 'CEO'
-                const avatarUrl = avatarUrls[userRow.id] ?? userRow.avatarUrlMeta ?? null
-                const fallbackInitial = (userRow.name || userRow.email || 'U').charAt(0).toUpperCase()
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-950">
+          <div className="hidden md:grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(240px,1fr)] items-center gap-4 px-6 py-3 bg-gray-50 dark:bg-gray-900/50 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <span className="text-left">User</span>
+            <span className="text-left">Email</span>
+            <span className="text-center">Current Role</span>
+            <span className="text-center">Actions</span>
+          </div>
+          <div className="divide-y divide-gray-200 dark:divide-gray-800">
+            {users.map(userRow => {
+              const isMe = !!(userRow.email && userRow.email === user?.email)
+              const displayRole = isMe && profile.accountType ? String(profile.accountType) : String(userRow.role)
+              const isCEO = displayRole === 'CEO'
+              const avatarUrl = avatarUrls[userRow.id] ?? userRow.avatarUrlMeta ?? null
+              const fallbackInitial = (userRow.name || userRow.email || 'U').charAt(0).toUpperCase()
 
-                const ringClass =
-                  displayRole === 'Admin'
-                    ? 'ring-2 ring-amber-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-950'
-                    : displayRole === 'Premium'
-                      ? 'ring-2 ring-emerald-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-950'
-                      : 'ring-2 ring-gray-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-950'
+              const ringClass =
+                displayRole === 'Admin'
+                  ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-950'
+                  : displayRole === 'Premium'
+                    ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-950'
+                    : 'ring-2 ring-gray-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-950'
+              const avatarSizeClass = 'w-[67px] h-[67px]'
 
-                return (
-                  <tr key={userRow.id}>
-                    <td className="px-4 py-3 text-gray-900 dark:text-white">
-                      <div className="flex items-center gap-3">
-                        {isCEO ? (
-                          <div className="relative w-8 h-8">
-                            <div className="absolute inset-0 rounded-full">
-                              <div className="absolute inset-0 rounded-full bg-[conic-gradient(#ff005e,#ffbe0b,#00f5d4,#00bbf9,#9b5de5,#ff005e)] animate-rotate-slow"></div>
-                              <div className="absolute -inset-[2px] rounded-full bg-[conic-gradient(#ff005e,#ffbe0b,#00f5d4,#00bbf9,#9b5de5,#ff005e)] blur-sm opacity-40 animate-rotate-slow"></div>
-                            </div>
-                            <div className="absolute inset-[2px] rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                              {avatarUrl ? (
-                                <img src={avatarUrl} alt="avatar" className="w-full h-full rounded-full object-cover" />
-                              ) : (
-                                <span className="text-white text-sm font-semibold leading-none">{fallbackInitial}</span>
-                              )}
-                            </div>
+              return (
+                <div
+                  key={userRow.id}
+                  className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(240px,1fr)] md:items-center"
+                >
+                  <div>
+                    <span className="md:hidden block text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                      User
+                    </span>
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="flex-shrink-0 w-[88px] flex justify-center">
+                      {isCEO ? (
+                        <div className={`relative ${avatarSizeClass}`}>
+                          <div className="absolute inset-0 rounded-full">
+                            <div className="absolute inset-0 rounded-full bg-[conic-gradient(#ff005e,#ffbe0b,#00f5d4,#00bbf9,#9b5de5,#ff005e)] animate-rotate-slow"></div>
+                            <div className="absolute -inset-[1px] rounded-full bg-[conic-gradient(#ff005e,#ffbe0b,#00f5d4,#00bbf9,#9b5de5,#ff005e)] blur-md opacity-35 animate-rotate-slow"></div>
                           </div>
-                        ) : avatarUrl ? (
-                          <img src={avatarUrl} alt="avatar" className={`w-8 h-8 rounded-full object-cover ${ringClass}`} />
-                        ) : (
-                          <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold ${ringClass}`}>
-                            {fallbackInitial}
+                          <div className="absolute inset-[2px] rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                            {avatarUrl ? (
+                              <img src={avatarUrl} alt={`${userRow.name ?? 'User'} avatar`} className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              <span className="text-white text-lg font-semibold leading-none">{fallbackInitial}</span>
+                            )}
                           </div>
-                        )}
-                        <span>{userRow.name ?? '—'}</span>
+                        </div>
+                      ) : avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={`${userRow.name ?? 'User'} avatar`}
+                          className={`${avatarSizeClass} rounded-full object-cover ${ringClass}`}
+                        />
+                      ) : (
+                        <div className={`${avatarSizeClass} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-semibold ${ringClass}`}>
+                          {fallbackInitial}
+                        </div>
+                      )}
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{userRow.email ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-                        {displayRole}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          disabled={busyIds[userRow.id]}
-                          onClick={() => updateRole(userRow.id, 'Free')}
-                          className="px-3 py-1 rounded bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-60"
-                        >
-                          Free
-                        </button>
-                        <button
-                          disabled={busyIds[userRow.id]}
-                          onClick={() => updateRole(userRow.id, 'Premium')}
-                          className="px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          Premium
-                        </button>
-                        <button
-                          disabled={busyIds[userRow.id]}
-                          onClick={() => updateRole(userRow.id, 'Admin')}
-                          className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-                        >
-                          Admin
-                        </button>
-                        <button
-                          disabled={busyIds[userRow.id]}
-                          onClick={() => updateRole(userRow.id, 'CEO')}
-                          className="px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60"
-                        >
-                          CEO
-                        </button>
+                      <div className="min-w-0">
+                        <span className="block truncate font-medium text-base">{userRow.name ?? 'Unknown user'}</span>
                       </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+
+                  <div className="w-full">
+                    <span className="md:hidden block text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                      Email
+                    </span>
+                    <span className="block truncate text-sm text-gray-700 dark:text-gray-300 max-w-full sm:max-w-[24ch] md:max-w-[18ch] lg:max-w-none">
+                      {userRow.email ?? 'Unknown email'}
+                    </span>
+                  </div>
+
+                  <div className="w-full text-center md:text-center">
+                    <span className="md:hidden block text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                      Current Role
+                    </span>
+                    <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 mx-auto">
+                      {displayRole}
+                    </span>
+                  </div>
+
+                  <div className="w-full md:justify-self-center">
+                    <span className="md:hidden block text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                      Actions
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 w-full md:w-[220px] md:mx-auto">
+                      <button
+                        disabled={busyIds[userRow.id]}
+                        onClick={() => updateRole(userRow.id, 'Free')}
+                        className="px-3 py-1 rounded bg-gray-600 text-white hover:bg-gray-700 disabled:opacity-60"
+                      >
+                        Free
+                      </button>
+                      <button
+                        disabled={busyIds[userRow.id]}
+                        onClick={() => updateRole(userRow.id, 'Premium')}
+                        className="px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        Premium
+                      </button>
+                      <button
+                        disabled={busyIds[userRow.id]}
+                        onClick={() => updateRole(userRow.id, 'Admin')}
+                        className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        Admin
+                      </button>
+                      <button
+                        disabled={busyIds[userRow.id]}
+                        onClick={() => updateRole(userRow.id, 'CEO')}
+                        className="px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60"
+                      >
+                        CEO
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -355,3 +446,6 @@ export function RoleManagement() {
     </div>
   )
 }
+
+
+

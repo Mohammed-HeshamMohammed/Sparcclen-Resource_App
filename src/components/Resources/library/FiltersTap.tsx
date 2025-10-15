@@ -82,9 +82,13 @@ function SelectFilter({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!open) return
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
+      const target = event.target as Node | null
+      const container = containerRef.current
+      const content = contentRef.current
+      if (container?.contains(target) || content?.contains(target)) {
+        return
       }
+      setOpen(false)
     }
 
     const handleWindowUpdate = () => {

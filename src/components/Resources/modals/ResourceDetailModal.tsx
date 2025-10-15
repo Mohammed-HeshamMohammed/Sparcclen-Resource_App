@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ExternalLink, Heart, Eye, Calendar, Tag as TagIcon } from 'lucide-react';
+import { X, ExternalLink, Heart, Eye, Calendar, Tag as TagIcon, Copy, Check } from 'lucide-react';
 import type { Resource } from '@/types';
 import { getThumbnailUrl, formatDate, cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface ResourceDetailModalProps {
   resource: Resource | null;
@@ -17,6 +17,9 @@ export function ResourceDetailModal({
   onToggleFavorite,
   onOpenExternal,
 }: ResourceDetailModalProps) {
+  const [copiedColorIndex, setCopiedColorIndex] = useState<number | null>(null);
+  const [paletteCopied, setPaletteCopied] = useState(false);
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -33,10 +36,70 @@ export function ResourceDetailModal({
     };
   }, [resource, onClose]);
 
+  useEffect(() => {
+    if (copiedColorIndex === null) return undefined;
+    const timeout = window.setTimeout(() => setCopiedColorIndex(null), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [copiedColorIndex]);
+
+  useEffect(() => {
+    if (!paletteCopied) return undefined;
+    const timeout = window.setTimeout(() => setPaletteCopied(false), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [paletteCopied]);
+
+  const copyText = useMemo(
+    () => async (text: string) => {
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+      } catch {
+        // Ignore and fallback below.
+      }
+
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch (error) {
+        console.error('Failed to copy text:', error);
+      }
+    },
+    []
+  );
+
+  const paletteString = useMemo(() => {
+    const colors = resource?.colors;
+    if (!colors || colors.length === 0) return '';
+    const formatted = colors.map((color) => `'${color}'`).join(',\n  ');
+    return `[\n  ${formatted}\n]`;
+  }, [resource?.colors]);
+
   if (!resource) return null;
 
   const thumbnailUrl = getThumbnailUrl(resource.url || '');
   const isColorResource = resource.colors && resource.colors.length > 0;
+
+  const handleCopyColor = (color: string, index: number) => {
+    void copyText(color);
+    setPaletteCopied(false);
+    setCopiedColorIndex(index);
+  };
+
+  const handleCopyPalette = () => {
+    if (!paletteString) return;
+    void copyText(paletteString);
+    setPaletteCopied(true);
+    setCopiedColorIndex(null);
+  };
 
   return (
     <AnimatePresence>
@@ -61,15 +124,41 @@ export function ResourceDetailModal({
           <div className="relative">
             {isColorResource ? (
               <div className="h-64 flex">
+                <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleCopyPalette();
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full bg-black/40 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-black/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  >
+                    {paletteCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    <span>{paletteCopied ? 'Palette copied!' : 'Copy palette'}</span>
+                  </button>
+                </div>
                 {resource.colors!.map((color, index) => (
                   <div
                     key={index}
-                    className="flex-1 relative group"
+                    className="flex-1 relative group cursor-pointer outline-none"
                     style={{ backgroundColor: color }}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleCopyColor(color, index);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleCopyColor(color, index);
+                      }
+                    }}
+                    title={`Copy ${color}`}
                   >
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
                       <span className="text-white font-mono text-sm font-semibold bg-black/40 px-3 py-1 rounded">
-                        {color}
+                        {copiedColorIndex === index ? 'Copied!' : color}
                       </span>
                     </div>
                   </div>

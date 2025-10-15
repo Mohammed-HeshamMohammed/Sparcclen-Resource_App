@@ -15,7 +15,7 @@ interface ResourceGridProps {
 const CARD_WIDTH = 220;
 const GAP = 16;
 const VIRTUALIZATION_THRESHOLD = 200;
-const ITEMS_PER_PAGE = 28;
+const ITEMS_PER_PAGE = 27;
 
 export function ResourceGrid({
   resources,
@@ -28,6 +28,7 @@ export function ResourceGrid({
   const shouldVirtualize = resources.length > VIRTUALIZATION_THRESHOLD;
   const totalPages = Math.ceil(resources.length / ITEMS_PER_PAGE);
   const showPagination = totalPages > 1;
+  const isInitialLoading = isLoading && resources.length === 0;
 
   useEffect(() => {
     if (shouldVirtualize) {
@@ -48,7 +49,7 @@ export function ResourceGrid({
     return resources.slice(startIndex, endIndex);
   }, [currentPage, resources, shouldVirtualize]);
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return <SkeletonLoader type="grid" count={8} />;
   }
 

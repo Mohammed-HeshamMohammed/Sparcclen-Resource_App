@@ -243,7 +243,7 @@ export function Shell() {
   }
 
   return (
-    <div className="h-full flex flex-col relative bg-gray-900 dark:bg-gray-800">
+    <div className="h-full flex flex-col relative bg-[#87CEEB] dark:bg-gray-800">
       <div className="flex-1 flex relative min-h-0">
         {isLoadingCategories ? (
           <div className="w-[360px] flex-shrink-0">
@@ -262,7 +262,7 @@ export function Shell() {
           />
         )}
 
-        <main className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-hide bg-gray-50 dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
+        <main className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-hide bg-[#F0FFFF] dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
           {!showSettings && !showProfile && !showRoles && activeTab === 'Library' && (
             <>
               <div className="sticky top-0 z-30 px-6 pt-8 pb-4 bg-transparent dark:bg-transparent">

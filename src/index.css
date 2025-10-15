@@ -51,7 +51,14 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --app-sidebar-bg: #87CEEB;
+    --app-sidebar-text: #000000;
+    --app-sidebar-muted: #6B7280;
+    --app-sidebar-icon: #374151;
+    --sidebar-button-hover: rgba(0, 0, 0, 0.1);
+    --sidebar-icon-color: var(--app-sidebar-icon);
+    --sidebar-text-color: var(--app-sidebar-text);
+    --sidebar-muted-color: var(--app-sidebar-muted);
   }
 
   .dark {
@@ -101,11 +108,18 @@
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --app-sidebar-bg: #1f2937;
+    --app-sidebar-text: #f9fafb;
+    --app-sidebar-muted: #9ca3af;
+    --app-sidebar-icon: #d1d5db;
+    --sidebar-button-hover: rgba(255, 255, 255, 0.1);
+    --sidebar-icon-color: var(--app-sidebar-icon);
+    --sidebar-text-color: var(--app-sidebar-text);
+    --sidebar-muted-color: var(--app-sidebar-muted);
   }
 
   body {
-    @apply bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-200;
+    @apply bg-[#F0FFFF] dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-200;
     /* Prevent content from going under custom title bar */
     padding-top: 0;
     margin: 0;
@@ -125,7 +139,7 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
-    @apply bg-white dark:bg-gray-900 transition-colors duration-200;
+    @apply bg-[#F0FFFF] dark:bg-gray-900 transition-colors duration-200;
   }
 }
 
@@ -284,8 +298,30 @@
     }
   }
 
-  .animate-fade-in-up {
-    animation: fade-in-up 400ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  /* Sidebar styles */
+  .app-sidebar-surface {
+    background-color: var(--app-sidebar-bg);
+    color: var(--sidebar-text-color);
+  }
+
+  .sidebar-button {
+    background-color: transparent;
+    color: var(--sidebar-text-color);
+    border: none;
+    transition: all 0.2s ease;
+  }
+
+  .sidebar-button:hover {
+    background-color: var(--sidebar-button-hover);
+  }
+
+  .sidebar-icon {
+    color: var(--sidebar-icon-color);
+    transition: color 0.2s ease;
+  }
+
+  .sidebar-muted {
+    color: var(--sidebar-muted-color);
   }
 }
 

@@ -6,168 +6,33 @@ class LocalStore {
   resources: Resource[] = [];
 
   constructor() {
-    this.init();
+    this.hydrate();
   }
 
-  private genId() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
-  }
+  private hydrate() {
+    if (typeof window === 'undefined') {
+      this.categories = [];
+      this.resources = [];
+      return;
+    }
 
-  private now() {
-    return new Date().toISOString();
-  }
+    try {
+      const rawCategories = window.localStorage.getItem('library:categories');
+      const rawResources = window.localStorage.getItem('library:resources');
 
-  private slugify(text: string) {
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
-  }
+      const parsedCategories = rawCategories ? JSON.parse(rawCategories) : [];
+      const parsedResources = rawResources ? JSON.parse(rawResources) : [];
 
-  private init() {
-    // Seed minimal sample categories and resources so UI stays functional without Supabase tables
-    const created_at = this.now();
-    const updated_at = created_at;
-
-    const catColorsId = this.genId();
-    const catFontsId = this.genId();
-    const catToolsId = this.genId();
-
-    const subTwoColorId = this.genId();
-    const subDisplayFontsId = this.genId();
-
-    const colors: Category = {
-      id: catColorsId,
-      slug: this.slugify('Colors'),
-      title: 'Colors',
-      description: 'Color resources',
-      parent_id: null,
-      sort_order: 0,
-      item_count: 0,
-      created_at,
-      updated_at,
-      subcategories: [
-        {
-          id: subTwoColorId,
-          slug: this.slugify('2-Color Combo'),
-          title: '2-Color Combo',
-          description: 'Two color combinations',
-          parent_id: catColorsId,
-          sort_order: 0,
-          item_count: 0,
-          created_at,
-          updated_at,
-        },
-      ],
-    };
-
-    const fonts: Category = {
-      id: catFontsId,
-      slug: this.slugify('Fonts'),
-      title: 'Fonts',
-      description: 'Font resources',
-      parent_id: null,
-      sort_order: 1,
-      item_count: 0,
-      created_at,
-      updated_at,
-      subcategories: [
-        {
-          id: subDisplayFontsId,
-          slug: this.slugify('Display'),
-          title: 'Display',
-          description: 'Display fonts',
-          parent_id: catFontsId,
-          sort_order: 0,
-          item_count: 0,
-          created_at,
-          updated_at,
-        },
-      ],
-    };
-
-    const tools: Category = {
-      id: catToolsId,
-      slug: this.slugify('Tools'),
-      title: 'Tools',
-      description: 'Development tools and utilities',
-      parent_id: null,
-      sort_order: 2,
-      item_count: 0,
-      created_at,
-      updated_at,
-      subcategories: [],
-    };
-
-    this.categories = [colors, fonts, tools];
-
-    const makeResource = (
-      title: string,
-      category_id: string,
-      subcategory_id: string | null,
-      tags: string[],
-      resource_type: string,
-      url?: string,
-    ): Resource => {
-      const id = this.genId();
-      const slug = this.slugify(title);
-      return {
-        id,
-        slug,
-        title,
-        description: null,
-        url: url || null,
-        category_id,
-        subcategory_id,
-        resource_type,
-        thumbnail_url: null,
-        thumbnail_type: null,
-        colors: null,
-        metadata: {},
-        view_count: 0,
-        date_added: created_at,
-        created_at,
-        updated_at,
-        tags: tags.map((t) => ({
-          id: this.genId(),
-          name: t,
-          slug: this.slugify(t),
-          usage_count: 0,
-          created_at,
-        })),
-        is_favorite: false,
-      };
-    };
-
-    this.resources = [
-      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
-      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
-      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
-      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
-      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
-      makeResource('Blue/Orange Combo', catColorsId, subTwoColorId, ['colors', 'combo'], 'color'),
-      makeResource('High-Contrast Display Font', catFontsId, subDisplayFontsId, ['fonts', 'display'], 'font'),
-      makeResource('Code Editor', catToolsId, null, ['development', 'editor'], 'tool'),
-      makeResource('Version Control', catToolsId, null, ['git', 'version-control'], 'tool'),
-    ];
-
-    // Update item_count on categories
-    const counts: Record<string, number> = {};
-    this.resources.forEach((r) => {
-      counts[r.category_id] = (counts[r.category_id] || 0) + 1;
-      if (r.subcategory_id) counts[r.subcategory_id] = (counts[r.subcategory_id] || 0) + 1;
-    });
-
-    this.categories = this.categories.map((c) => ({
-      ...c,
-      item_count: counts[c.id] || 0,
-      subcategories: c.subcategories?.map((s) => ({ ...s, item_count: counts[s.id] || 0 })) || [],
-    }));
+      this.categories = Array.isArray(parsedCategories)
+        ? (parsedCategories as Category[])
+        : [];
+      this.resources = Array.isArray(parsedResources)
+        ? (parsedResources as Resource[])
+        : [];
+    } catch {
+      this.categories = [];
+      this.resources = [];
+    }
   }
 
   getFavoritesSet(userId?: string): Set<string> {
@@ -185,6 +50,93 @@ class LocalStore {
 }
 
 const store = new LocalStore();
+
+const MAX_METADATA_DEPTH = 4;
+const MAX_METADATA_STRINGS = 60;
+
+const collectStringValues = (
+  input: unknown,
+  visited: WeakSet<object> = new WeakSet(),
+  depth = 0,
+): string[] => {
+  if (typeof input === 'string') {
+    return [input];
+  }
+  if (
+    input === null ||
+    input === undefined ||
+    typeof input !== 'object' ||
+    depth >= MAX_METADATA_DEPTH
+  ) {
+    return [];
+  }
+
+  const objectValue = input as object;
+  if (visited.has(objectValue)) {
+    return [];
+  }
+  visited.add(objectValue);
+
+  const collected: string[] = [];
+  const iteratee = Array.isArray(input)
+    ? input
+    : Object.values(input as Record<string, unknown>);
+
+  for (const value of iteratee) {
+    if (collected.length >= MAX_METADATA_STRINGS) {
+      break;
+    }
+    const nested = collectStringValues(value, visited, depth + 1);
+    for (const nestedValue of nested) {
+      collected.push(nestedValue);
+      if (collected.length >= MAX_METADATA_STRINGS) {
+        break;
+      }
+    }
+  }
+
+  return collected;
+};
+
+const matchesQuery = (resource: Resource, normalizedQuery: string): boolean => {
+  const valueMatches = (value: unknown) =>
+    typeof value === 'string' && value.toLowerCase().includes(normalizedQuery);
+
+  if (
+    valueMatches(resource.title) ||
+    valueMatches(resource.description) ||
+    valueMatches(resource.url)
+  ) {
+    return true;
+  }
+
+  if (
+    resource.tags?.some(
+      (tag) => valueMatches(tag.name) || valueMatches(tag.slug),
+    )
+  ) {
+    return true;
+  }
+
+  const classification =
+    typeof resource.metadata?.classification === 'string'
+      ? resource.metadata.classification
+      : null;
+  if (valueMatches(classification)) {
+    return true;
+  }
+
+  const titleValues = (resource.metadata?.titleValues ?? null) as unknown;
+  const metadataStrings = [
+    ...collectStringValues(titleValues),
+    ...collectStringValues(resource.metadata?.original ?? null),
+    ...collectStringValues(resource.metadata),
+  ];
+
+  return metadataStrings.some((entry) =>
+    entry.toLowerCase().includes(normalizedQuery),
+  );
+};
 
 export async function getCategories(): Promise<Category[]> {
   return [...store.categories];
@@ -212,12 +164,10 @@ export async function searchResources(
   if (filters.resourceType) list = list.filter((r) => (r.resource_type || '').toLowerCase() === filters.resourceType?.toLowerCase());
 
   if (filters.query) {
-    const q = filters.query.toLowerCase();
-    list = list.filter((r) =>
-      r.title.toLowerCase().includes(q) ||
-      (r.description || '').toLowerCase().includes(q) ||
-      (r.url || '').toLowerCase().includes(q),
-    );
+    const normalizedQuery = filters.query.trim().toLowerCase();
+    if (normalizedQuery.length > 0) {
+      list = list.filter((resource) => matchesQuery(resource, normalizedQuery));
+    }
   }
 
   if (filters.tags.length > 0) {

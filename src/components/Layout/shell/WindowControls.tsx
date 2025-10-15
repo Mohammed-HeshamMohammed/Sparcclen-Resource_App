@@ -78,18 +78,15 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
   }
 
   return (
-    <div
-      className={`flex items-center bg-transparent border-transparent space-x-2 ${className}`}
-      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-    >
+    <div className={`flex items-center gap-2 ${className}`}>
       {/* Network status indicator with cooldown display */}
-      <div className="flex items-center pr-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      <div className="flex items-center">
         <span
           title={isOnline ? 'Online' : 'Offline'}
           className={`inline-block w-2.5 h-2.5 rounded-full mr-1 ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`}
         />
         {isCooldownActive && remainingCooldownTime > 0 && (
-          <span 
+          <span
             className="text-xs font-medium text-orange-600 dark:text-orange-400 ml-1 px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 rounded-full"
             title={`Theme cooldown: ${remainingCooldownTime}s remaining`}
           >
@@ -98,35 +95,35 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
         )}
       </div>
       {/* Theme Toggle */}
-      <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      <div>
         <ToggleTheme />
       </div>
 
       {/* Minimize Button */}
       <button
         onClick={handleMinimize}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105"
+        className="control-button flex items-center justify-center w-8 h-8"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        <Minus className="w-4 h-4 text-gray-700 dark:text-gray-200" />
+        <Minus className="w-4 h-4" />
       </button>
 
       {/* Maximize Button */}
       <button
         onClick={handleMaximize}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105"
+        className="control-button flex items-center justify-center w-8 h-8"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        <Square className="w-4 h-4 text-gray-700 dark:text-gray-200" />
+        <Square className="w-4 h-4" />
       </button>
 
       {/* Close Button */}
       <button
         onClick={handleClose}
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-500 transition-all duration-200 hover:scale-105 group"
+        className="control-button control-button-close flex items-center justify-center w-8 h-8"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        <X className="w-4 h-4 text-gray-700 dark:text-gray-200 group-hover:text-white transition-colors" />
+        <X className="w-4 h-4" />
       </button>
     </div>
   )

@@ -101,7 +101,7 @@ export function ToggleTheme() {
         <button
           key={option.value}
           className={cn(
-            'relative flex size-8 items-center justify-center rounded-md transition-all duration-200',
+            'relative flex size-8 items-center justify-center rounded-full transition-all duration-200',
             (isRateLimited || isCooldownActive)
               ? 'cursor-not-allowed text-red-500 dark:text-red-400' 
               : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800',

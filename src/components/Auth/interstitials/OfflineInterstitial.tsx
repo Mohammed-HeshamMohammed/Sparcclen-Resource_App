@@ -45,7 +45,7 @@ export function OfflineInterstitial({ onDone }: OfflineInterstitialProps) {
   return (
     <div className="h-screen w-screen overflow-hidden">
       <div className="h-full flex flex-col relative">
-        <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="flex-1 flex items-center justify-center app-page-surface">
           <div className="w-full max-w-none px-8 text-center">
             <AnimatePresence mode="wait">
               {index < messages.length && (
