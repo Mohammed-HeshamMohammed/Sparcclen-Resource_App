@@ -11,6 +11,7 @@ import {
   Loader2,
   AlertCircle
 } from 'lucide-react';
+import { notify } from '@/lib/toast';
 
 type CategoryType = 'ai-and-ml' | 'web-and-design' | 'rnd' | 'studying' | 'tools';
 type SubcategoryType = string;
@@ -143,7 +144,21 @@ export function ImportPage() {
   };
 
   const handleImport = async () => {
+    // Validation: Category selection
+    if (!selectedCategory) {
+      notify.warning('Please select a category first', {
+        title: 'Category Required',
+        duration: 5000
+      });
+      return;
+    }
+
+    // Validation: Subcategory selection (if required)
     if (hasSubcategories && !selectedSubcategory) {
+      notify.warning('Please choose a subcategory before importing', {
+        title: 'Subcategory Required',
+        duration: 5000
+      });
       setError('Please choose a subcategory before importing.');
       return;
     }
@@ -155,22 +170,49 @@ export function ImportPage() {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const subcategoryLabel = selectedSubcategoryInfo ? ` (${selectedSubcategoryInfo.label})` : '';
-      alert(`Import placeholder: ${selectedCategoryInfo?.label ?? 'Category'}${subcategoryLabel} resources will be processed here.`);
+      
+      // Success notification
+      notify.success(`Import process completed for ${selectedCategoryInfo?.label ?? 'Category'}${subcategoryLabel}`, {
+        title: 'Import Successful',
+        duration: 5000
+      });
     } catch {
-      setError('Import failed. Please try again.');
+      const errorMsg = 'Import failed. Please try again.';
+      notify.error(errorMsg, {
+        title: 'Import Failed',
+        duration: 6000
+      });
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCeoImport = async () => {
-    if (hasSubcategories && !selectedSubcategory) {
-      setError('Please choose a subcategory before importing.');
+    // Validation: Category selection
+    if (!selectedCategory) {
+      notify.warning('Please select a category first', {
+        title: 'Category Required',
+        duration: 5000
+      });
       return;
     }
 
+    // Validation: Subcategory selection (if required)
+    if (hasSubcategories && !selectedSubcategory) {
+      notify.warning('Please choose a subcategory before importing', {
+        title: 'Subcategory Required',
+        duration: 5000
+      });
+      return;
+    }
+
+    // Validation: Desktop app check
     if (typeof window === 'undefined' || !window.api?.resources) {
-      setError('CEO imports are only available in the desktop application.');
+      notify.error('CEO imports are only available in the desktop application', {
+        title: 'Desktop App Required',
+        duration: 6000
+      });
       return;
     }
 
@@ -239,11 +281,22 @@ export function ImportPage() {
         throw new Error(saveResult?.error || 'Failed to save the library file.');
       }
 
+      // Success notification
+      notify.success(`Successfully imported ${entries.length} ${entries.length === 1 ? 'resource' : 'resources'}`, {
+        title: 'CEO Import Complete',
+        duration: 6000
+      });
       setCeoSuccessMessage(
         `Saved ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} to ${relativePath}.`
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unexpected error during CEO import.';
+      
+      // Error notification
+      notify.error(message, {
+        title: 'CEO Import Failed',
+        duration: 8000
+      });
       setError(message);
     } finally {
       setIsCeoImporting(false);
