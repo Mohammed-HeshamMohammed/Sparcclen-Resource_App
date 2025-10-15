@@ -1,2 +1,2 @@
-export { WindowsHelloModal } from './WindowsHelloModal'
 export { SupportContactModal } from './SupportContactModal'
+export { WindowsHelloModal } from './WindowsHelloModal'

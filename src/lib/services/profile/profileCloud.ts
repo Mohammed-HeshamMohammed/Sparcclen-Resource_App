@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase } from '../auth/supabase'
 import type { Database } from '@/types/database'
 import { encrypt, decrypt } from '@/lib/utils/crypto'
 
@@ -125,8 +125,11 @@ export async function uploadProfilePicture(file: Blob | ArrayBuffer | Uint8Array
     let buf: ArrayBuffer
     let mime: string | undefined
     if (file instanceof Blob) { buf = await file.arrayBuffer(); mime = file.type || undefined }
-    else if (file instanceof Uint8Array) buf = file.buffer
-    else buf = file
+    else if (file instanceof Uint8Array) {
+      const clone = new Uint8Array(file.byteLength)
+      clone.set(file)
+      buf = clone.buffer
+    } else buf = file
 
     const bytes = new Uint8Array(buf)
     const b64 = toBase64(bytes)
@@ -203,7 +206,9 @@ export async function downloadProfilePicture(): Promise<{ ok: true; blob: Blob }
       b64 = payload
     }
     const bytes = fromBase64(b64)
-    const blob = new Blob([bytes], { type: mime })
+    const buffer = new ArrayBuffer(bytes.byteLength)
+    new Uint8Array(buffer).set(bytes)
+    const blob = new Blob([buffer], { type: mime })
     return { ok: true, blob }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }

@@ -1,4 +1,4 @@
-import type { Category, Resource, Tag, SearchFilters } from '@/types';
+import type { Category, Resource, SearchFilters } from '@/types';
 
 // Local in-memory store + localStorage-backed favorites
 class LocalStore {
@@ -182,11 +182,6 @@ class LocalStore {
     }
   }
 
-  saveFavoritesSet(userId: string, set: Set<string>) {
-    if (typeof window === 'undefined') return;
-    const arr = Array.from(set);
-    window.localStorage.setItem(`favorites:${userId}`, JSON.stringify(arr));
-  }
 }
 
 const store = new LocalStore();
@@ -234,56 +229,9 @@ export async function searchResources(
   return result;
 }
 
-export async function getResourceById(id: string, userId?: string): Promise<Resource | null> {
-  const r = store.resources.find((x) => x.id === id);
-  if (!r) return null;
-  const favs = store.getFavoritesSet(userId);
-  return { ...r, is_favorite: favs.has(r.id) };
-}
-
 export async function incrementViewCount(resourceId: string): Promise<void> {
   const idx = store.resources.findIndex((r) => r.id === resourceId);
   if (idx >= 0) {
     store.resources[idx] = { ...store.resources[idx], view_count: (store.resources[idx].view_count || 0) + 1 };
   }
-}
-
-export async function toggleFavorite(
-  resourceId: string,
-  userId: string,
-): Promise<{ favorite: boolean }> {
-  const set = store.getFavoritesSet(userId);
-  if (set.has(resourceId)) {
-    set.delete(resourceId);
-    store.saveFavoritesSet(userId, set);
-    return { favorite: false };
-  }
-  set.add(resourceId);
-  store.saveFavoritesSet(userId, set);
-  return { favorite: true };
-}
-
-export async function getFavoritedResources(userId: string): Promise<Resource[]> {
-  const set = store.getFavoritesSet(userId);
-  return store.resources.filter((r) => set.has(r.id)).map((r) => ({ ...r, is_favorite: true }));
-}
-
-export async function getTags(limit?: number): Promise<Tag[]> {
-  const map = new Map<string, Tag>();
-  store.resources.forEach((r) => (r.tags || []).forEach((t) => {
-    if (!map.has(t.id)) map.set(t.id, t);
-  }));
-  let tags = Array.from(map.values());
-  if (limit) tags = tags.slice(0, limit);
-  return tags;
-}
-
-export async function getTagsByCategory(categoryId: string): Promise<Tag[]> {
-  const map = new Map<string, Tag>();
-  store.resources
-    .filter((r) => r.category_id === categoryId)
-    .forEach((r) => (r.tags || []).forEach((t) => {
-      if (!map.has(t.id)) map.set(t.id, t);
-    }));
-  return Array.from(map.values());
 }

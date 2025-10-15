@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '../services/supabase'; // Import the single client instance
+import { supabase } from '../services'
 import { saveWrite } from '../system/saveClient';
-import { fetchProfileDecrypted, saveProfileEncrypted } from '../services/profileCloud';
-import { getOrCreateProfileKey } from '../services/profileKey';
+import { fetchProfileDecrypted, saveProfileEncrypted } from '../services'
+import { getOrCreateProfileKey } from '../services'
 
 // Auth context types and context
 interface AuthContextType {

@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Resource } from '@/types';
 import { ResourceCard } from './ResourceCard';
 import { SkeletonLoader } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 interface ResourceGridProps {
   resources: Resource[];
@@ -11,10 +12,10 @@ interface ResourceGridProps {
   isLoading?: boolean;
 }
 
-const CARD_WIDTH = 280;
+const CARD_WIDTH = 220;
 const GAP = 16;
 const VIRTUALIZATION_THRESHOLD = 200;
-const ITEMS_PER_PAGE = 24;
+const ITEMS_PER_PAGE = 28;
 
 export function ResourceGrid({
   resources,
@@ -26,13 +27,26 @@ export function ResourceGrid({
 
   const shouldVirtualize = resources.length > VIRTUALIZATION_THRESHOLD;
   const totalPages = Math.ceil(resources.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedResources = resources.slice(startIndex, endIndex);
+  const showPagination = totalPages > 1;
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
+  useEffect(() => {
+    if (shouldVirtualize) {
+      if (currentPage !== 1) setCurrentPage(1);
+      return;
+    }
+
+    const maxPage = Math.max(1, totalPages);
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage);
+    }
+  }, [shouldVirtualize, totalPages, currentPage]);
+
+  const paginatedResources = useMemo(() => {
+    if (shouldVirtualize) return resources;
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return resources.slice(startIndex, endIndex);
+  }, [currentPage, resources, shouldVirtualize]);
 
   if (isLoading) {
     return <SkeletonLoader type="grid" count={8} />;
@@ -53,9 +67,75 @@ export function ResourceGrid({
     );
   }
 
+  const renderPagination = () => {
+    if (!showPagination) return null;
+
+    const maxPageButtons = 5;
+    const halfWindow = Math.floor(maxPageButtons / 2);
+    let startPage = Math.max(1, currentPage - halfWindow);
+    let endPage = startPage + maxPageButtons - 1;
+
+    if (endPage > totalPages) {
+      endPage = totalPages;
+      startPage = Math.max(1, endPage - maxPageButtons + 1);
+    }
+
+    const pages = [];
+    for (let page = startPage; page <= endPage; page += 1) {
+      pages.push(page);
+    }
+
+    return (
+      <div className="sticky bottom-0 z-30 pb-6 pt-2">
+        <div className="flex justify-center px-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/55 px-4 py-1 text-gray-700 text-sm shadow-xl backdrop-blur-2xl dark:border-gray-700/50 dark:bg-gray-900/55 dark:text-gray-200">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className={cn(
+                'px-4 py-2 rounded-full transition-colors',
+                currentPage === 1
+                  ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                  : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+            )}
+          >
+            Prev
+          </button>
+          {pages.map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={cn(
+                'px-4 py-2 rounded-full transition-colors',
+                currentPage === page
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+            >
+              {page}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className={cn(
+              'px-4 py-2 rounded-full transition-colors',
+              currentPage === totalPages
+                ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+            )}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (!shouldVirtualize) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="space-y-4">
         <motion.div
           initial="hidden"
           animate="visible"
@@ -68,14 +148,11 @@ export function ResourceGrid({
               },
             },
           }}
-          className="grid gap-4 p-6 overflow-auto"
+          className="grid gap-4 px-6 pb-6 pt-4"
           style={{
-            gridTemplateColumns: `repeat(3, 1fr)`,
-            gridAutoRows: 'minmax(280px, auto)',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            marginLeft: '-10px',
-          } as React.CSSProperties & { scrollbarWidth?: string; msOverflowStyle?: string }}
+            gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH}px, 1fr))`,
+            gridAutoRows: 'minmax(240px, auto)',
+          }}
         >
           {paginatedResources.map((resource) => (
             <ResourceCard
@@ -83,61 +160,39 @@ export function ResourceGrid({
               resource={resource}
               onOpen={onOpenResource}
               onToggleFavorite={onToggleFavorite}
+              variant="small"
             />
           ))}
         </motion.div>
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center p-4 gap-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50"
-            >
-              Previous
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                className={`px-3 py-1 rounded ${currentPage === page ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        )}
+        {renderPagination()}
       </div>
     );
   }
 
-  // Fallback: render a regular CSS grid (keeps behavior simple and avoids
-  // typing conflicts with react-window in the current project setup)
   return (
-    <div id="resource-grid-container" className="flex-1" style={{ width: '100%', height: '100%' }}>
-      <div
-        className="grid p-6 overflow-auto"
-        style={{
-          gridTemplateColumns: `repeat(auto-fit, minmax(${CARD_WIDTH}px, 1fr))`,
-          gridAutoRows: 'minmax(280px, auto)',
-          gap: GAP,
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          marginLeft: '-10px',
-        } as React.CSSProperties & { scrollbarWidth?: string; msOverflowStyle?: string }}
-      >
-        {resources.map((resource) => (
-          <div key={resource.id} style={{ minWidth: CARD_WIDTH }}>
-            <ResourceCard resource={resource} onOpen={onOpenResource} onToggleFavorite={onToggleFavorite} />
-          </div>
-        ))}
+    <div className="space-y-4">
+      <div className="px-6 pb-6 pt-4">
+        <div
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: `repeat(auto-fit, minmax(${CARD_WIDTH}px, 1fr))`,
+            gridAutoRows: 'minmax(240px, auto)',
+            gap: GAP,
+          }}
+        >
+          {resources.map((resource) => (
+            <div key={resource.id} style={{ minWidth: CARD_WIDTH }}>
+              <ResourceCard
+                resource={resource}
+                onOpen={onOpenResource}
+                onToggleFavorite={onToggleFavorite}
+                variant="small"
+              />
+            </div>
+          ))}
+        </div>
       </div>
+      {renderPagination()}
     </div>
   );
 }

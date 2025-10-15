@@ -1,10 +1,10 @@
 import { createContext, useContext, useRef, useState, useEffect, ReactNode } from 'react'
 import { useAuth } from '@/lib/auth'
-import { getOrCreateProfileKey } from '@/lib/services/profileKey'
+import { getOrCreateProfileKey } from '@/lib/services'
 import { fetchProfileDecrypted, saveProfileEncrypted } from '@/lib/services'
 import { supabase } from '@/lib/services'
 import { saveWrite } from '@/lib/system/saveClient'
-import { avatarService } from '@/lib/services/avatarService'
+import { avatarService } from '@/lib/services'
 
 interface ProfileData {
   displayName: string

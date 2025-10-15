@@ -23,9 +23,38 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
     }
   }, [])
 
+  const getWindowApi = () => {
+    if (typeof window === 'undefined') return null
+    const globalWindow = window as typeof window & {
+      api?: {
+        window?: {
+          minimize?: () => Promise<unknown>
+          maximize?: () => Promise<unknown>
+          close?: () => Promise<unknown>
+        }
+        minimize?: () => Promise<unknown>
+        maximize?: () => Promise<unknown>
+        close?: () => Promise<unknown>
+      }
+    }
+
+    const bridge = globalWindow.api
+    if (!bridge) {
+      console.warn('[WindowControls] preload bridge (window.api) not available')
+      return null
+    }
+
+    const candidate =
+      bridge.window && typeof bridge.window === 'object'
+        ? bridge.window
+        : bridge
+
+    return candidate
+  }
+
   const handleMinimize = async () => {
     try {
-      await window.api?.minimize()
+      await getWindowApi()?.minimize?.()
     } catch (error) {
       console.error('Failed to minimize window:', error)
     }
@@ -33,7 +62,7 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
 
   const handleMaximize = async () => {
     try {
-      await window.api?.maximize()
+      await getWindowApi()?.maximize?.()
       onMaximizeToggle?.()
     } catch (error) {
       console.error('Failed to maximize window:', error)
@@ -42,7 +71,7 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
 
   const handleClose = async () => {
     try {
-      await window.api?.close()
+      await getWindowApi()?.close?.()
     } catch (error) {
       console.error('Failed to close window:', error)
     }

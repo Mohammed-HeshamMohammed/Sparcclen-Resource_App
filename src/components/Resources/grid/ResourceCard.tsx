@@ -17,6 +17,10 @@ export function ResourceCard({
   variant = 'medium',
 }: ResourceCardProps) {
   const thumbnailUrl = getThumbnailUrl(resource.url || '');
+  const classification = typeof resource.metadata?.classification === 'string'
+    ? resource.metadata.classification
+    : resource.resource_type;
+  const isGradient = Boolean(classification && classification.toLowerCase().includes('gradient'));
   const isColorResource = resource.colors && resource.colors.length > 0;
 
   // Variant-specific styling
@@ -71,15 +75,24 @@ export function ResourceCard({
     >
       <div className={cn("bg-gray-100 dark:bg-gray-800 relative overflow-hidden", variantClasses.image)}>
         {isColorResource ? (
-          <div className="h-full flex">
-            {resource.colors!.slice(0, 5).map((color, index) => (
-              <div
-                key={index}
-                className="flex-1"
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
+          isGradient ? (
+            <div
+              className="h-full w-full"
+              style={{
+                background: `linear-gradient(90deg, ${resource.colors!.join(', ')})`
+              }}
+            />
+          ) : (
+            <div className="h-full flex">
+              {resource.colors!.slice(0, 6).map((color, index) => (
+                <div
+                  key={index}
+                  className="flex-1"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          )
         ) : thumbnailUrl ? (
           <img
             src={thumbnailUrl}

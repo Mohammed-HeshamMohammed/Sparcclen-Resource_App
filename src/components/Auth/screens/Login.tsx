@@ -6,7 +6,7 @@ import { hashPasswordSecure } from '@/lib/utils'
 import { FormContentWrapper, BottomSectionWrapper } from '../wrappers'
 import { readSave, saveWrite } from '@/lib/system/saveClient'
 import { WindowsHelloModal } from '../modals/WindowsHelloModal'
-import { isWebAuthnSupported, authenticateWithPasskeyOffline } from '@/lib/services/webauthn'
+import { isWebAuthnSupported, authenticateWithPasskeyOffline } from '@/lib/services'
 import { notify } from '@/lib/toast'
 
 interface LoginProps {

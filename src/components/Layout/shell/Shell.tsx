@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ResourceSidebar, ResourceGrid, ResourceDetailModal } from '@/components/Resources';
 import { ImportPage } from '@/components/Resources/ImportPage';
 import { RoleManagement } from '@/components/Admin/RoleManagement';
@@ -6,365 +6,333 @@ import { Dashboard } from '@/components/Dashboard';
 import { TopBar } from './TopBar';
 import { SkeletonLoader } from '@/components/ui';
 import { Settings, Profile } from '@/components/User';
-import {useKeyboardShortcuts} from '@/hooks/useKeyboardShortcuts';
-// useTheme from '@/components/Layout' available if needed
-import type {Category, Resource, SearchFilters}
-from '@/types';
-import {
-    getCategories,
-    getResources,
-    searchResources,
-    incrementViewCount
-} from '@/lib/services';
-import {useAuth} from '@/lib/auth';
-import {debounce} from '@/lib/utils';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import type { Category, Resource } from '@/types';
+import { incrementViewCount } from '@/lib/services';
+import { useLibraryData } from '@/components/Resources/library/useLibraryData';
+import { FiltersTap } from '@/components/Resources/library/FiltersTap';
+import { useAuth } from '@/lib/auth';
+import { debounce } from '@/lib/utils';
 
 export function Shell() {
-    // Theme context is available but not currently used in this component
-    const {user} = useAuth();
-    const [categories, setCategories] = useState < Category[] > ([]);
-    const [resources, setResources] = useState < Resource[] > ([]);
-    const [activeCategory, setActiveCategory] = useState < string | null > (null);
-    const [activeSubcategory, setActiveSubcategory] = useState < string | null > (null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [favoritesOnly, setFavoritesOnly] = useState(false);
-    const [selectedResource, setSelectedResource] = useState < Resource | null > (null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-    const [showSettings, setShowSettings] = useState(false);
-    const [showProfile, setShowProfile] = useState(false);
-    const [showRoles, setShowRoles] = useState(false);
-    // Active main tab: Dashboard, Library, or Imports
-    const [activeTab, setActiveTab] = useState<'Dashboard' | 'Library' | 'Imports'>('Dashboard');
+  const { user } = useAuth();
+  const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showRoles, setShowRoles] = useState(false);
+  const [activeTab, setActiveTab] = useState<'Dashboard' | 'Library' | 'Imports'>('Dashboard');
 
-    const loadCategories = async () => {
-        try {
-            setIsLoadingCategories(true);
-            const data = await getCategories();
-            setCategories(data);
-            // Don't auto-select first category - show all items by default
-        } catch (error) {
-            console.error('Failed to load categories:', error);
-        } finally {
-            setIsLoadingCategories(false);
-        }
-    };
+  const {
+    categories,
+    resources,
+    availableClassifications,
+    availableTags,
+    activeCategory,
+    activeSubcategory,
+    classificationFilter,
+    tagFilter,
+    searchQuery,
+    favoritesOnly,
+    isLoading,
+    isLoadingCategories,
+    setSearchQuery,
+    setFavoritesOnly,
+    handleSelectCategory: selectLibraryCategory,
+    clearCategorySelection,
+    applyClassificationFilter,
+    applyTagFilter,
+    patchResourceLocally,
+    updateFavoriteLocally,
+  } = useLibraryData({
+    userId: user?.id ?? null,
+    activeTab,
+    selectedResource,
+    onSelectedResourceChange: setSelectedResource,
+  });
 
-    const loadResources = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            let data: Resource[];
+  const debouncedSearch = useCallback(
+    (query: string) => {
+      const fn = debounce(() => setSearchQuery(query), 250);
+      fn();
+    },
+    [setSearchQuery]
+  );
 
-            if (searchQuery || favoritesOnly) {
-                const filters: SearchFilters = {
-                    query: searchQuery,
-                    categoryId: activeCategory,
-                    subcategoryId: activeSubcategory,
-                    tags: [],
-                    favoritesOnly,
-                    resourceType: null
-                };
-                data = await searchResources(filters, user?.id);
-            } else {
-                data = await getResources(activeCategory || undefined, activeSubcategory || undefined);
-            }
+  const handleSearchChange = (query: string) => {
+    debouncedSearch(query);
+  };
 
-            setResources(data);
-        } catch (error) {
-            console.error('Failed to load resources:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [activeCategory, activeSubcategory, searchQuery, favoritesOnly, user?.id]);
+  const handleSelectCategory = (categoryId: string, subcategoryId?: string) => {
+    selectLibraryCategory(categoryId, subcategoryId);
+    setShowProfile(false);
+    setShowSettings(false);
+    setShowRoles(false);
+  };
 
-    useEffect(() => {
-        loadCategories();
-    }, []);
+  const handleToggleFavorite = async (resourceId: string) => {
+    if (!user?.id || !user?.email) return;
+    try {
+      const raw = localStorage.getItem(`favorites_${user.id}`);
+      let favorites: string[] = raw ? JSON.parse(raw) : [];
+      const isFav = favorites.includes(resourceId);
+      if (isFav) {
+        favorites = favorites.filter((id) => id !== resourceId);
+      } else {
+        favorites.push(resourceId);
+      }
+      localStorage.setItem(`favorites_${user.id}`, JSON.stringify(favorites));
+      updateFavoriteLocally(resourceId, !isFav);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
 
-    useEffect(() => {
-        loadResources();
-    }, [loadResources]);
+  const handleOpenResource = async (resource: Resource) => {
+    setSelectedResource(resource);
+    try {
+      await incrementViewCount(resource.id);
+      const nextCount = (resource.view_count || 0) + 1;
+      patchResourceLocally(resource.id, { view_count: nextCount });
+    } catch (error) {
+      console.error('Failed to update view count:', error);
+    }
+  };
 
-    // Load user favorites
-    useEffect(() => {
-        const loadFavorites = async () => {
-            if (user?.id && user?.email) {
-                try {
-                    const storedFavorites = localStorage.getItem(`favorites_${user.id}`);
-                    if (storedFavorites) {
-                        JSON.parse(storedFavorites);
-                    }
-                } catch (error) {
-                    console.error('Error loading favorites:', error);
-                }
-            }
-        };
-        loadFavorites();
-    }, [user]);
+  const handleOpenSettings = () => {
+    setShowSettings(true);
+    setShowProfile(false);
+    setShowRoles(false);
+  };
 
-    const debouncedSearch = useCallback(
-        (query: string) => {
-            const debouncedFn = debounce(() => {
-                setSearchQuery(query);
-            }, 250);
-            debouncedFn();
-        }, 
-        []
-    );
+  const handleOpenProfile = () => {
+    setShowProfile(true);
+    setShowSettings(false);
+    setShowRoles(false);
+  };
 
-    const handleSearchChange = (query : string) => {
-        debouncedSearch(query);
-    };
+  const handleOpenRoles = () => {
+    setShowRoles(true);
+    setShowProfile(false);
+    setShowSettings(false);
+  };
 
-    const handleSelectCategory = (categoryId : string, subcategoryId? : string) => {
-        setActiveCategory(categoryId);
-        setActiveSubcategory(subcategoryId || null);
-        setSearchQuery('');
-        setFavoritesOnly(false);
-        // Close profile and settings when navigating within library
-        setShowProfile(false);
-        setShowSettings(false);
-    };
+  const handleOpenDashboard = () => {
+    setActiveTab('Dashboard');
+    setShowProfile(false);
+    setShowSettings(false);
+    setShowRoles(false);
+  };
 
-    const handleToggleFavorite = async (resourceId : string) => {
-        if (!user?.id || !user?.email) return;
-        try {
-            const storedFavorites = localStorage.getItem(`favorites_${user.id}`);
-            let favorites = storedFavorites ? JSON.parse(storedFavorites) : [];
-            const isFav = favorites.includes(resourceId);
-            
-            if (isFav) {
-                favorites = favorites.filter((id: string) => id !== resourceId);
-            } else {
-                favorites.push(resourceId);
-            }
-            
-            localStorage.setItem(`favorites_${user.id}`, JSON.stringify(favorites));
-            
-            // Update resource state
-            setResources((prev) => prev.map((r) => r.id === resourceId ? { ...r, is_favorite: !isFav } : r));
-            if (selectedResource?.id === resourceId) {
-                setSelectedResource((prev) => prev ? { ...prev, is_favorite: !isFav } : null);
-            }
-        } catch (error) {
-            console.error('Failed to toggle favorite:', error);
-        }
-    };
+  const handleOpenLibrary = () => {
+    setActiveTab('Library');
+    setShowProfile(false);
+    setShowSettings(false);
+    setShowRoles(false);
+    clearCategorySelection();
+    applyClassificationFilter(null);
+    applyTagFilter(null);
+    setSearchQuery('');
+    setFavoritesOnly(false);
+  };
 
-    const handleOpenResource = async (resource : Resource) => {
-        setSelectedResource(resource);
-        if (user) {
-            try {
-                await incrementViewCount(resource.id);
-                setResources((prev) => prev.map((r) => r.id === resource.id ? { ...r, view_count: (r.view_count || 0) + 1 } : r));
-            } catch (error) {
-                console.error('Failed to increment view count:', error);
-            }
-        }
-    };
+  const handleOpenImports = () => {
+    setActiveTab('Imports');
+    setShowProfile(false);
+    setShowSettings(false);
+    setShowRoles(false);
+    clearCategorySelection();
+    applyClassificationFilter(null);
+    applyTagFilter(null);
+    setSearchQuery('');
+    setFavoritesOnly(false);
+  };
 
-    const handleOpenSettings = () => {
-        setShowSettings(true);
-        setShowProfile(false);
-        setShowRoles(false);
-    };
+  const handleOpenLibraryCategory = (slug: string) => {
+    setActiveTab('Library');
+    setShowProfile(false);
+    setShowSettings(false);
+    setShowRoles(false);
 
-    const handleOpenProfile = () => {
-        setShowProfile(true);
-        setShowSettings(false);
-        setShowRoles(false);
-    };
+    const slugify = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    const normalize = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/[^a-z0-9]/g, '');
 
-    const handleOpenRoles = () => {
-        setShowRoles(true);
-        setShowProfile(false);
-        setShowSettings(false);
-    };
+    const normSlug = normalize(slug);
+    const match = categories.find((category: Category) => {
+      const title = (category?.title || '').toString();
+      const categorySlug = slugify(title);
+      const normTitle = normalize(title);
+      const normCategorySlug = normalize(categorySlug);
+      return (
+        categorySlug === slug ||
+        categorySlug.includes(slug) ||
+        slug.includes(categorySlug) ||
+        normTitle === normSlug ||
+        normCategorySlug === normSlug ||
+        normSlug.includes(normTitle) ||
+        normTitle.includes(normSlug)
+      );
+    });
 
-    const handleOpenDashboard = () => {
-        setActiveTab('Dashboard');
-        setShowProfile(false);
-        setShowSettings(false);
-        setShowRoles(false);
-    };
-
-    const handleOpenLibrary = () => {
-        setActiveTab('Library');
-        setShowProfile(false);
-        setShowSettings(false);
-        setShowRoles(false);
-        setActiveCategory(null);
-        setActiveSubcategory(null);
-        setSearchQuery('');
-        setFavoritesOnly(false);
-    };
-
-    const handleOpenImports = () => {
-        setActiveTab('Imports');
-        setShowProfile(false);
-        setShowSettings(false);
-        setShowRoles(false);
-        setActiveCategory(null);
-        setActiveSubcategory(null);
-        setSearchQuery('');
-        setFavoritesOnly(false);
-    };
-
-    const handleOpenLibraryCategory = (slug: string) => {
-        setActiveTab('Library');
-        setShowProfile(false);
-        setShowSettings(false);
-        setShowRoles(false);
-
-        const slugify = (s: string) => s.toLowerCase()
-            .replace(/&/g, 'and')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
-        const normalize = (s: string) => s.toLowerCase()
-            .replace(/&/g, 'and')
-            .replace(/[^a-z0-9]/g, '');
-
-        const normSlug = normalize(slug);
-        const match = categories.find((c: Category) => {
-            const nm = (c?.title || '').toString();
-            const cslug = slugify(nm);
-            const normName = normalize(nm);
-            const normCslug = normalize(cslug);
-            return (
-                cslug === slug ||
-                cslug.includes(slug) ||
-                slug.includes(cslug) ||
-                normName === normSlug ||
-                normCslug === normSlug ||
-                normSlug.includes(normName) ||
-                normName.includes(normSlug)
-            );
-        });
-
-        if (match) {
-            setActiveCategory(match.id);
-            setActiveSubcategory(null);
-        } else {
-            setActiveCategory(null);
-            setActiveSubcategory(null);
-        }
-        setSearchQuery('');
-        setFavoritesOnly(false);
-    };
-
-    const handleToggleFavoritesView = () => {
-        setFavoritesOnly((prev) => !prev);
-    };
-
-    useKeyboardShortcuts([
-        {
-            key: 'k',
-            ctrlKey: true,
-            handler: () => {
-                const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
-                searchInput?.focus();
-            },
-            description: 'Focus search'
-        },
-        {
-            key: 'f',
-            ctrlKey: true,
-            handler: handleToggleFavoritesView,
-            description: 'Toggle favorites'
-        },
-        {
-            key: 'Escape',
-            handler: () => {
-                if (selectedResource) {
-                    setSelectedResource(null);
-                }
-            },
-            description: 'Close modal'
-        },
-    ]);
-
-    function handleOpenExternal(_url: string): void {
-        throw new Error('Function not implemented.');
+    if (match) {
+      selectLibraryCategory(match.id);
+    } else {
+      clearCategorySelection();
     }
 
-    return (
-        <div className="h-full flex flex-col relative overflow-hidden bg-gray-900 dark:bg-gray-800">
+    setSearchQuery('');
+    setFavoritesOnly(false);
+    applyClassificationFilter(null);
+    applyTagFilter(null);
+  };
 
-            <div className="flex-1 flex overflow-hidden relative">
-                {isLoadingCategories ? (
-                    <div className="w-[360px] flex-shrink-0">
-                        <SkeletonLoader type="sidebar"/>
-                    </div>
-                ) : (
-                    <ResourceSidebar
-                        onOpenSettings={handleOpenSettings}
-                        onOpenProfile={handleOpenProfile}
-                        onOpenRoles={handleOpenRoles}
-                        onOpenDashboard={handleOpenDashboard}
-                        onOpenLibrary={handleOpenLibrary}
-                        onOpenImports={handleOpenImports}
-                        onOpenLibraryCategory={handleOpenLibraryCategory}
-                        isLibraryActive={activeTab === 'Library'}
-                    />
-                )}
+  const handleToggleFavoritesView = () => {
+    setFavoritesOnly((prev) => !prev);
+  };
 
-                <main className="flex-1 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
-                    {!showSettings && !showProfile && !showRoles && activeTab === 'Library' && (
-                        <div className="pt-8">
-                            <TopBar
-                                searchQuery={searchQuery}
-                                onSearchChange={handleSearchChange}
-                                onToggleFavoritesView={handleToggleFavoritesView}
-                                favoritesOnly={favoritesOnly}
-                                categories={categories}
-                                activeCategory={activeCategory}
-                                activeSubcategory={activeSubcategory}
-                                onSelectCategory={handleSelectCategory}
-                                onClearCategoryFilter={() => {
-                                    setActiveCategory(null);
-                                    setActiveSubcategory(null);
-                                }}
-                            />
-                        </div>
-                    )}
+  useKeyboardShortcuts([
+    {
+      key: 'k',
+      ctrlKey: true,
+      handler: () => {
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+        searchInput?.focus();
+      },
+      description: 'Focus search',
+    },
+    {
+      key: 'f',
+      ctrlKey: true,
+      handler: handleToggleFavoritesView,
+      description: 'Toggle favorites',
+    },
+    {
+      key: 'Escape',
+      handler: () => {
+        if (selectedResource) {
+          setSelectedResource(null);
+        }
+      },
+      description: 'Close modal',
+    },
+  ]);
 
-                    {showProfile ? (
-                        <Profile/>
-                    ) : showSettings ? (
-                        <Settings/>
-                    ) : showRoles ? (
-                        <RoleManagement/>
-                    ) : (
-                        activeTab === 'Dashboard' ? (
-                            <Dashboard
-                                resources={resources}
-                                categories={categories}
-                                onOpenResource={handleOpenResource}
-                                onOpenLibrary={handleOpenLibrary}
-                                onOpenProfile={handleOpenProfile}
-                                onOpenSettings={handleOpenSettings}
-                                onOpenRoles={handleOpenRoles}
-                            />
-                        ) : activeTab === 'Imports' ? (
-                            <ImportPage />
-                        ) : (
-                            <ResourceGrid
-                                resources={resources}
-                                onOpenResource={handleOpenResource}
-                                onToggleFavorite={handleToggleFavorite}
-                                isLoading={isLoading}
-                            />
-                        )
-                    )}
-                </main>
-            </div>
+  useEffect(() => {
+    if (user?.id && user?.email) {
+      try {
+        const storedFavorites = localStorage.getItem(`favorites_${user.id}`);
+        if (storedFavorites) {
+          JSON.parse(storedFavorites);
+        }
+      } catch (error) {
+        console.error('Error loading favorites:', error);
+      }
+    }
+  }, [user]);
 
-            <ResourceDetailModal
-                resource={selectedResource}
-                onClose={() => setSelectedResource(null)}
+  function handleOpenExternal(_url: string): void {
+    throw new Error('Function not implemented.');
+  }
+
+  return (
+    <div className="h-full flex flex-col relative bg-gray-900 dark:bg-gray-800">
+      <div className="flex-1 flex relative min-h-0">
+        {isLoadingCategories ? (
+          <div className="w-[360px] flex-shrink-0">
+            <SkeletonLoader type="sidebar" />
+          </div>
+        ) : (
+          <ResourceSidebar
+            onOpenSettings={handleOpenSettings}
+            onOpenProfile={handleOpenProfile}
+            onOpenRoles={handleOpenRoles}
+            onOpenDashboard={handleOpenDashboard}
+            onOpenLibrary={handleOpenLibrary}
+            onOpenImports={handleOpenImports}
+            onOpenLibraryCategory={handleOpenLibraryCategory}
+            isLibraryActive={activeTab === 'Library'}
+          />
+        )}
+
+        <main className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-hide bg-gray-50 dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
+          {!showSettings && !showProfile && !showRoles && activeTab === 'Library' && (
+            <>
+              <div className="sticky top-0 z-30 px-6 pt-8 pb-4 bg-transparent dark:bg-transparent">
+                <TopBar
+                  searchQuery={searchQuery}
+                  onSearchChange={handleSearchChange}
+                  onToggleFavoritesView={handleToggleFavoritesView}
+                  favoritesOnly={favoritesOnly}
+                />
+              </div>
+              <div className="px-6 mb-4">
+                <FiltersTap
+                  categories={categories}
+                  activeCategory={activeCategory}
+                  activeSubcategory={activeSubcategory}
+                  onSelectCategory={handleSelectCategory}
+                  onClearCategoryFilter={() => {
+                    clearCategorySelection();
+                    applyClassificationFilter(null);
+                    applyTagFilter(null);
+                  }}
+                  classificationOptions={availableClassifications}
+                  activeClassification={classificationFilter}
+                  onClassificationChange={applyClassificationFilter}
+                  tagOptions={availableTags}
+                  activeTag={tagFilter}
+                  onTagChange={applyTagFilter}
+                  isLoading={isLoading}
+                />
+              </div>
+            </>
+          )}
+
+          <div className="flex-1 flex flex-col pb-6">
+            {showProfile ? (
+              <Profile />
+            ) : showSettings ? (
+              <Settings />
+            ) : showRoles ? (
+              <RoleManagement />
+            ) : activeTab === 'Dashboard' ? (
+              <Dashboard
+                resources={resources}
+                categories={categories}
+                onOpenResource={handleOpenResource}
+                onOpenLibrary={handleOpenLibrary}
+                onOpenProfile={handleOpenProfile}
+                onOpenSettings={handleOpenSettings}
+                onOpenRoles={handleOpenRoles}
+              />
+            ) : activeTab === 'Imports' ? (
+              <ImportPage />
+            ) : (
+              <ResourceGrid
+                resources={resources}
+                onOpenResource={handleOpenResource}
                 onToggleFavorite={handleToggleFavorite}
-                onOpenExternal={handleOpenExternal}
-            />
-        </div>
-    );
+                isLoading={isLoading}
+              />
+            )}
+          </div>
+        </main>
+      </div>
+
+      <ResourceDetailModal
+        resource={selectedResource}
+        onClose={() => setSelectedResource(null)}
+        onToggleFavorite={handleToggleFavorite}
+        onOpenExternal={handleOpenExternal}
+      />
+    </div>
+  );
 }

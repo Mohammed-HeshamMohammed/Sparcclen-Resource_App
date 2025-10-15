@@ -22,6 +22,11 @@ export function Profile() {
   const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const userMetadata = user?.user_metadata as Record<string, unknown> | undefined;
+  const accountTypeFromAuth = (() => {
+    const roleValue = userMetadata?.['role'];
+    return typeof roleValue === 'string' ? roleValue : undefined;
+  })();
 
   // Update local display name when profile changes
   useEffect(() => {
@@ -317,11 +322,11 @@ export function Profile() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Account Type
                   </label>
-                  <p className="text-gray-900 dark:text-white">{
-                    profile.accountType
-                      || ((user?.user_metadata as any)?.role as string | undefined)
-                      || (user ? 'Free' : (save?.offlineSession ? 'Mysterious Offline Entity' : 'Guest'))
-                  }</p>
+                  <p className="text-gray-900 dark:text-white">
+                    {profile.accountType
+                      || accountTypeFromAuth
+                      || (user ? 'Free' : (save?.offlineSession ? 'Mysterious Offline Entity' : 'Guest'))}
+                  </p>
                 </div>
 
                 <div>

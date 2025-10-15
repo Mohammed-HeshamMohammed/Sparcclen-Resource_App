@@ -1,398 +1,99 @@
-import 'dotenv/config'
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
-import { promises as fs } from 'fs'
-import { existsSync, mkdirSync } from 'fs'
-import { createClient } from '@supabase/supabase-js'
-
+import { config as loadEnv } from 'dotenv'
+import { app, BrowserWindow } from 'electron'
+import { join, resolve } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
-import { CredentialManager } from './credentialManager.ts'
 
-// Track background uploads across windows
-let pendingUploads = 0
+import { CredentialManager } from './security/credentialManager'
+import { UploadTracker } from './state/uploadTracker'
+import { registerWindowControlHandlers } from './ipc/windowControls'
+import { registerSaveHandlers } from './ipc/saveHandlers'
+import { registerCredentialHandlers } from './ipc/credentialHandlers'
+import { registerFileSystemHandlers } from './ipc/fileSystemHandlers'
+import { registerResourceHandlers } from './ipc/resourceHandlers'
+import { registerAdminHandlers } from './ipc/adminHandlers'
+import { ensureInitialSaveFile } from './persistence/saveStore'
+import { createMainWindow } from './windows/createMainWindow'
 
-// Initialize credential manager
+loadEnv({ path: resolve(process.cwd(), '.env') })
+
+// Maintain shared singletons
 const credentialManager = new CredentialManager()
+const uploadTracker = new UploadTracker()
 
-// In development, use a dedicated userData directory to avoid cache lock conflicts
-// (fixes: Unable to move/create cache: Access is denied (0x5))
-if (is.dev) {
-  const devUserData = join(app.getPath('appData'), 'SparcclenDev')
-  // Also ensure cache dir is unique in dev to avoid lock conflicts
-  app.setPath('cache', join(devUserData, 'Cache'))
-  // Suppress CSP warnings in development
-  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
-}
+let mainWindow: BrowserWindow | null = null
 
-// Ensure only one Electron instance runs; focus existing if re-launched
-const gotTheLock = app.requestSingleInstanceLock()
-if (!gotTheLock) {
-  app.quit()
-} else {
-  app.on('second-instance', () => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) {
-      if (win.isMinimized()) win.restore()
-      win.show()
-      win.focus()
-    }
-  })
-}
+const getMainWindow = () => mainWindow
 
-function createWindow(): void {
-  // Create the browser window.
-  // Resolve preload path for both production build and ts-node dev.
-  const prodPreload = join(__dirname, 'preload.js')
-  const devPreloadBuilt = join(__dirname, '..', 'preload', 'index.js')
-  const devPreloadRegister = join(__dirname, '..', 'preload', 'register.cjs')
-  // Prefer built JS preload first to avoid ts-node/vm in renderer
-  const preloadResolved = [prodPreload, devPreloadBuilt, devPreloadRegister].find(p => existsSync(p))
-  const mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 850,
-    minWidth: 1000,
-    minHeight: 850,
-    show: false,
-    autoHideMenuBar: true,
-    frame: false, // Remove Windows title bar completely
-    resizable: true,
-    hasShadow: true,
-    // backgroundColor removed to allow theme system to control colors
-    webPreferences: {
-      ...(preloadResolved ? { preload: preloadResolved } : {}),
-      sandbox: false,
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-      experimentalFeatures: false
-    }
-  })
-
-  // Show window only when it's ready to avoid white flashes and "background only" runs
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // Basic IPC handlers for frameless window controls
-  ipcMain.handle('win:minimize', () => {
-    mainWindow.minimize()
-    return true
-  })
-
-  ipcMain.handle('win:maximize', () => {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize()
-    } else {
-      mainWindow.maximize()
-    }
-    return true
-  })
-
-  ipcMain.handle('uploads:begin', () => {
-    pendingUploads += 1
-    return pendingUploads
-  })
-
-  ipcMain.handle('uploads:end', () => {
-    pendingUploads = Math.max(0, pendingUploads - 1)
-    return pendingUploads
-  })
-
-  ipcMain.handle('win:close', () => {
-    // If there are uploads in progress, keep the app alive and hide the window
-    if (pendingUploads > 0) {
-      mainWindow.hide()
-      return false
-    }
-    mainWindow.close()
-    return true
-  })
-
-  ipcMain.handle('win:getSize', () => {
-    const bounds = mainWindow.getBounds()
-    return { width: bounds.width, height: bounds.height }
-  })
-
-  // Persistent app save in user's Documents/Sparcclen/DID-Data.save
-  type SaveData = {
-    firstRun: boolean
-    theme: 'system' | 'light' | 'dark'
-    loggedInBefore: boolean
-    lastEmail: string | null
-    displayName: string | null
-    offlineSession?: boolean
-    updatedAt: string
-  }
-
-  const SAVE_DIR = join(app.getPath('documents'), 'Sparcclen')
-  const SAVE_PATH = join(SAVE_DIR, 'DID-Data.save')
-  const defaultSave: SaveData = {
-    firstRun: true,
-    theme: 'system',
-    loggedInBefore: false,
-    lastEmail: null,
-    displayName: null,
-    offlineSession: false,
-    updatedAt: new Date().toISOString()
-  }
-
-  async function ensureSaveDir() {
-    if (!existsSync(SAVE_DIR)) {
-      mkdirSync(SAVE_DIR, { recursive: true })
-    }
-  }
-
-  async function readSaveFile(): Promise<SaveData> {
-    await ensureSaveDir()
-    try {
-      const txt = await fs.readFile(SAVE_PATH, 'utf-8')
-      const data = JSON.parse(txt) as Partial<SaveData>
-      return { ...defaultSave, ...data }
-    } catch {
-      await fs.writeFile(SAVE_PATH, JSON.stringify(defaultSave, null, 2), 'utf-8')
-      return { ...defaultSave }
-    }
-  }
-
-  async function writeSaveFile(patch: Partial<SaveData>): Promise<SaveData> {
-    const current = await readSaveFile()
-    const next: SaveData = { ...current, ...patch, updatedAt: new Date().toISOString() }
-    await fs.writeFile(SAVE_PATH, JSON.stringify(next, null, 2), 'utf-8')
-    return next
-  }
-
-  ipcMain.handle('save:read', async () => {
-    return readSaveFile()
-  })
-
-  ipcMain.handle('save:write', async (_event, patch: Partial<SaveData>) => {
-    return writeSaveFile(patch || {})
-  })
-
-  // Credential Manager IPC handlers
-  ipcMain.handle('credentials:isAvailable', () => {
-    return credentialManager.isEncryptionAvailable()
-  })
-
-  ipcMain.handle('credentials:store', async (_event, email: string, password: string) => {
-    return credentialManager.storeCredentials(email, password)
-  })
-
-  ipcMain.handle('credentials:get', async (_event, email: string) => {
-    return credentialManager.getCredentials(email)
-  })
-
-  ipcMain.handle('credentials:getEmails', async () => {
-    return credentialManager.getStoredEmails()
-  })
-
-  ipcMain.handle('credentials:has', async (_event, email: string) => {
-    return credentialManager.hasCredentials(email)
-  })
-  ipcMain.handle('credentials:delete', async (_event, email: string) => {
-    return credentialManager.deleteCredentials(email)
-  })
-
-  ipcMain.handle('credentials:promptHello', async (_event, email: string) => {
-    return credentialManager.promptWindowsHello(email)
-  })
-
-  // File system IPC handlers for avatar caching
-  ipcMain.handle('fs:writeFile', async (_event, relativePath: string, data: string) => {
-    try {
-      const { promises: fs } = await import('fs')
-      const { resolve } = await import('path')
-      const { app } = await import('electron')
-      
-      const documentsPath = app.getPath('documents')
-      let adjustedPath = relativePath
-      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
-        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
-      } else {
-        adjustedPath = 'Sparcclen/' + adjustedPath
-      }
-      const fullPath = resolve(documentsPath, adjustedPath)
-      await fs.writeFile(fullPath, data, 'utf-8')
-      return true
-    } catch (error) {
-      console.error('[fs:writeFile] Error:', error)
-      return false
-    }
-  })
-
-  ipcMain.handle('fs:readFile', async (_event, relativePath: string) => {
-    try {
-      const { promises: fs } = await import('fs')
-      const { resolve } = await import('path')
-      const { app } = await import('electron')
-      
-      const documentsPath = app.getPath('documents')
-      let adjustedPath = relativePath
-      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
-        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
-      } else {
-        adjustedPath = 'Sparcclen/' + adjustedPath
-      }
-      const fullPath = resolve(documentsPath, adjustedPath)
-      const data = await fs.readFile(fullPath, 'utf-8')
-      return data
-    } catch (error) {
-      console.error('[fs:readFile] Error:', error)
-      return null
-    }
-  })
-
-  ipcMain.handle('fs:exists', async (_event, relativePath: string) => {
-    try {
-      const { promises: fs } = await import('fs')
-      const { resolve } = await import('path')
-      const { app } = await import('electron')
-      
-      const documentsPath = app.getPath('documents')
-      let adjustedPath = relativePath
-      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
-        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
-      } else {
-        adjustedPath = 'Sparcclen/' + adjustedPath
-      }
-      const fullPath = resolve(documentsPath, adjustedPath)
-      await fs.access(fullPath)
-      return true
-    } catch {
-      return false
-    }
-  })
-
-  ipcMain.handle('fs:ensureDir', async (_event, relativePath: string) => {
-    try {
-      const { promises: fs } = await import('fs')
-      const { resolve } = await import('path')
-      const { app } = await import('electron')
-      
-      const documentsPath = app.getPath('documents')
-      let adjustedPath = relativePath
-      if (adjustedPath.match(/^Documents[\\/]Sparcclen[\\/]/)) {
-        adjustedPath = adjustedPath.replace(/^Documents[\\/]Sparcclen[\\/]/, 'Sparcclen/')
-      } else {
-        adjustedPath = 'Sparcclen/' + adjustedPath
-      }
-      const fullPath = resolve(documentsPath, adjustedPath)
-      await fs.mkdir(fullPath, { recursive: true })
-      return true
-    } catch (error) {
-      console.error('[fs:ensureDir] Error:', error)
-      return false
-    }
-  })
-
-  // Admin (service role) IPC handlers
-  function getAdminClient() {
-    const url = process.env['SUPABASE_URL'] || process.env['VITE_SUPABASE_URL'] || ''
-    const key = process.env['SUPABASE_SERVICE_ROLE_KEY'] || process.env['VITE_SUPABASE_SERVICE_ROLE_KEY'] || ''
-    if (!url || !key) return null
-    try {
-      return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-    } catch (e) {
-      console.warn('[admin] failed to create client', e)
-      return null
-    }
-  }
-
-  interface SupabaseAdminUser {
-    id: string;
-    email?: string;
-    user_metadata?: Record<string, unknown>;
-    app_metadata?: Record<string, unknown>;
-  }
-
-  ipcMain.handle('admin:listUsers', async () => {
-    const admin = getAdminClient()
-    if (!admin) return { ok: false, error: 'Admin API not configured' }
-    try {
-      const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
-      if (error) return { ok: false, error: error.message }
-      const users = (data?.users || []).map((u: SupabaseAdminUser) => ({
-        id: u.id,
-        email: u.email ?? null,
-        user_metadata: u.user_metadata || {},
-        app_metadata: u.app_metadata || {},
-      }))
-      return { ok: true, users }
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
-    }
-  })
-
-  ipcMain.handle('admin:updateUserRole', async (_event, userId: string, role: string) => {
-    const admin = getAdminClient()
-    if (!admin) return { ok: false, error: 'Admin API not configured' }
-    try {
-      const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: { role }, app_metadata: { role } })
-      if (error) return { ok: false, error: error.message }
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
-    }
-  })
-
-  // Ensure save file exists during startup (splash period)
-  ;(async () => {
-    try { await readSaveFile() } catch (e) { console.warn('[save:init] failed', e) }
-  })()
-
-  // Load the app
+const setupEnvironment = () => {
   if (is.dev) {
-    const devUrl = process.env['VITE_DEV_SERVER_URL'] || 'http://127.0.0.1:5175'
-    // Loading dev server URL
-    
-    // Load dev server and add proper error handling
-    mainWindow.loadURL(devUrl).catch((error) => {
-      console.error('Failed to load dev server:', error)
-      // Don't fall back to local file in development - this usually means dev server isn't ready
-    })
-    
-    // Open DevTools if explicitly requested
-    if (process.env['ELECTRON_OPEN_DEVTOOLS'] === 'true') {
-      mainWindow.webContents.openDevTools({ mode: 'detach' })
-    }
-  } else {
-    // In production, renderer is bundled under dist-electron/renderer
-    mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'))
+    const devUserData = join(app.getPath('appData'), 'SparcclenDev')
+    app.setPath('cache', join(devUserData, 'Cache'))
+    process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.electron')
-
-  app.on('browser-window-created', () => {
-    // Additional window setup could go here
-  })
-
-  createWindow()
-
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
-
-// Quit when all windows are closed, except on macOS.
-app.on('window-all-closed', () => {
-  // If uploads are in progress, keep app running (Windows/Linux). macOS stays alive by default.
-  if (process.platform !== 'darwin') {
-    if (pendingUploads === 0) {
-      app.quit()
-    }
-    // else: keep alive until uploads:end reduces to 0 and user quits explicitly
+const setupSingleInstanceLock = () => {
+  const gotTheLock = app.requestSingleInstanceLock()
+  if (!gotTheLock) {
+    app.quit()
+    return false
   }
-})
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
+  app.on('second-instance', () => {
+    const existing = BrowserWindow.getAllWindows()[0]
+    if (existing) {
+      if (existing.isMinimized()) existing.restore()
+      existing.show()
+      existing.focus()
+    }
+  })
+
+  return true
+}
+
+const registerGlobalIpcHandlers = () => {
+  registerWindowControlHandlers(getMainWindow, uploadTracker)
+  registerSaveHandlers()
+  registerCredentialHandlers(credentialManager)
+  registerFileSystemHandlers()
+  registerResourceHandlers(getMainWindow)
+  registerAdminHandlers()
+}
+
+const createMainProcessWindow = () => {
+  mainWindow = createMainWindow()
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+}
+
+const bootstrap = async () => {
+  setupEnvironment()
+  if (!setupSingleInstanceLock()) return
+
+  registerGlobalIpcHandlers()
+
+  app.whenReady().then(async () => {
+    electronApp.setAppUserModelId('com.electron')
+
+    createMainProcessWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createMainProcessWindow()
+      }
+    })
+
+    await ensureInitialSaveFile()
+  })
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      if (!uploadTracker.hasPending()) {
+        app.quit()
+      }
+    }
+  })
+}
+
+bootstrap()

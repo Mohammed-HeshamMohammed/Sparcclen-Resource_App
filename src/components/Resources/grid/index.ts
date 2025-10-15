@@ -1,2 +1,2 @@
-export { ResourceGrid } from './ResourceGrid'
 export { ResourceCard } from './ResourceCard'
+export { ResourceGrid } from './ResourceGrid'

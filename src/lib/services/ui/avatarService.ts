@@ -1,4 +1,4 @@
-import { downloadProfilePicture, uploadProfilePicture } from './profileCloud'
+import { downloadProfilePicture, uploadProfilePicture } from '../profile/profileCloud'
 
 // Types for preload API (Electron)
 type PreloadAPI = {

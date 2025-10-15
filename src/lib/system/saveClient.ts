@@ -26,7 +26,8 @@ function isElectron(): boolean {
 export async function readSave(): Promise<SaveData> {
   try {
     if (isElectron()) {
-      const data = await window.api.readSave();
+      const api = window.api!; // We know it's defined because isElectron() checks for it
+      const data = await api.readSave();
       return { ...defaultSave, ...(data || {}) } as SaveData;
     }
     // Fallback for web: use localStorage
@@ -53,7 +54,8 @@ export async function readSave(): Promise<SaveData> {
 export async function saveWrite(patch: Partial<SaveData>): Promise<SaveData> {
   try {
     if (isElectron()) {
-      const updated: SaveData = await window.api.saveWrite(patch);
+      const api = window.api!; // We know it's defined because isElectron() checks for it
+      const updated: SaveData = await api.saveWrite(patch);
       try {
         if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
           window.dispatchEvent(new CustomEvent('save:updated', { detail: updated }));

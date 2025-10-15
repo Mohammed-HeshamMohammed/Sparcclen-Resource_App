@@ -107,6 +107,8 @@ export function ImportPage() {
   const [selectedSubcategory, setSelectedSubcategory] = useState<SubcategoryType>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCeoImporting, setIsCeoImporting] = useState(false);
+  const [ceoSuccessMessage, setCeoSuccessMessage] = useState<string | null>(null);
 
   const selectedCategoryInfo = categories.find(cat => cat.id === selectedCategory);
   const SelectedIcon = selectedCategoryInfo?.icon;
@@ -116,12 +118,37 @@ export function ImportPage() {
     : undefined;
   const hasSubcategories = activeSubcategories.length > 0;
 
+  const sanitizeFolderSegment = (label: string) =>
+    label
+      .replace(/&/g, 'and')
+      .replace(/[:*?"<>|]/g, '')
+      .replace(/[/\\]+/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim() || 'General';
+
+  const sanitizeFileStem = (label: string) =>
+    label
+      .replace(/&/g, 'and')
+      .replace(/[:*?"<>|]/g, '')
+      .replace(/[/\\]+/g, '-')
+      .replace(/\s+/g, '-')
+      .trim()
+      .toLowerCase() || 'library';
+
+  const generateUuid = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `uuid-${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+  };
+
   const handleImport = async () => {
     if (hasSubcategories && !selectedSubcategory) {
       setError('Please choose a subcategory before importing.');
       return;
     }
 
+    setCeoSuccessMessage(null);
     setIsLoading(true);
     setError(null);
 
@@ -133,6 +160,93 @@ export function ImportPage() {
       setError('Import failed. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCeoImport = async () => {
+    if (hasSubcategories && !selectedSubcategory) {
+      setError('Please choose a subcategory before importing.');
+      return;
+    }
+
+    if (typeof window === 'undefined' || !window.api?.resources) {
+      setError('CEO imports are only available in the desktop application.');
+      return;
+    }
+
+    setError(null);
+    setCeoSuccessMessage(null);
+    setIsCeoImporting(true);
+
+    try {
+      const filePickResult = await window.api.resources.pickJsonFile();
+      if (!filePickResult || filePickResult.canceled) {
+        return;
+      }
+
+      if (!filePickResult.data) {
+        throw new Error(filePickResult.error || 'No data was returned from the selected file.');
+      }
+
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(filePickResult.data);
+      } catch {
+        throw new Error('The selected file is not valid JSON.');
+      }
+
+      const normalizeToArray = (value: unknown): Record<string, unknown>[] => {
+        if (Array.isArray(value)) {
+          return value as Record<string, unknown>[];
+        }
+        if (value && typeof value === 'object') {
+          const candidate = value as Record<string, unknown>;
+          if (Array.isArray(candidate.entries)) {
+            return candidate.entries as Record<string, unknown>[];
+          }
+          return [candidate];
+        }
+        throw new Error('The JSON file must contain an object or an array of objects.');
+      };
+
+      const entries = normalizeToArray(parsedJson).map((entry, index) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          throw new Error(`Entry ${index + 1} must be a JSON object.`);
+        }
+        const record = entry as Record<string, unknown>;
+        const existingUuid = typeof record.uuid === 'string' ? record.uuid.trim() : '';
+        return {
+          ...record,
+          uuid: existingUuid || generateUuid(),
+        };
+      });
+
+      const payload = JSON.stringify(entries, null, 2);
+
+      const categorySegment = sanitizeFolderSegment(selectedCategoryInfo?.label ?? selectedCategory);
+      const folderSegments = ['library', categorySegment];
+      if (selectedSubcategoryInfo) {
+        folderSegments.push(sanitizeFolderSegment(selectedSubcategoryInfo.label));
+      }
+
+      const sourceName = filePickResult.fileName ?? 'library.json';
+      const fileStem = sanitizeFileStem(sourceName.replace(/\.[^.]+$/, ''));
+      const outputFileName = `${fileStem || 'library'}.bin`;
+      const relativePath = ['LocalAppData', 'Sparcclen', ...folderSegments, outputFileName].join('/');
+
+      const saveResult = await window.api.resources.saveLibraryBin(folderSegments, outputFileName, payload);
+      if (!saveResult?.ok) {
+        throw new Error(saveResult?.error || 'Failed to save the library file.');
+      }
+
+      setCeoSuccessMessage(
+        `Saved ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} to ${relativePath}.`
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error during CEO import.';
+      setError(message);
+    } finally {
+      setIsCeoImporting(false);
     }
   };
 
@@ -496,12 +610,23 @@ export function ImportPage() {
                     Import high-priority leadership content with elevated privileges and curated review steps.
                   </p>
                   <button
-                    onClick={() => alert('CEO import functionality will be implemented here.')}
-                    className="inline-flex items-center justify-center gap-3 rounded-2xl bg-white px-6 py-3 text-lg font-semibold text-purple-600 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg"
+                    onClick={handleCeoImport}
+                    disabled={isCeoImporting}
+                    className="inline-flex items-center justify-center gap-3 rounded-2xl bg-white px-6 py-3 text-lg font-semibold text-purple-600 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    <Upload className="h-6 w-6" />
-                    <span>Import CEO resources</span>
+                    {isCeoImporting ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <Upload className="h-6 w-6" />
+                    )}
+                    <span>{isCeoImporting ? 'Importing...' : 'Import CEO resources'}</span>
                   </button>
+                  {ceoSuccessMessage && (
+                    <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 text-sm text-white shadow-lg shadow-black/10 backdrop-blur-sm">
+                      <CheckCircle className="h-5 w-5 text-emerald-200" />
+                      <span>{ceoSuccessMessage}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

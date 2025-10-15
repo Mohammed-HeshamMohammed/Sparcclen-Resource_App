@@ -2,8 +2,8 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { toast as sonnerToast, Toaster as SonnerToaster } from 'sonner'
 import { CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react'
-import { Button } from '../components/ui'
-import { cn } from './utils'
+import { Button } from '@/components/ui'
+import { cn } from '../utils/utils'
 
 export type Variant = 'default' | 'success' | 'error' | 'warning'
 export type Position =

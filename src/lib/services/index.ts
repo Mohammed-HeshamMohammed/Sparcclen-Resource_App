@@ -1,25 +1,22 @@
-// External services
+export { avatarService } from './ui/avatarService'; // Avatar service with online/offline support
+export {
+  fetchProfileDecrypted,
+  downloadProfilePicture,
+  saveProfileEncrypted,
+  uploadProfilePicture,
+} from './profile/profileCloud'; // Cloud encrypted profiles API
+export { getOrCreateProfileKey } from './profile/profileKey'; // Profile encryption keys
 export {
   getCategories,
   getResources,
-  searchResources,
-  getResourceById,
   incrementViewCount,
-  toggleFavorite,
-  getFavoritedResources,
-  getTags,
-  getTagsByCategory
-} from './localApi';
-
-export { supabase } from './supabase';
-
-// Cloud encrypted profiles API
+  searchResources,
+} from './filesystem/localApi'; // External services
 export {
-  saveProfileEncrypted,
-  fetchProfileDecrypted,
-  uploadProfilePicture,
-  downloadProfilePicture,
-} from './profileCloud';
-
-// Avatar service with online/offline support
-export { avatarService } from './avatarService';
+  listLibraryBinFiles,
+  buildLibraryCategories,
+  buildLibraryResources,
+  type LibrarySegmentsMap,
+} from './filesystem/libraryFs'; // Library file system operations
+export { supabase } from './auth/supabase';
+export { authenticateWithPasskeyOffline, isWebAuthnSupported } from './auth/webauthn';

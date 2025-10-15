@@ -5,6 +5,7 @@ import { LogOut, Import } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/lib/contexts/ProfileContext';
 import { readSave, type SaveData } from '@/lib/system/saveClient';
+import { avatarService } from '@/lib/services';
 import { LibrarySubmenu } from './LibrarySubmenu';
 
 const DashboardIcon = () => (
@@ -109,6 +110,7 @@ export function ResourceSidebar({
   const { profile } = useProfile();
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [save, setSave] = useState<SaveData | null>(null);
+  const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
@@ -131,6 +133,41 @@ export function ResourceSidebar({
 
   const offlineActive = !isOnline && !!save?.offlineSession;
   const offlineDisplayName = (save?.displayName && save.displayName.trim()) || 'offline user';
+
+  useEffect(() => {
+    let active = true;
+
+    const resolveAvatar = async () => {
+      if (profile.avatarUrl) {
+        setResolvedAvatarUrl(profile.avatarUrl);
+        return;
+      }
+
+      const candidateEmail =
+        (typeof profile.email === 'string' && profile.email) ||
+        user?.email ||
+        save?.lastEmail ||
+        null;
+
+      if (!candidateEmail) {
+        setResolvedAvatarUrl(null);
+        return;
+      }
+
+      try {
+        const url = await avatarService.getAvatarUrl(candidateEmail, true);
+        if (active) setResolvedAvatarUrl(url ?? null);
+      } catch {
+        if (active) setResolvedAvatarUrl(null);
+      }
+    };
+
+    resolveAvatar();
+
+    return () => {
+      active = false;
+    };
+  }, [profile.avatarUrl, profile.email, user?.email, save?.lastEmail]);
 
   const handleNavigation = (label: string) => {
     if (label === 'Dashboard') {
@@ -167,6 +204,16 @@ export function ResourceSidebar({
       default:
         return 'bg-gray-500 text-white'
     }
+  })()
+
+  const sidebarAvatarUrl = resolvedAvatarUrl ?? profile.avatarUrl ?? null
+  const fallbackInitial = (() => {
+    const source =
+      (profile.displayName && profile.displayName.trim()) ||
+      (typeof profile.email === 'string' && profile.email) ||
+      (user?.email ?? '') ||
+      offlineDisplayName
+    return source ? source.charAt(0).toUpperCase() : 'U'
   })()
 
   const navigationItems = [
@@ -251,15 +298,15 @@ export function ResourceSidebar({
                 </div>
                 {/* Inner circle (static) */}
                 <div className="absolute inset-[3px] rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                  {user && profile.avatarUrl ? (
-                    <img 
-                      src={profile.avatarUrl} 
-                      alt="Profile" 
-                      className="w-full h-full object-cover object-center rounded-full" 
+                  {sidebarAvatarUrl ? (
+                    <img
+                      src={sidebarAvatarUrl}
+                      alt="Profile"
+                      className="w-full h-full object-cover object-center rounded-full"
                     />
                   ) : (
                     <span className="text-white text-xl font-semibold leading-none">
-                      {user ? (profile.displayName?.charAt(0).toUpperCase() || profile.email?.charAt(0).toUpperCase() || 'U') : offlineDisplayName.charAt(0).toUpperCase()}
+                      {fallbackInitial}
                     </span>
                   )}
                 </div>
@@ -275,15 +322,15 @@ export function ResourceSidebar({
                 <div className={`w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center ring-2 ring-offset-2 dark:ring-offset-gray-950 ring-offset-white ${
                   role === 'Admin' ? 'ring-amber-500 shadow-[0_0_12px_#f59e0b40]' : role === 'Premium' ? 'ring-emerald-500 shadow-[0_0_12px_#10b98140]' : 'ring-gray-400 shadow-[0_0_10px_#9ca3af40]'
                 }`}>
-                  {user && profile.avatarUrl ? (
-                    <img 
-                      src={profile.avatarUrl} 
-                      alt="Profile" 
-                      className="w-full h-full object-cover object-center rounded-full" 
+                  {sidebarAvatarUrl ? (
+                    <img
+                      src={sidebarAvatarUrl}
+                      alt="Profile"
+                      className="w-full h-full object-cover object-center rounded-full"
                     />
                   ) : (
                     <span className="text-white text-xl font-semibold leading-none">
-                      {user ? (profile.displayName?.charAt(0).toUpperCase() || profile.email?.charAt(0).toUpperCase() || 'U') : offlineDisplayName.charAt(0).toUpperCase()}
+                      {fallbackInitial}
                     </span>
                   )}
                 </div>
