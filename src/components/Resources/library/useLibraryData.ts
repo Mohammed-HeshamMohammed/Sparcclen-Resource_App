@@ -202,17 +202,27 @@ export function useLibraryData({
         if (searchQuery) {
           const query = searchQuery.toLowerCase();
           derivedResources = derivedResources.filter((resourceItem: Resource) => {
+            // Search in main title
             if (resourceItem.title.toLowerCase().includes(query)) return true;
+
+            // Search in slug
+            if (resourceItem.slug.toLowerCase().includes(query)) return true;
+
+            // Search in description
             if (
               resourceItem.description &&
               resourceItem.description.toLowerCase().includes(query)
             )
               return true;
+
+            // Search in classification
             const classification =
               typeof resourceItem.metadata?.classification === 'string'
                 ? (resourceItem.metadata.classification as string).toLowerCase()
                 : null;
             if (classification && classification.includes(query)) return true;
+
+            // Search in tags
             if (
               resourceItem.tags &&
               resourceItem.tags.some((tag: Tag) =>
@@ -221,6 +231,8 @@ export function useLibraryData({
             ) {
               return true;
             }
+
+            // Search in original metadata title
             if (
               resourceItem.metadata?.original &&
               typeof resourceItem.metadata.original === 'object'
@@ -240,6 +252,7 @@ export function useLibraryData({
                 return true;
               }
             }
+
             return false;
           });
         }

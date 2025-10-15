@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { ResourceSidebar, ResourceGrid, ResourceDetailModal } from '@/components/Resources';
 import { ImportPage } from '@/components/Resources/ImportPage';
 import { RoleManagement } from '@/components/Admin/RoleManagement';
@@ -12,7 +12,6 @@ import { incrementViewCount } from '@/lib/services';
 import { useLibraryData } from '@/components/Resources/library/useLibraryData';
 import { FiltersTap } from '@/components/Resources/library/FiltersTap';
 import { useAuth } from '@/lib/auth';
-import { debounce } from '@/lib/utils';
 
 export function Shell() {
   const { user } = useAuth();
@@ -50,16 +49,8 @@ export function Shell() {
     onSelectedResourceChange: setSelectedResource,
   });
 
-  const debouncedSearch = useCallback(
-    (query: string) => {
-      const fn = debounce(() => setSearchQuery(query), 250);
-      fn();
-    },
-    [setSearchQuery]
-  );
-
   const handleSearchChange = (query: string) => {
-    debouncedSearch(query);
+    setSearchQuery(query);
   };
 
   const handleSelectCategory = (categoryId: string, subcategoryId?: string) => {
