@@ -9,6 +9,7 @@ interface ResourceCardProps {
   onOpen: (resource: Resource) => void;
   onToggleFavorite: (resourceId: string) => void;
   variant?: 'small' | 'medium' | 'large';
+  className?: string;
 }
 
 export function ResourceCard({
@@ -16,6 +17,7 @@ export function ResourceCard({
   onOpen,
   onToggleFavorite,
   variant = 'medium',
+  className,
 }: ResourceCardProps) {
   const { user } = useAuth();
   const thumbnailUrl = getThumbnailUrl(resource.url || '');
@@ -129,7 +131,8 @@ export function ResourceCard({
       transition={{ duration: 0.2 }}
       className={cn(
         "bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer group",
-        variantClasses.container
+        variantClasses.container,
+        className,
       )}
       onClick={async () => {
         try {

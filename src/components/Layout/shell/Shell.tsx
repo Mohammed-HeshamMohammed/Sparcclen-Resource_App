@@ -314,6 +314,7 @@ export function Shell() {
                 categories={categories}
                 onOpenResource={handleOpenResource}
                 onOpenLibrary={handleOpenLibrary}
+                onOpenImports={handleOpenImports}
                 onOpenProfile={handleOpenProfile}
                 onOpenSettings={handleOpenSettings}
                 onOpenRoles={handleOpenRoles}

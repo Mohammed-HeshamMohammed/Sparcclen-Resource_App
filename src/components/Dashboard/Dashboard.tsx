@@ -1,7 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { BarChart3, TrendingUp, Users, Library, Heart, Settings as SettingsIcon, Shield, User as UserIcon } from 'lucide-react';
-
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { BarChart3, TrendingUp, Users, Library, Heart } from 'lucide-react';
+import { TopResource } from './topresource'
+import { QuickActions } from './quickactions'
+import { ViewsSparkline } from './viewsSparkline'
+import { TopCategories } from './topCategories'
+import { TopSubcategories } from './topSubcategories'
 // Simple in-module caches to avoid refetching when navigating back to Dashboard
 const USERS_CACHE: { users: User[]; avatars: Record<string, string>; ts: number } = { users: [], avatars: {}, ts: 0 }
 const DASH_CACHE: {
@@ -59,6 +63,7 @@ interface DashboardProps {
   categories: Category[];
   onOpenResource: (resource: Resource) => void;
   onOpenLibrary: () => void;
+  onOpenImports: () => void;
   onOpenProfile: () => void;
   onOpenSettings: () => void;
   onOpenRoles: () => void;
@@ -69,6 +74,7 @@ export function Dashboard({
   categories,
   onOpenResource,
   onOpenLibrary,
+  onOpenImports,
   onOpenProfile,
   onOpenSettings,
   onOpenRoles,
@@ -84,8 +90,7 @@ export function Dashboard({
   const [totalFavourites, setTotalFavourites] = useState(0);
   const [recentItems, setRecentItems] = useState<Array<{ id: string; title: string; url?: string | null; ts: number }>>([]);
   const [allResources, setAllResources] = useState<Resource[]>(resources);
-  const [topResources, setTopResources] = useState<Resource[]>([]);
-  const topCacheRef = useRef<Record<string, Resource>>({});
+  // moved to TopResource component
 
   // Load users for user circles section
   useEffect(() => {
@@ -180,7 +185,6 @@ export function Dashboard({
     if (DASH_CACHE.viewCounts.length) setViewCounts(DASH_CACHE.viewCounts)
     if (DASH_CACHE.favCatAgg.length) setFavCatAgg(DASH_CACHE.favCatAgg)
     if (DASH_CACHE.favSubAgg.length) setFavSubAgg(DASH_CACHE.favSubAgg)
-    if (DASH_CACHE.topResources.length) setTopResources(DASH_CACHE.topResources)
   }, [])
 
   // Load aggregated view counts from Supabase + favourite category/subcategory aggregates from views_favs (online/offline)
@@ -247,80 +251,96 @@ export function Dashboard({
     return () => { if (t) window.clearInterval(t) }
   }, [user?.id]);
 
-  // Build "sparkline" from top viewed titles (normalize to 7 buckets)
-  const sparklineData = useMemo(() => {
-    const tops = [...viewCounts].slice(0, 7);
-    const max = Math.max(1, ...tops.map(t => Number(t.views) || 0));
-    return tops.map((t, idx) => ({ day: idx + 1, views: Math.round(((Number(t.views) || 0) / max) * 60) }));
-  }, [viewCounts]);
+  // sparkline moved to ViewsSparkline component
 
   // Top categories from views_favs (merged offline/online)
   // (unused detailed datasets removed to satisfy typecheck)
 
   // Recent activity now comes from local recentItems (from Library opens)
 
-  // Top resources by global views (match by title)
-  // Build Top Resources from global view counts; fill missing items via search
-  useEffect(() => {
+  // Top resources handled by TopResource component
+  /*useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
+        // 1) Sort global view counts
         const sorted = [...viewCounts].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))
-        const titles = sorted.map(v => v.title).slice(0, 20)
-        const viewMap = new Map(sorted.map(v => [v.title, Number(v.views) || 0]))
+        const titles = sorted.map(v => v.title).slice(0, 30)
+        const norm = (s: string) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+        // 2) Index local resources by normalized title
+        const byNormTitle = new Map<string, Resource>()
+        for (const r of allResources) {
+          const nt = norm(r.title)
+          if (nt && !byNormTitle.has(nt)) byNormTitle.set(nt, r)
+        }
+
         const picked: Resource[] = []
+        const triedTitles = new Set<string>()
+
         for (const title of titles) {
           if (picked.length >= 6) break
-          let res = allResources.find(r => r.title === title) || topCacheRef.current[title]
+          if (!title) continue
+          const nt = norm(title)
+          if (triedTitles.has(nt)) continue
+          triedTitles.add(nt)
+
+          // a) Exact normalized title in local index
+          let res = byNormTitle.get(nt) || topCacheRef.current[title]
+
+          // b) If not found, search by query and pick best match
           if (!res) {
             try {
               const { searchResources } = await import('@/lib/services')
               const filters = { query: title, categoryId: null, subcategoryId: null, tags: [], favoritesOnly: false, resourceType: null }
-              const results = await searchResources(filters, user?.id || undefined)
-              res = (results || []).find((r: Resource) => r.title === title) || (results || [])[0]
+              const results: Resource[] = await searchResources(filters, user?.id || undefined)
+              if (results && results.length > 0) {
+                // score: exact normalized match > includes normalized substring > highest local view_count
+                const scored = results.map(r => {
+                  const nrt = norm(r.title)
+                  let score = 0
+                  if (nrt === nt) score = 3
+                  else if (nrt.includes(nt) || nt.includes(nrt)) score = 2
+                  else score = 1
+                  // small boost by local view_count
+                  score += Math.min(1, (r.view_count || 0) / 1000)
+                  return { r, score }
+                })
+                scored.sort((a, b) => b.score - a.score)
+                res = scored[0].r
+              }
             } catch {}
           }
+
           if (res) {
             topCacheRef.current[title] = res
-            picked.push(res)
-          } else {
-            // Create a minimal placeholder resource so the card still shows
-            const nowIso = new Date().toISOString()
-            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'item'
-            const placeholder: Resource = {
-              id: `top::${slug}`,
-              slug,
-              title,
-              description: null,
-              url: null,
-              category_id: 'top',
-              subcategory_id: null,
-              resource_type: '',
-              thumbnail_url: null,
-              thumbnail_type: null,
-              colors: null,
-              metadata: {},
-              view_count: Number(viewMap.get(title)) || 0,
-              date_added: nowIso,
-              created_at: nowIso,
-              updated_at: nowIso,
-              tags: [],
-              is_favorite: false,
-            }
-            picked.push(placeholder)
+            // prevent duplicates by id
+            if (!picked.some(p => p.id === res!.id)) picked.push(res)
           }
         }
+
+        // 3) Fallback fill with locally most-viewed resources to ensure up to 6
+        if (picked.length < 6) {
+          const filler = [...allResources]
+            .filter(r => !picked.some(p => p.id === r.id))
+            .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
+            .slice(0, 6 - picked.length)
+          picked.push(...filler)
+        }
+
         if (!cancelled) {
           setTopResources(picked)
           DASH_CACHE.topResources = picked
           DASH_CACHE.ts = Date.now()
         }
-      } catch {
-        if (!cancelled) setTopResources([])
+      } catch (e) {
+        if (!cancelled) {
+          // keep previous state
+        }
       }
     })()
     return () => { cancelled = true }
-  }, [viewCounts, allResources, user?.id])
+  }, [viewCounts, allResources, user?.id])*/
 
   // Sort users by role priority: CEO > Admin > Premium > Free
   const sortedUsers = users.slice().sort((a, b) => {
@@ -356,86 +376,13 @@ export function Dashboard({
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Views Sparkline */}
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-5 w-5 text-blue-500" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Top Views</h3>
-          </div>
-          <div className="flex items-end gap-1 h-16">
-            {sparklineData.map((data, i) => (
-              <div key={i} className="flex-1 bg-blue-500 rounded-t opacity-70 hover:opacity-100 transition-opacity" 
-                   style={{ height: `${(data.views / 60) * 100}%` }}
-                   title={`${viewCounts[data.day - 1]?.title ?? '—'}: ${viewCounts[data.day - 1]?.views ?? 0} views`}
-              />
-            ))}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">Last 7 days</div>
-        </div>
-        
-        {/* Categories Overview from views_favs (offline/online) */}
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="h-5 w-5 text-emerald-500" />
-            <h3 className="font-semibold text-gray-900 dark:text-white">Top Categories</h3>
-          </div>
-          <div className="space-y-2">
-            {favCatAgg.slice(0, 4).map((cat, i) => {
-              const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500'];
-              const total = favCatAgg.reduce((s, v) => s + v.count, 0) || 1;
-              const percentage = (cat.count / total) * 100;
-              return (
-                <div key={`${i}-${cat.name}`} className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${colors[i % colors.length]}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-700 dark:text-gray-300 truncate">{cat.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{cat.count} items • {cat.favourites} favs</div>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded mt-1 overflow-hidden">
-                      <div className={`h-full ${colors[i % colors.length]} opacity-80`} style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {favCatAgg.length === 0 && (
-              <div className="text-sm text-gray-500 dark:text-gray-400">No categories yet</div>
-            )}
-          </div>
-        </div>
+        <ViewsSparkline viewCounts={viewCounts} />
+        {/* Categories Overview */}
+        <TopCategories items={favCatAgg} />
       </div>
 
-      {/* Top Subcategories from views_favs (offline/online) */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-        <div className="flex items-center gap-2 mb-3">
-          <BarChart3 className="h-5 w-5 text-orange-500" />
-          <h3 className="font-semibold text-gray-900 dark:text-white">Top Subcategories</h3>
-        </div>
-        <div className="space-y-2">
-          {favSubAgg.slice(0, 6).map((sc, i) => {
-            const colors = ['bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-pink-500', 'bg-cyan-500'];
-            const total = favSubAgg.reduce((s, v) => s + v.count, 0) || 1;
-            const percentage = (sc.count / total) * 100;
-            return (
-              <div key={`${i}-${sc.category}-${sc.subcategory}`} className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${colors[i % colors.length]}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-700 dark:text-gray-300 truncate">{sc.category} / {sc.subcategory}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{sc.count} items • {sc.favourites} favs</div>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded mt-1 overflow-hidden">
-                    <div className={`h-full ${colors[i % colors.length]} opacity-80`} style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {favSubAgg.length === 0 && (
-            <div className="text-sm text-gray-500 dark:text-gray-400">No subcategories yet</div>
-          )}
-        </div>
-      </div>
+      {/* Top Subcategories */}
+      <TopSubcategories items={favSubAgg} />
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -472,57 +419,21 @@ export function Dashboard({
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Resources */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Top Resources</h3>
-            <button onClick={onOpenLibrary} className="text-sm px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">View All</button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <AnimatePresence initial={false} mode="popLayout">
-              {topResources.map(resource => (
-                <motion.div
-                  key={resource.id}
-                  layout
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -24 }}
-                  transition={{ duration: 0.25 }}
-                  className="h-32"
-                >
-                  <ResourceCard
-                    resource={resource}
-                    onOpen={handleOpenResource}
-                    onToggleFavorite={() => { /* ResourceCard already syncs views_favs */ }}
-                    variant="small"
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        </div>
+        <TopResource
+          resources={allResources}
+          viewCounts={viewCounts}
+          onOpenResource={handleOpenResource}
+          onOpenLibrary={onOpenLibrary}
+        />
         
         {/* Quick Actions */}
-        <div className="space-y-3">
-          <h3 className="font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
-          <div className="grid grid-cols-1 gap-3">
-            <button onClick={onOpenLibrary} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all">
-              <Library className="h-5 w-5" />
-              <span className="font-medium">Browse Library</span>
-            </button>
-            <button onClick={onOpenProfile} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 transition-all">
-              <UserIcon className="h-5 w-5" />
-              <span className="font-medium">Profile</span>
-            </button>
-            <button onClick={onOpenSettings} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-gray-500 to-gray-600 text-white hover:from-gray-600 hover:to-gray-700 transition-all">
-              <SettingsIcon className="h-5 w-5" />
-              <span className="font-medium">Settings</span>
-            </button>
-            <button onClick={onOpenRoles} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-all">
-              <Shield className="h-5 w-5" />
-              <span className="font-medium">Roles</span>
-            </button>
-          </div>
-        </div>
+        <QuickActions
+          onOpenLibrary={onOpenLibrary}
+          onOpenImports={onOpenImports}
+          onOpenProfile={onOpenProfile}
+          onOpenSettings={onOpenSettings}
+          onOpenRoles={onOpenRoles}
+        />
       </div>
       
       {/* Bottom Row */}

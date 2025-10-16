@@ -8,14 +8,14 @@ import { readSave, type SaveData } from '@/lib/system/saveClient';
 import { avatarService } from '@/lib/services';
 import { LibrarySubmenu } from './LibrarySubmenu';
 
-const DashboardIcon = () => (
+export const DashboardIcon = () => (
   <svg fill="#000000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-9 w-9">
     <path d="M22,4V7a2,2,0,0,1-2,2H15a2,2,0,0,1-2-2V4a2,2,0,0,1,2-2h5A2,2,0,0,1,22,4ZM9,15H4a2,2,0,0,0-2,2v3a2,2,0,0,0,2,2H9a2,2,0,0,0,2-2V17A2,2,0,0,0,9,15Z" style={{ fill: '#2ca9bc' }} />
     <path d="M11,4v7a2,2,0,0,1-2,2H4a2,2,0,0,1-2-2V4A2,2,0,0,1,4,2H9A2,2,0,0,1,11,4Zm9,7H15a2,2,0,0,0-2,2v7a2,2,0,0,0,2,2h5a2,2,0,0,0,2-2V13A2,2,0,0,0,20,11Z" style={{ fill: '#000000' }} />
   </svg>
 );
 
-const ProfileIcon = () => (
+export const ProfileIcon = () => (
     <svg viewBox="0 0 24 24" className="h-8  w-8" fill="none">
       <circle cx="12" cy="8.2" r="3.2" fill="#f97316" />
       <path d="M18.5 18.2c0-2.7-2.9-4.9-6.5-4.9s-6.5 2.2-6.5 4.9" fill="#fb7185" />
@@ -23,11 +23,11 @@ const ProfileIcon = () => (
     </svg>
 );
 
-const RoleManagementIcon = () => (
+export const RoleManagementIcon = () => (
     <ShieldCheck className="h-8 w-8 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />
 );
 
-const ImportIcon = () => (
+export const ImportIcon = () => (
     <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none">
       <circle cx="12" cy="12" r="9" fill="#22c55e" opacity="0.2" />
       <path d="M12 6v7.2l2.8-2.8M12 13.2L9.2 10.4" stroke="#16a34a" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -35,12 +35,12 @@ const ImportIcon = () => (
     </svg>
 );
 
-const SettingsIcon = () => (
+export const SettingsIcon = () => (
   <SettingsIconLucide className="h-8 w-8 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />
 );
 
 
-const LibraryIcon = () => (
+export const LibraryIcon = () => (
   <div className="h-8 w-8 flex items-center justify-center sidebar-icon rounded">
     <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" className="h-8 w-8">
       <path d="M54.9 39.7l7.3 7.6l-32.1 16.1s-4.2 2.1-6.2-1.2c-8-13 31-22.5 31-22.5" fill="#256382" />
