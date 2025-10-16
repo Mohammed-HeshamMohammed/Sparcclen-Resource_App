@@ -22,6 +22,62 @@ export function ResourceCard({
     : resource.resource_type;
   const isGradient = Boolean(classification && classification.toLowerCase().includes('gradient'));
   const isColorResource = resource.colors && resource.colors.length > 0;
+  
+  // Get main card image (screen or screenshot, but not thumbnail)
+  const getMainCardImage = () => {
+    if (!resource.metadata) return null;
+    
+    // Priority order for main image: screenshot > screen (exclude thumbnail)
+    const imageFields = ['screenshot', 'screen'];
+    
+    for (const field of imageFields) {
+      // Check direct metadata field first
+      let imageData = resource.metadata[field];
+      if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
+        return imageData;
+      }
+      
+      // Check nested in original object
+      imageData = resource.metadata.original?.[field];
+      if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
+        return imageData;
+      }
+    }
+    return null;
+  };
+  
+  // Get thumbnail image (only from thumbnail field)
+  const getThumbnailImage = () => {
+    // Check direct metadata field first
+    let thumbnailData = resource.metadata?.thumbnail;
+    if (typeof thumbnailData === 'string' && thumbnailData.startsWith('data:image/')) {
+      return thumbnailData;
+    }
+    
+    // Check nested in original object
+    thumbnailData = resource.metadata?.original?.thumbnail;
+    if (typeof thumbnailData === 'string' && thumbnailData.startsWith('data:image/')) {
+      return thumbnailData;
+    }
+    
+    return null;
+  };
+  
+  const mainCardImage = getMainCardImage();
+  const thumbnailImage = getThumbnailImage();
+  const hasEmbeddedThumbnail = Boolean(thumbnailImage);
+  
+
+  const handleOpenUrl = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (resource.url && typeof window !== 'undefined' && window.api?.resources) {
+      try {
+        await window.api.resources.openExternal(resource.url);
+      } catch (error) {
+        console.error('Failed to open URL:', error);
+      }
+    }
+  };
 
   // Variant-specific styling
   const getVariantClasses = () => {
@@ -93,6 +149,13 @@ export function ResourceCard({
               ))}
             </div>
           )
+        ) : mainCardImage ? (
+          <img
+            src={mainCardImage}
+            alt={resource.title}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
         ) : thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -125,9 +188,21 @@ export function ResourceCard({
       </div>
 
       <div className={variantClasses.content}>
-        <h3 className={cn("text-gray-900 dark:text-white mb-1 line-clamp-1", variantClasses.title)}>
-          {resource.title}
-        </h3>
+        <div className="flex items-center gap-2 mb-1">
+          {hasEmbeddedThumbnail && (
+            <div className="flex-shrink-0">
+              <img
+                src={thumbnailImage!}
+                alt="thumbnail"
+                className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-gray-700"
+                loading="lazy"
+              />
+            </div>
+          )}
+          <h3 className={cn("text-gray-900 dark:text-white line-clamp-1 flex-1", variantClasses.title)}>
+            {resource.title}
+          </h3>
+        </div>
 
         {resource.description && variantClasses.showDescription && (
           <p className={cn("text-gray-600 dark:text-gray-400 mb-3 line-clamp-2", variantClasses.description)}>
@@ -152,12 +227,25 @@ export function ResourceCard({
             )}
           </div>
 
-          {resource.view_count > 0 && variant !== 'small' && (
-            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-500">
-              <Eye className="h-3 w-3" />
-              <span>{resource.view_count}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {resource.url && (
+              <button
+                onClick={handleOpenUrl}
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors duration-200"
+                title="Open in browser"
+              >
+                <ExternalLink className="h-3 w-3" />
+                <span>Open</span>
+              </button>
+            )}
+            
+            {resource.view_count > 0 && variant !== 'small' && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-500">
+                <Eye className="h-3 w-3" />
+                <span>{resource.view_count}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>

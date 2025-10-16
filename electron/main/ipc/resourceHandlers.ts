@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from 'electron'
+import { ipcMain, dialog, shell } from 'electron'
 import type { BrowserWindow } from 'electron'
 import { basename, join } from 'path'
 import { promises as fs } from 'fs'
@@ -195,5 +195,83 @@ export const registerResourceHandlers = (getWindow: () => BrowserWindow | null) 
         }
       }
     },
+  )
+
+  ipcMain.handle(
+    'resources:readImageAsBase64',
+    async (_event, sourceDir: string, imagePath: string) => {
+      try {
+        // Clean the image path (remove ./ prefix if present)
+        const cleanImagePath = imagePath.startsWith('./') ? imagePath.slice(2) : imagePath
+        
+        // Build source path
+        const sourcePath = join(sourceDir, cleanImagePath)
+        
+        // Check if source file exists
+        const sourceExists = await fs.stat(sourcePath).then(() => true).catch(() => false)
+        if (!sourceExists) {
+          return {
+            ok: false,
+            error: `Source image file not found: ${sourcePath}`
+          }
+        }
+        
+        // Read the image file as buffer
+        const imageBuffer = await fs.readFile(sourcePath)
+        
+        // Convert to base64
+        const base64Data = imageBuffer.toString('base64')
+        
+        // Determine MIME type based on file extension
+        const ext = cleanImagePath.toLowerCase().split('.').pop()
+        let mimeType = 'image/jpeg' // default
+        
+        switch (ext) {
+          case 'png':
+            mimeType = 'image/png'
+            break
+          case 'gif':
+            mimeType = 'image/gif'
+            break
+          case 'webp':
+            mimeType = 'image/webp'
+            break
+          case 'svg':
+            mimeType = 'image/svg+xml'
+            break
+          case 'bmp':
+            mimeType = 'image/bmp'
+            break
+          case 'jpg':
+          case 'jpeg':
+            mimeType = 'image/jpeg'
+            break
+        }
+        
+        return {
+          ok: true,
+          base64Data,
+          mimeType
+        }
+      } catch (error) {
+        console.error('[resources:readImageAsBase64] Error:', error)
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'resources:openExternal',
+    async (_event, url: string) => {
+      try {
+        await shell.openExternal(url)
+      } catch (error) {
+        console.error('[resources:openExternal] Error:', error)
+        throw error
+      }
+    }
   )
 }

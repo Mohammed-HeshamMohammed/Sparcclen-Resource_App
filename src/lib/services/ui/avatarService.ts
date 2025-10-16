@@ -187,23 +187,20 @@ export class AvatarService {
       }
 
       if (blob) {
-        const url = URL.createObjectURL(blob)
-        this.memoryCache.set(cacheKey, url)
-        
-        // Clean up old URLs to prevent memory leaks
-        setTimeout(() => {
-          const cachedUrl = this.memoryCache.get(cacheKey)
-          if (cachedUrl === url) {
-            this.memoryCache.delete(cacheKey)
-            try {
-              URL.revokeObjectURL(url)
-            } catch {
-              // Ignore revoke errors
-            }
+        // Prefer data URLs to avoid blob URL lifetime issues in dev/HMR and browser differences
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          try {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result || ''))
+            reader.onerror = (e) => reject(e)
+            reader.readAsDataURL(blob)
+          } catch (e) {
+            reject(e)
           }
-        }, 5 * 60 * 1000) // Clean up after 5 minutes
-        
-        return url
+        })
+
+        this.memoryCache.set(cacheKey, dataUrl)
+        return dataUrl
       }
 
       return null
@@ -261,11 +258,7 @@ export class AvatarService {
       const oldUrl = this.memoryCache.get(cacheKey)
       if (oldUrl) {
         this.memoryCache.delete(cacheKey)
-        try {
-          URL.revokeObjectURL(oldUrl)
-        } catch {
-          // Ignore revoke errors
-        }
+        // No revoke needed for data URLs
       }
 
       return { success: true }

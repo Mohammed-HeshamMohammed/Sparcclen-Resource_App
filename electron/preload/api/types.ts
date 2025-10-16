@@ -62,6 +62,16 @@ export interface ResourcesApi {
     }>
     error?: string
   }>
+  readImageAsBase64: (
+    sourceDir: string,
+    imagePath: string
+  ) => Promise<{
+    ok: boolean
+    base64Data?: string
+    mimeType?: string
+    error?: string
+  }>
+  openExternal: (url: string) => Promise<void>
 }
 
 export interface AdminApiUser {

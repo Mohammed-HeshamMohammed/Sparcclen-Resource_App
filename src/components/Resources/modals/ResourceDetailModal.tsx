@@ -87,6 +87,31 @@ export function ResourceDetailModal({
 
   const thumbnailUrl = getThumbnailUrl(resource.url || '');
   const isColorResource = resource.colors && resource.colors.length > 0;
+  
+  // Get embedded image (same logic as ResourceCard)
+  const getEmbeddedImage = () => {
+    if (!resource.metadata) return null;
+    
+    // Priority order: thumbnail > screenshot > screen
+    const imageFields = ['thumbnail', 'screenshot', 'screen'];
+    
+    for (const field of imageFields) {
+      // Check direct metadata field first
+      let imageData = resource.metadata[field];
+      if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
+        return imageData;
+      }
+      
+      // Check nested in original object
+      imageData = resource.metadata.original?.[field];
+      if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
+        return imageData;
+      }
+    }
+    return null;
+  };
+  
+  const embeddedImage = getEmbeddedImage();
 
   const handleCopyColor = (color: string, index: number) => {
     void copyText(color);
@@ -123,7 +148,7 @@ export function ResourceDetailModal({
         >
           <div className="relative">
             {isColorResource ? (
-              <div className="h-64 flex">
+              <div className="h-96 flex">
                 <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
                   <button
                     type="button"
@@ -164,15 +189,21 @@ export function ResourceDetailModal({
                   </div>
                 ))}
               </div>
+            ) : embeddedImage ? (
+              <img
+                src={embeddedImage}
+                alt={resource.title}
+                className="w-full h-96 object-cover"
+              />
             ) : thumbnailUrl ? (
               <img
                 src={thumbnailUrl}
                 alt={resource.title}
-                className="w-full h-64 object-cover"
+                className="w-full h-96 object-cover"
               />
             ) : (
-              <div className="h-64 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <ExternalLink className="h-16 w-16 text-gray-400 dark:text-gray-600" />
+              <div className="h-96 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <ExternalLink className="h-20 w-20 text-gray-400 dark:text-gray-600" />
               </div>
             )}
 
@@ -185,35 +216,48 @@ export function ResourceDetailModal({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
-            <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
+            <div className="flex items-start justify-between gap-3 mb-3">
               <h2
                 id="modal-title"
-                className="text-3xl font-bold text-gray-900 dark:text-white"
+                className="text-2xl font-bold text-gray-900 dark:text-white"
               >
                 {resource.title}
               </h2>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleFavorite(resource.id);
-                }}
-                className={cn(
-                  'p-2 rounded-lg transition-colors flex-shrink-0',
-                  resource.is_favorite
-                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400'
+              <div className="flex items-center gap-2">
+                {resource.url && (
+                  <button
+                    onClick={() => onOpenExternal(resource.url!)}
+                    className="flex items-center gap-1 px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex-shrink-0"
+                    title="Open in browser"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span>Open</span>
+                  </button>
                 )}
-                aria-label={resource.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                <Heart
-                  className={cn('h-5 w-5', resource.is_favorite && 'fill-current')}
-                />
-              </button>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFavorite(resource.id);
+                  }}
+                  className={cn(
+                    'p-2 rounded-lg transition-colors flex-shrink-0',
+                    resource.is_favorite
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400'
+                  )}
+                  aria-label={resource.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <Heart
+                    className={cn('h-5 w-5', resource.is_favorite && 'fill-current')}
+                  />
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-4 mb-6 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex flex-wrap gap-3 mb-4 text-sm text-gray-600 dark:text-gray-400">
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 <span>{formatDate(resource.date_added)}</span>
@@ -225,34 +269,34 @@ export function ResourceDetailModal({
               </div>
 
               {resource.resource_type && (
-                <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-3 py-1 rounded-full">
+                <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-full text-xs">
                   {resource.resource_type}
                 </span>
               )}
             </div>
 
             {resource.description && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
                   Description
                 </h3>
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                   {resource.description}
                 </p>
               </div>
             )}
 
             {resource.tags && resource.tags.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <TagIcon className="h-5 w-5" />
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                  <TagIcon className="h-4 w-4" />
                   Tags
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {resource.tags.map((tag) => (
                     <span
                       key={tag.id}
-                      className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm"
+                      className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md text-xs"
                     >
                       {tag.name}
                     </span>
@@ -261,15 +305,6 @@ export function ResourceDetailModal({
               </div>
             )}
 
-            {resource.url && (
-              <button
-                onClick={() => onOpenExternal(resource.url!)}
-                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <span>Open Resource</span>
-                <ExternalLink className="h-5 w-5" />
-              </button>
-            )}
           </div>
         </motion.div>
       </motion.div>

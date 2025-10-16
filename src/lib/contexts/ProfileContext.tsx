@@ -281,10 +281,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     // Get the new avatar URL
     const avatarUrl = await avatarService.getAvatarUrl(user.email)
     
-    // Clean up old avatar URL
-    if (profile.avatarUrl) {
-      try { URL.revokeObjectURL(profile.avatarUrl) } catch {}
-    }
+    // Clean up old avatar URL (no-op for data URLs)
+    // if (profile.avatarUrl && profile.avatarUrl.startsWith('blob:')) {
+    //   try { URL.revokeObjectURL(profile.avatarUrl) } catch {}
+    // }
     
     // Update local state
     setProfile(prev => ({ ...prev, avatarUrl }))

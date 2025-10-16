@@ -152,7 +152,7 @@ export function ResourceGrid({
           className="grid gap-4 px-6 pb-6 pt-4"
           style={{
             gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH}px, 1fr))`,
-            gridAutoRows: 'minmax(240px, auto)',
+            gridAutoRows: '280px',
           }}
         >
           {paginatedResources.map((resource) => (
@@ -177,7 +177,7 @@ export function ResourceGrid({
           className="grid gap-4"
           style={{
             gridTemplateColumns: `repeat(auto-fit, minmax(${CARD_WIDTH}px, 1fr))`,
-            gridAutoRows: 'minmax(240px, auto)',
+            gridAutoRows: '280px',
             gap: GAP,
           }}
         >

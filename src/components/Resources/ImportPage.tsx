@@ -6,7 +6,6 @@ import {
   BookOpen,
   Wrench,
   Upload,
-  Crown,
   CheckCircle,
   Loader2,
   AlertCircle
@@ -103,13 +102,26 @@ const optionalFields = [
   { key: 'category', description: 'Category (auto-assigned if omitted)' }
 ];
 
+type ImportedRecord = Record<string, unknown> & { uuid: string };
+
+interface ConfirmationModal {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  variant: 'normal' | 'danger';
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
 export function ImportPage() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryType>('ai-and-ml');
   const [selectedSubcategory, setSelectedSubcategory] = useState<SubcategoryType>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCeoImporting, setIsCeoImporting] = useState(false);
-  const [ceoSuccessMessage, setCeoSuccessMessage] = useState<string | null>(null);
+  const [confirmationModal, setConfirmationModal] = useState<ConfirmationModal | null>(null);
 
   const selectedCategoryInfo = categories.find(cat => cat.id === selectedCategory);
   const SelectedIcon = selectedCategoryInfo?.icon;
@@ -143,8 +155,197 @@ export function ImportPage() {
     return `uuid-${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
   };
 
+  const processImagesInEntry = async (entry: Record<string, unknown>, sourceDir: string): Promise<Record<string, unknown>> => {
+    const processedEntry = { ...entry };
+    const imageFields = ['screen', 'screenshot', 'thumbnail'];
+    
+    for (const field of imageFields) {
+      const imagePath = entry[field];
+      if (typeof imagePath === 'string' && imagePath.trim()) {
+        try {
+          const imageResult = await window.api!.resources.readImageAsBase64(sourceDir, imagePath);
+          if (imageResult.ok && imageResult.base64Data && imageResult.mimeType) {
+            // Replace the path with base64 data URL
+            processedEntry[field] = `data:${imageResult.mimeType};base64,${imageResult.base64Data}`;
+          } else {
+            console.warn(`Failed to load image ${imagePath}:`, imageResult.error);
+            // Keep the original path if image loading fails
+          }
+        } catch (error) {
+          console.warn(`Error processing image ${imagePath}:`, error);
+          // Keep the original path if there's an error
+        }
+      }
+    }
+    
+    return processedEntry;
+  };
+
+  const showConfirmationDialog = (modal: Omit<ConfirmationModal, 'isOpen' | 'onCancel'>) => {
+    setConfirmationModal({
+      ...modal,
+      isOpen: true,
+      onCancel: () => setConfirmationModal(null),
+    });
+  };
+
+  const proceedWithNormalImport = async () => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      // Step 1: Pick and parse JSON file
+      const filePickResult = await window.api!.resources.pickJsonFile();
+      if (!filePickResult || filePickResult.canceled) {
+        return;
+      }
+
+      if (!filePickResult.data) {
+        throw new Error(filePickResult.error || 'No data was returned from the selected file.');
+      }
+
+      const parsedJson = JSON.parse(filePickResult.data);
+      
+      // Step 2: Normalize JSON to array format
+      const normalizeToArray = (value: unknown): Record<string, unknown>[] => {
+        if (Array.isArray(value)) return value;
+        if (value && typeof value === 'object') {
+          const obj = value as Record<string, unknown>;
+          if (Array.isArray(obj.entries)) return obj.entries;
+          return [obj];
+        }
+        throw new Error('JSON must contain an object or array of objects.');
+      };
+
+      const rawEntries = normalizeToArray(parsedJson);
+      
+      // Step 3: Process entries, add UUIDs, and embed images
+      const sourceDir = filePickResult.filePath ? filePickResult.filePath.replace(/[/\\][^/\\]*$/, '') : '';
+      const processedEntries: ImportedRecord[] = [];
+      
+      for (let index = 0; index < rawEntries.length; index++) {
+        const entry = rawEntries[index];
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          throw new Error(`Entry ${index + 1} must be a JSON object.`);
+        }
+        
+        const record = entry as Record<string, unknown>;
+        const existingUuid = typeof record.uuid === 'string' ? record.uuid.trim() : '';
+        
+        // Process images in the entry
+        const entryWithImages = await processImagesInEntry(record, sourceDir);
+        
+        processedEntries.push({
+          ...entryWithImages,
+          uuid: existingUuid || generateUuid(),
+        } as ImportedRecord);
+      }
+      
+      // Step 4: Generate target file path
+      const categorySegment = sanitizeFolderSegment(selectedCategoryInfo?.label ?? selectedCategory);
+      const folderSegments = ['library', categorySegment];
+      if (selectedSubcategoryInfo) {
+        folderSegments.push(sanitizeFolderSegment(selectedSubcategoryInfo.label));
+      }
+      
+      const sourceName = filePickResult.fileName ?? 'library.json';
+      const fileStem = sanitizeFileStem(sourceName.replace(/\.[^.]+$/, ''));
+      const targetFileName = `${fileStem || 'library'}.bin`;
+      
+      // Step 5: Load existing entries from target .bin file (if it exists)
+      let existingEntries: Record<string, unknown>[] = [];
+      
+      // Use the same folder segments for listing as we do for saving
+      const listParams = {
+        category: categorySegment, // Use display name, not ID
+        subcategory: selectedSubcategoryInfo ? sanitizeFolderSegment(selectedSubcategoryInfo.label) : null
+      };
+      
+      const existingBinsResult = await window.api!.resources.listLibraryBins(listParams);
+      
+      if (existingBinsResult?.ok) {
+        const targetBinFile = existingBinsResult.files.find(file => file.fileName === targetFileName);
+        if (targetBinFile?.items) {
+          existingEntries = targetBinFile.items as Record<string, unknown>[];
+        }
+      }
+      
+      // Step 6: Detect duplicates by title
+      const existingTitles = new Set(
+        existingEntries
+          .map(entry => typeof entry.title === 'string' ? entry.title.toLowerCase().trim() : '')
+          .filter(Boolean)
+      );
+      
+      const uniqueEntries: ImportedRecord[] = [];
+      let duplicatesFound = 0;
+      
+      for (const entry of processedEntries) {
+        const title = typeof entry.title === 'string' ? entry.title.toLowerCase().trim() : '';
+        
+        if (title && existingTitles.has(title)) {
+          duplicatesFound++;
+        } else {
+          uniqueEntries.push(entry);
+          // Add to existing titles set to prevent duplicates within the same import
+          if (title) existingTitles.add(title);
+        }
+      }
+      
+      // Step 7: Handle case where no new entries to add
+      if (uniqueEntries.length === 0) {
+        const message = duplicatesFound > 0 
+          ? `All ${duplicatesFound} ${duplicatesFound === 1 ? 'resource was a' : 'resources were'} duplicate${duplicatesFound === 1 ? '' : 's'} and skipped`
+          : 'No resources to import';
+          
+        const title = duplicatesFound > 0 
+          ? `Import Complete • ${duplicatesFound} Duplicate${duplicatesFound === 1 ? '' : 's'} Detected`
+          : 'Import Complete';
+          
+        notify.warning(message, { title, duration: 6000 });
+        return;
+      }
+      
+      // Step 8: Save combined entries (existing + new unique entries)
+      const allEntries = [...existingEntries, ...uniqueEntries];
+      const payload = JSON.stringify(allEntries, null, 2);
+      
+      const saveResult = await window.api!.resources.saveLibraryBin(folderSegments, targetFileName, payload);
+      
+      if (!saveResult?.ok) {
+        throw new Error(saveResult.error || 'Failed to save the library file.');
+      }
+      
+      // Step 9: Show success notification
+      let successMessage = `Successfully imported ${uniqueEntries.length} ${uniqueEntries.length === 1 ? 'resource' : 'resources'}`;
+      let toastTitle = 'Import Complete';
+      
+      if (duplicatesFound > 0) {
+        successMessage += ` • ${duplicatesFound} ${duplicatesFound === 1 ? 'duplicate' : 'duplicates'} detected and skipped`;
+        toastTitle = `Import Complete • ${duplicatesFound} Duplicate${duplicatesFound === 1 ? '' : 's'} Skipped`;
+      }
+      
+      notify.success(successMessage, {
+        title: toastTitle,
+        duration: 6000
+      });
+      
+      // Success message handled by toast notification
+      
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error during import.';
+      notify.error(message, {
+        title: 'Import Failed',
+        duration: 8000
+      });
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleImport = async () => {
-    // Validation: Category selection
+    // Validation checks
     if (!selectedCategory) {
       notify.warning('Please select a category first', {
         title: 'Category Required',
@@ -153,7 +354,6 @@ export function ImportPage() {
       return;
     }
 
-    // Validation: Subcategory selection (if required)
     if (hasSubcategories && !selectedSubcategory) {
       notify.warning('Please choose a subcategory before importing', {
         title: 'Subcategory Required',
@@ -163,65 +363,38 @@ export function ImportPage() {
       return;
     }
 
-    setCeoSuccessMessage(null);
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const subcategoryLabel = selectedSubcategoryInfo ? ` (${selectedSubcategoryInfo.label})` : '';
-      
-      // Success notification
-      notify.success(`Import process completed for ${selectedCategoryInfo?.label ?? 'Category'}${subcategoryLabel}`, {
-        title: 'Import Successful',
-        duration: 5000
-      });
-    } catch {
-      const errorMsg = 'Import failed. Please try again.';
-      notify.error(errorMsg, {
-        title: 'Import Failed',
-        duration: 6000
-      });
-      setError(errorMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCeoImport = async () => {
-    // Validation: Category selection
-    if (!selectedCategory) {
-      notify.warning('Please select a category first', {
-        title: 'Category Required',
-        duration: 5000
-      });
-      return;
-    }
-
-    // Validation: Subcategory selection (if required)
-    if (hasSubcategories && !selectedSubcategory) {
-      notify.warning('Please choose a subcategory before importing', {
-        title: 'Subcategory Required',
-        duration: 5000
-      });
-      return;
-    }
-
-    // Validation: Desktop app check
     if (typeof window === 'undefined' || !window.api?.resources) {
-      notify.error('CEO imports are only available in the desktop application', {
+      notify.error('Imports are only available in the desktop application', {
         title: 'Desktop App Required',
         duration: 6000
       });
       return;
     }
 
+    // Show confirmation dialog
+    const categoryName = selectedCategoryInfo?.label ?? selectedCategory;
+    const subcategoryName = selectedSubcategoryInfo?.label ?? '';
+    const location = subcategoryName ? `${categoryName} > ${subcategoryName}` : categoryName;
+    
+    showConfirmationDialog({
+      title: 'Confirm Import',
+      message: `Import resources to "${location}"?\n\n• New resources will be added to the existing list\n• Duplicate resources (by title) will be automatically skipped\n• This action cannot be undone`,
+      confirmText: 'Import Resources',
+      cancelText: 'Cancel',
+      variant: 'normal',
+      onConfirm: () => {
+        setConfirmationModal(null);
+        proceedWithNormalImport();
+      },
+    });
+  };
+
+  const proceedWithSystemImport = async () => {
     setError(null);
-    setCeoSuccessMessage(null);
     setIsCeoImporting(true);
 
     try {
-      const filePickResult = await window.api.resources.pickJsonFile();
+      const filePickResult = await window.api!.resources.pickJsonFile();
       if (!filePickResult || filePickResult.canceled) {
         return;
       }
@@ -251,17 +424,28 @@ export function ImportPage() {
         throw new Error('The JSON file must contain an object or an array of objects.');
       };
 
-      const entries = normalizeToArray(parsedJson).map((entry, index) => {
+      // Process entries with image embedding
+      const sourceDir = filePickResult.filePath ? filePickResult.filePath.replace(/[/\\][^/\\]*$/, '') : '';
+      const rawEntries = normalizeToArray(parsedJson);
+      const entries = [];
+      
+      for (let index = 0; index < rawEntries.length; index++) {
+        const entry = rawEntries[index];
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
           throw new Error(`Entry ${index + 1} must be a JSON object.`);
         }
+        
         const record = entry as Record<string, unknown>;
         const existingUuid = typeof record.uuid === 'string' ? record.uuid.trim() : '';
-        return {
-          ...record,
+        
+        // Process images in the entry
+        const entryWithImages = await processImagesInEntry(record, sourceDir);
+        
+        entries.push({
+          ...entryWithImages,
           uuid: existingUuid || generateUuid(),
-        };
-      });
+        });
+      }
 
       const payload = JSON.stringify(entries, null, 2);
 
@@ -274,33 +458,80 @@ export function ImportPage() {
       const sourceName = filePickResult.fileName ?? 'library.json';
       const fileStem = sanitizeFileStem(sourceName.replace(/\.[^.]+$/, ''));
       const outputFileName = `${fileStem || 'library'}.bin`;
-      const relativePath = ['LocalAppData', 'Sparcclen', ...folderSegments, outputFileName].join('/');
-
-      const saveResult = await window.api.resources.saveLibraryBin(folderSegments, outputFileName, payload);
+      const saveResult = await window.api!.resources.saveLibraryBin(folderSegments, outputFileName, payload);
       if (!saveResult?.ok) {
         throw new Error(saveResult?.error || 'Failed to save the library file.');
       }
 
-      // Success notification
+      // Success notification - top positioned for system import
       notify.success(`Successfully imported ${entries.length} ${entries.length === 1 ? 'resource' : 'resources'}`, {
-        title: 'CEO Import Complete',
-        duration: 6000
+        title: 'System Import Complete',
+        duration: 6000,
+        position: 'top-right'
       });
-      setCeoSuccessMessage(
-        `Saved ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} to ${relativePath}.`
-      );
+      // Success message handled by toast notification
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unexpected error during CEO import.';
+      const message = err instanceof Error ? err.message : 'Unexpected error during system import.';
       
-      // Error notification
+      // Error notification - top positioned for system import
       notify.error(message, {
-        title: 'CEO Import Failed',
-        duration: 8000
+        title: 'System Import Failed',
+        duration: 8000,
+        position: 'top-right'
       });
       setError(message);
     } finally {
       setIsCeoImporting(false);
     }
+  };
+
+  const handleCeoImport = async () => {
+    // Validation: Category selection
+    if (!selectedCategory) {
+      notify.warning('Please select a category first', {
+        title: 'Category Required',
+        duration: 5000,
+        position: 'top-right'
+      });
+      return;
+    }
+
+    // Validation: Subcategory selection (if required)
+    if (hasSubcategories && !selectedSubcategory) {
+      notify.warning('Please choose a subcategory before importing', {
+        title: 'Subcategory Required',
+        duration: 5000,
+        position: 'top-right'
+      });
+      return;
+    }
+
+    // Validation: Desktop app check
+    if (typeof window === 'undefined' || !window.api?.resources) {
+      notify.error('System imports are only available in the desktop application', {
+        title: 'Desktop App Required',
+        duration: 6000,
+        position: 'top-right'
+      });
+      return;
+    }
+
+    // Show confirmation dialog
+    const categoryName = selectedCategoryInfo?.label ?? selectedCategory;
+    const subcategoryName = selectedSubcategoryInfo?.label ?? '';
+    const location = subcategoryName ? `${categoryName} > ${subcategoryName}` : categoryName;
+    
+    showConfirmationDialog({
+      title: '⚠️ System Import Warning',
+      message: `This will COMPLETELY RESET all existing resources in "${location}"!\n\n• All current resources in this category/subcategory will be DELETED\n• Only the new imported resources will remain\n• This action is IRREVERSIBLE\n\nAre you absolutely sure you want to proceed?`,
+      confirmText: 'Yes, Reset Everything',
+      cancelText: 'Cancel',
+      variant: 'danger',
+      onConfirm: () => {
+        setConfirmationModal(null);
+        proceedWithSystemImport();
+      },
+    });
   };
 
   return (
@@ -647,45 +878,130 @@ export function ImportPage() {
                 </ul>
               </div>
 
-              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600 via-pink-500 to-rose-500 p-8 text-white shadow-xl">
-                <div className="absolute inset-0 bg-black/10"></div>
-                <div className="relative space-y-5">
+              <div className="relative overflow-hidden rounded-3xl border-2 border-slate-200/60 bg-gradient-to-br from-slate-50 via-white to-slate-50/80 p-8 shadow-xl shadow-slate-100/50 backdrop-blur-sm dark:border-slate-700/60 dark:from-slate-800/90 dark:via-slate-800 dark:to-slate-900/80 dark:shadow-slate-900/50">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-indigo-500/5 opacity-60"></div>
+                <div className="relative space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
-                      <Crown className="h-9 w-9" />
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 opacity-20 blur-sm"></div>
+                      <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-200/50 dark:from-blue-900/30 dark:to-indigo-900/30 dark:ring-blue-700/50">
+                        <svg className="h-7 w-7 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Executive access</p>
-                      <h3 className="text-2xl font-bold">CEO Import Portal</h3>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold uppercase tracking-[0.15em] text-blue-600/80 dark:text-blue-400/80">System Import</p>
+                        <div className="h-1 w-1 rounded-full bg-blue-500/60"></div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">JSON Files</span>
+                      </div>
+                      <h3 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">Import System Files</h3>
                     </div>
                   </div>
-                  <p className="text-base text-white/80">
-                    Import high-priority leadership content with elevated privileges and curated review steps.
-                  </p>
+                  
+                  <div className="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-4 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-800/50">
+                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                      Import JSON library files directly into the system with automatic duplicate detection, validation, and smart categorization.
+                    </p>
+                  </div>
+                  
                   <button
                     onClick={handleCeoImport}
                     disabled={isCeoImporting}
-                    className="inline-flex items-center justify-center gap-3 rounded-2xl bg-white px-6 py-3 text-lg font-semibold text-purple-600 transition-all duration-200 hover:bg-slate-100 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+                    className="group/btn relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100 dark:shadow-blue-900/25 dark:hover:shadow-blue-800/40"
                   >
-                    {isCeoImporting ? (
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    ) : (
-                      <Upload className="h-6 w-6" />
-                    )}
-                    <span>{isCeoImporting ? 'Importing...' : 'Import CEO resources'}</span>
-                  </button>
-                  {ceoSuccessMessage && (
-                    <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 text-sm text-white shadow-lg shadow-black/10 backdrop-blur-sm">
-                      <CheckCircle className="h-5 w-5 text-emerald-200" />
-                      <span>{ceoSuccessMessage}</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover/btn:opacity-100"></div>
+                    <div className="relative flex items-center justify-center gap-3">
+                      {isCeoImporting ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <div className="flex space-x-1">
+                              <div className="h-1 w-1 rounded-full bg-white animate-pulse"></div>
+                              <div className="h-1 w-1 rounded-full bg-white animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                              <div className="h-1 w-1 rounded-full bg-white animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                            </div>
+                          </div>
+                          <span className="font-semibold">Processing files...</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="rounded-lg bg-white/20 p-1.5 transition-all duration-300 group-hover/btn:bg-white/30">
+                            <Upload className="h-5 w-5" />
+                          </div>
+                          <span className="font-semibold text-lg">Select JSON File</span>
+                          <div className="ml-auto opacity-60 transition-all duration-300 group-hover/btn:opacity-100 group-hover/btn:translate-x-1">
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </>
+                      )}
                     </div>
-                  )}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={confirmationModal.onCancel}></div>
+          <div className="relative w-full max-w-lg mx-4">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-200/50 dark:shadow-slate-900/50">
+              <div className="p-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                    confirmationModal.variant === 'danger' 
+                      ? 'bg-red-100 dark:bg-red-900/30' 
+                      : 'bg-blue-100 dark:bg-blue-900/30'
+                  }`}>
+                    {confirmationModal.variant === 'danger' ? (
+                      <AlertCircle className={`h-6 w-6 text-red-600 dark:text-red-400`} />
+                    ) : (
+                      <Upload className={`h-6 w-6 text-blue-600 dark:text-blue-400`} />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      {confirmationModal.title}
+                    </h3>
+                  </div>
+                </div>
+                
+                <div className="mb-8">
+                  <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 whitespace-pre-line">
+                    {confirmationModal.message}
+                  </p>
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={confirmationModal.onCancel}
+                    className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    {confirmationModal.cancelText}
+                  </button>
+                  <button
+                    onClick={confirmationModal.onConfirm}
+                    className={`flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-xl transition-colors duration-200 ${
+                      confirmationModal.variant === 'danger'
+                        ? 'bg-red-600 hover:bg-red-700 focus:ring-4 focus:ring-red-500/30'
+                        : 'bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/30'
+                    }`}
+                  >
+                    {confirmationModal.confirmText}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

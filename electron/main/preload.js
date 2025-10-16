@@ -59,7 +59,9 @@ var import_electron6 = require("electron");
 var createResourcesApi = () => ({
   pickJsonFile: () => import_electron6.ipcRenderer.invoke("resources:pickJsonFile"),
   saveLibraryBin: (segments, fileName, content) => import_electron6.ipcRenderer.invoke("resources:saveLibraryBin", segments, fileName, content),
-  listLibraryBins: (options) => import_electron6.ipcRenderer.invoke("resources:listLibraryBins", options)
+  listLibraryBins: (options) => import_electron6.ipcRenderer.invoke("resources:listLibraryBins", options),
+  readImageAsBase64: (sourceDir, imagePath) => import_electron6.ipcRenderer.invoke("resources:readImageAsBase64", sourceDir, imagePath),
+  openExternal: (url) => import_electron6.ipcRenderer.invoke("resources:openExternal", url)
 });
 
 // electron/preload/api/admin.ts

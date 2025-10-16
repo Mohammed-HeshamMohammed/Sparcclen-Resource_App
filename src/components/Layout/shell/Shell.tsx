@@ -229,8 +229,17 @@ export function Shell() {
     }
   }, [user]);
 
-  function handleOpenExternal(_url: string): void {
-    throw new Error('Function not implemented.');
+  async function handleOpenExternal(url: string) {
+    try {
+      const api = (window as unknown as { api?: { resources?: { openExternal?: (u: string) => Promise<void> } } }).api;
+      if (api?.resources?.openExternal) {
+        await api.resources.openExternal(url);
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Failed to open external URL:', error);
+    }
   }
 
   return (

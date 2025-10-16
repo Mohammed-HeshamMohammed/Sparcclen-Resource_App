@@ -6,4 +6,7 @@ export const createResourcesApi = (): ResourcesApi => ({
   saveLibraryBin: (segments, fileName, content) =>
     ipcRenderer.invoke('resources:saveLibraryBin', segments, fileName, content),
   listLibraryBins: (options) => ipcRenderer.invoke('resources:listLibraryBins', options),
+  readImageAsBase64: (sourceDir, imagePath) =>
+    ipcRenderer.invoke('resources:readImageAsBase64', sourceDir, imagePath),
+  openExternal: (url) => ipcRenderer.invoke('resources:openExternal', url),
 })

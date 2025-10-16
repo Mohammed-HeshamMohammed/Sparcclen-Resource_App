@@ -63,6 +63,16 @@ declare global {
       }>
       error?: string
     }>
+    readImageAsBase64: (
+      sourceDir: string,
+      imagePath: string
+    ) => Promise<{
+      ok: boolean
+      base64Data?: string
+      mimeType?: string
+      error?: string
+    }>
+    openExternal: (url: string) => Promise<void>
   }
 
   interface AdminApi {
