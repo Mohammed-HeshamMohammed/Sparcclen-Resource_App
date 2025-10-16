@@ -19,4 +19,5 @@ export {
   type LibrarySegmentsMap,
 } from './filesystem/libraryFs'; // Library file system operations
 export { supabase } from './auth/supabase';
+export * as viewsFavsService from './viewsFavs';
 export { authenticateWithPasskeyOffline, isWebAuthnSupported } from './auth/webauthn';

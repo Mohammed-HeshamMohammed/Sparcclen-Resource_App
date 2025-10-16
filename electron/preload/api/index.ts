@@ -5,6 +5,7 @@ import { createUploadsApi } from './uploads'
 import { createFileSystemApi } from './fileSystem'
 import { createResourcesApi } from './resources'
 import { createAdminApi } from './admin'
+import { createViewsFavsApi } from './viewsFavs'
 import type { PreloadApi } from './types'
 
 export const createPreloadApi = (): PreloadApi => {
@@ -23,6 +24,7 @@ export const createPreloadApi = (): PreloadApi => {
     fs: createFileSystemApi(),
     resources: createResourcesApi(),
     admin: createAdminApi(),
+    viewsFavs: createViewsFavsApi(),
   }
 }
 

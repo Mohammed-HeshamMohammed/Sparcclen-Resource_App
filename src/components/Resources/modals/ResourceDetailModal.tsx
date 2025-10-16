@@ -93,17 +93,18 @@ export function ResourceDetailModal({
     if (!resource.metadata) return null;
     
     // Priority order: thumbnail > screenshot > screen
-    const imageFields = ['thumbnail', 'screenshot', 'screen'];
+    const imageFields = ['thumbnail', 'screenshot', 'screen'] as const;
+    const meta = (resource.metadata ?? {}) as { [k: string]: unknown; original?: { [k: string]: unknown } }
     
     for (const field of imageFields) {
       // Check direct metadata field first
-      let imageData = resource.metadata[field];
+      let imageData = meta[field];
       if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
         return imageData;
       }
       
       // Check nested in original object
-      imageData = resource.metadata.original?.[field];
+      imageData = meta.original?.[field];
       if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
         return imageData;
       }

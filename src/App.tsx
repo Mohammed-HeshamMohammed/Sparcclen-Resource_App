@@ -1,7 +1,7 @@
 import { readSave } from './lib/system/saveClient';
 import React, { useState, useEffect } from 'react';
 import { SplashScreen, Shell, ThemeSelection, ThemeProvider, WindowControls, useTheme, WelcomeLoading } from './components/Layout';
-import { AuthProvider, useAuth } from './lib/auth';
+import { AuthProvider, useAuth } from '@/lib/auth';
 import { SonnerToaster } from './lib/toast';
 import { ProfileProvider, useProfile } from './lib/contexts/ProfileContext';
 import { Login, SignUp, ForgotPassword, UpdatePassword, AuthConfirm, AuthError, OfflineInterstitial } from './components/Auth';

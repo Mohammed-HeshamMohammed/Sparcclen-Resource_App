@@ -11,6 +11,7 @@ import { registerCredentialHandlers } from './ipc/credentialHandlers'
 import { registerFileSystemHandlers } from './ipc/fileSystemHandlers'
 import { registerResourceHandlers } from './ipc/resourceHandlers'
 import { registerAdminHandlers } from './ipc/adminHandlers'
+import { registerViewsFavsHandlers } from './ipc/viewsFavsHandlers'
 import { ensureInitialSaveFile } from './persistence/saveStore'
 import { createMainWindow } from './windows/createMainWindow'
 
@@ -58,6 +59,7 @@ const registerGlobalIpcHandlers = () => {
   registerFileSystemHandlers()
   registerResourceHandlers(getMainWindow)
   registerAdminHandlers()
+  registerViewsFavsHandlers()
 }
 
 const createMainProcessWindow = () => {

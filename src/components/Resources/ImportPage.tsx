@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Brain,
   Globe,
@@ -546,7 +547,12 @@ export function ImportPage() {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        <div className="px-6 py-8 space-y-20 max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="px-6 py-8 space-y-20 max-w-7xl mx-auto"
+        >
           <div className="grid gap-4 md:grid-cols-2 lg:gap-6">
             <div className="flex h-full flex-col gap-4 rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
               <div className="flex items-start gap-4">
@@ -944,7 +950,7 @@ export function ImportPage() {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Confirmation Modal */}

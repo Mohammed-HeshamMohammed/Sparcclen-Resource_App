@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/lib/contexts/ProfileContext'
 import { notify } from '@/lib/toast'
@@ -298,7 +299,12 @@ export function RoleManagement() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-4 min-w-0 max-w-full">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45 }}
+      className="p-6 lg:p-8 space-y-4 min-w-0 max-w-full"
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Role Management</h2>
@@ -443,7 +449,7 @@ export function RoleManagement() {
       <div className="text-xs text-gray-500 dark:text-gray-400">
         Notes: Avatars for other users are end-to-end encrypted and not accessible to admins; a placeholder is shown. Ensure SUPABASE_SERVICE_ROLE_KEY is set in Electron main.
       </div>
-    </div>
+    </motion.div>
   )
 }
 

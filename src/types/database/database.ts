@@ -40,8 +40,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
-      }
-      ,
+      },
       profiles: {
         Row: {
           user_id: string
@@ -79,10 +78,17 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+      },
+      views_favs: {
+        Row: { user_id: string; items: Json; updated_at: string }
+        Insert: { user_id: string; items?: Json; updated_at?: string }
+        Update: { user_id?: string; items?: Json; updated_at?: string }
       }
     }
     Views: {
-      [_ in never]: never
+      view_counts: {
+        Row: { title: string; views: number }
+      }
     }
     Functions: {
       slugify: {

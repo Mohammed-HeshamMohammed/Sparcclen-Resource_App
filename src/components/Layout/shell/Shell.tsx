@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ResourceSidebar, ResourceGrid, ResourceDetailModal } from '@/components/Resources';
+import { motion } from 'framer-motion';
 import { ImportPage } from '@/components/Resources/ImportPage';
 import { RoleManagement } from '@/components/Admin/RoleManagement';
 import { Dashboard } from '@/components/Dashboard';
@@ -264,7 +265,11 @@ export function Shell() {
 
         <main className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-hide bg-[#F0FFFF] dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
           {!showSettings && !showProfile && !showRoles && activeTab === 'Library' && (
-            <>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
               <div className="sticky top-0 z-30 px-6 pt-8 pb-4 bg-transparent dark:bg-transparent">
                 <TopBar
                   searchQuery={searchQuery}
@@ -293,7 +298,7 @@ export function Shell() {
                   isLoading={isLoading}
                 />
               </div>
-            </>
+            </motion.div>
           )}
 
           <div className="flex-1 flex flex-col pb-6">

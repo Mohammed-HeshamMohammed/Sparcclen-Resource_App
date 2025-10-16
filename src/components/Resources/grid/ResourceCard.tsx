@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { ExternalLink, Heart, Eye } from 'lucide-react';
 import type { Resource } from '@/types';
 import { getThumbnailUrl, truncateText, cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -16,6 +17,7 @@ export function ResourceCard({
   onToggleFavorite,
   variant = 'medium',
 }: ResourceCardProps) {
+  const { user } = useAuth();
   const thumbnailUrl = getThumbnailUrl(resource.url || '');
   const classification = typeof resource.metadata?.classification === 'string'
     ? resource.metadata.classification
@@ -30,17 +32,18 @@ export function ResourceCard({
     // Priority order for main image: screenshot > screen (exclude thumbnail)
     const imageFields = ['screenshot', 'screen'];
     
+    const meta = (resource.metadata ?? {}) as { [k: string]: unknown; original?: { [k: string]: unknown } }
     for (const field of imageFields) {
       // Check direct metadata field first
-      let imageData = resource.metadata[field];
+      let imageData = meta[field]
       if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
-        return imageData;
+        return imageData
       }
       
       // Check nested in original object
-      imageData = resource.metadata.original?.[field];
+      imageData = meta.original?.[field]
       if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
-        return imageData;
+        return imageData
       }
     }
     return null;
@@ -48,16 +51,17 @@ export function ResourceCard({
   
   // Get thumbnail image (only from thumbnail field)
   const getThumbnailImage = () => {
+    const meta = (resource.metadata ?? {}) as { [k: string]: unknown; original?: { [k: string]: unknown } }
     // Check direct metadata field first
-    let thumbnailData = resource.metadata?.thumbnail;
+    let thumbnailData = meta['thumbnail']
     if (typeof thumbnailData === 'string' && thumbnailData.startsWith('data:image/')) {
-      return thumbnailData;
+      return thumbnailData as string
     }
     
     // Check nested in original object
-    thumbnailData = resource.metadata?.original?.thumbnail;
+    thumbnailData = meta.original?.['thumbnail']
     if (typeof thumbnailData === 'string' && thumbnailData.startsWith('data:image/')) {
-      return thumbnailData;
+      return thumbnailData as string
     }
     
     return null;
@@ -127,7 +131,17 @@ export function ResourceCard({
         "bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer group",
         variantClasses.container
       )}
-      onClick={() => onOpen(resource)}
+      onClick={async () => {
+        try {
+          const vf = await import('@/lib/services/viewsFavs')
+          void vf.recordViewFromResource(resource)
+        } catch (err) { console.warn('record view failed', err) }
+        try {
+          const recent = await import('@/lib/services/recent')
+          recent.addRecent(user?.id ?? null, { id: resource.id, title: resource.title, url: resource.url })
+        } catch {}
+        onOpen(resource)
+      }}
     >
       <div className={cn("bg-gray-100 dark:bg-gray-800 relative overflow-hidden", variantClasses.image)}>
         {isColorResource ? (
@@ -170,8 +184,13 @@ export function ResourceCard({
         )}
 
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation();
+            // Update views_favs locally and remotely
+            try {
+              const svc = await import('@/lib/services/viewsFavs')
+              void svc.upsertFromResource(resource, !resource.is_favorite)
+            } catch (err) { console.warn('fav toggle sync failed', err) }
             onToggleFavorite(resource.id);
           }}
           className={cn(

@@ -30,6 +30,18 @@ export interface FileSystemApi {
   ensureDir: (path: string) => Promise<boolean>
 }
 
+export interface ViewsFavsItem {
+  title: string
+  category: string
+  subcategory: string
+  favourite: boolean
+}
+
+export interface ViewsFavsApi {
+  load: () => Promise<ViewsFavsItem[]>
+  save: (items: ViewsFavsItem[]) => Promise<boolean>
+}
+
 export interface ResourcesApi {
   pickJsonFile: () => Promise<{
     canceled: boolean
@@ -113,4 +125,5 @@ export interface PreloadApi extends WindowApi {
   fs: FileSystemApi
   resources: ResourcesApi
   admin: AdminApi
+  viewsFavs: ViewsFavsApi
 }

@@ -31,6 +31,18 @@ declare global {
     ensureDir: (path: string) => Promise<boolean>
   }
 
+  interface ViewsFavsItem {
+    title: string
+    category: string
+    subcategory: string
+    favourite: boolean
+  }
+
+  interface ViewsFavsApi {
+    load: () => Promise<ViewsFavsItem[]>
+    save: (items: ViewsFavsItem[]) => Promise<boolean>
+  }
+
   interface ResourcesApi {
     pickJsonFile: () => Promise<{
       canceled: boolean
@@ -108,6 +120,7 @@ declare global {
     fs: FileSystemApi
     resources: ResourcesApi
     admin: AdminApi
+    viewsFavs: ViewsFavsApi
   }
 
   interface Window {
