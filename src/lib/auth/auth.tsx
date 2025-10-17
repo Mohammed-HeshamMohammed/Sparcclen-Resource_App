@@ -128,8 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: mail,
           memberSince: u.created_at || new Date().toISOString(),
           accountType: (pickStr(meta, 'role') || pickStr(appMeta, 'role') || 'Free'),
-          importedResources: 0,
-          lastActive: new Date().toISOString(),
+          cover: null,
+          bio: null,
         }
         await saveProfileEncrypted(profile, password)
         try { await supabase.auth.updateUser({ data: { display_name: profile.displayName } }) } catch {}

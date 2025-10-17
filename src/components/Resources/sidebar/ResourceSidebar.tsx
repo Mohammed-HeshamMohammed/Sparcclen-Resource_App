@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sidebar, SidebarBody, SidebarLink } from '@/components/ui';
-import { LogOut, ShieldCheck, Settings as SettingsIconLucide } from 'lucide-react';
+import { LogOut, ShieldCheck, Settings as SettingsIconLucide, Clock } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/lib/contexts/ProfileContext';
 import { readSave, type SaveData } from '@/lib/system/saveClient';
@@ -82,6 +82,7 @@ interface ResourceSidebarProps {
   onOpenDashboard: () => void;
   onOpenLibrary: () => void;
   onOpenImports: () => void;
+  onOpenComingSoon: () => void;
   onOpenLibraryCategory: (slug: string) => void;
   isLibraryActive: boolean;
 }
@@ -93,6 +94,7 @@ export function ResourceSidebar({
   onOpenDashboard,
   onOpenLibrary,
   onOpenImports,
+  onOpenComingSoon,
   onOpenLibraryCategory,
   isLibraryActive,
 }: ResourceSidebarProps) {
@@ -167,11 +169,11 @@ export function ResourceSidebar({
       onOpenLibrary();
     } else if (label === 'Imports') {
       onOpenImports();
+    } else if (label === 'Coming Soon') {
+      onOpenComingSoon();
     } else if (label === 'Profile') {
-      // Open profile as content replacement
       onOpenProfile();
     } else if (label === 'Settings') {
-      // Open settings modal
       onOpenSettings();
     } else if (label === 'Role Management') {
       onOpenRoles();
@@ -224,6 +226,11 @@ export function ResourceSidebar({
       icon: <ImportIcon />,
     },
     {
+      label: 'Coming Soon',
+      href: '/coming-soon',
+      icon: <Clock className="h-8 w-8 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />,
+    },
+    {
       label: 'Profile',
       href: '/profile',
       icon: <ProfileIcon />,
@@ -250,8 +257,6 @@ export function ResourceSidebar({
     <Sidebar open={open} setOpen={setOpen}>
       <SidebarBody className="justify-between gap-4">
         <div className="flex flex-col flex-1 px-1 overflow-y-auto overflow-x-hidden">
-          <Logo open={open} />
-          
           {/* Navigation Items */}
           <div className="mt-4 flex flex-col gap-0.5">
             {navigationItems.map((item) => (
@@ -302,7 +307,7 @@ export function ResourceSidebar({
                   )}
                 </div>
                 {role && (
-                  <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-[10px] leading-none rounded-full font-semibold shadow ${badgeClass}`}>
+                  <span className={`absolute -top-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] leading-none rounded-full font-semibold shadow ${badgeClass}`}>
                     {role}
                   </span>
                 )}
@@ -326,7 +331,7 @@ export function ResourceSidebar({
                   )}
                 </div>
                 {role && (
-                  <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 text-[10px] leading-none rounded-full font-semibold shadow ${badgeClass}`}>
+                  <span className={`absolute -top-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] leading-none rounded-full font-semibold shadow ${badgeClass}`}>
                     {role}
                   </span>
                 )}

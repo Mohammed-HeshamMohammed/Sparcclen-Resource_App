@@ -5,15 +5,24 @@ import { fetchProfileDecrypted, saveProfileEncrypted } from '@/lib/services'
 import { supabase } from '@/lib/services'
 import { saveWrite } from '@/lib/system/saveClient'
 import { avatarService } from '@/lib/services'
+import { saveEncryptedProfileLocal } from '@/lib/services'
+
+type SupabaseUpdateClient = {
+  from: (table: string) => {
+    update: (values: Record<string, unknown>) => {
+      eq: (column: string, value: unknown) => Promise<{ error: unknown }>
+    }
+  }
+}
 
 interface ProfileData {
   displayName: string
   email: string | null
   avatarUrl: string | null
-  importedResources: number
+  coverUrl: string | null
+  bio: string | null
   memberSince?: string
   accountType?: string
-  lastActive?: string
 }
 
 interface ProfileContextType {
@@ -22,6 +31,8 @@ interface ProfileContextType {
   isInitialLoad: boolean
   isSyncing: boolean
   updateDisplayName: (name: string) => Promise<void>
+  updateBio: (bio: string | null) => Promise<void>
+  updateCover: (dataUrlOrBlob: string | Blob | null) => Promise<void>
   updateAvatar: (blob: Blob) => Promise<void>
   updateAccountType: (type: string) => Promise<void>
   refreshProfile: () => Promise<void>
@@ -35,7 +46,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     displayName: 'User',
     email: null,
     avatarUrl: null,
-    importedResources: 0,
+    coverUrl: null,
+    bio: null,
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
@@ -50,7 +62,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         displayName: 'User',
         email: null,
         avatarUrl: null,
-        importedResources: 0,
+        coverUrl: null,
+        bio: null,
       })
       setIsInitialLoad(true)
       setIsSyncing(false)
@@ -127,10 +140,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               setProfile(prev => ({
                 ...prev,
                 displayName: fetched.data.displayName,
-                importedResources: fetched.data.importedResources ?? 0,
                 memberSince: fetched.data.memberSince,
                 accountType: fetched.data.accountType,
-                lastActive: fetched.data.lastActive,
+                coverUrl: fetched.data.cover ?? null,
+                bio: fetched.data.bio ?? null,
               }))
 
               // Save updated display name offline
@@ -140,6 +153,28 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               const avatarUrl = await avatarService.getAvatarUrl(mail)
               if (avatarUrl) {
                 setProfile(prev => ({ ...prev, avatarUrl }))
+              }
+              
+              // Load public cover and bio data (unencrypted, visible to others)
+              try {
+                const publicRes = await supabase
+                  .from('profiles')
+                  .select('cover_public, bio_public')
+                  .eq('user_id', user.id)
+                  .maybeSingle()
+                const publicError = publicRes.error
+                const publicData = publicRes.data as { cover_public: string | null; bio_public: string | null } | null
+                
+                if (!publicError && publicData) {
+                  // Use public data directly since it's now stored unencrypted
+                  setProfile(prev => ({
+                    ...prev,
+                    coverUrl: publicData.cover_public ?? fetched.data.cover ?? null,
+                    bio: publicData.bio_public ?? fetched.data.bio ?? null,
+                  }))
+                }
+              } catch (publicError) {
+                console.warn('Failed to load public profile data:', publicError)
               }
 
               // Reconcile: if auth role differs from encrypted profile role, update the encrypted profile to auth role
@@ -170,8 +205,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                   email: mail,
                   memberSince: user.created_at || new Date().toISOString(),
                   accountType: ((meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || 'Free'),
-                  importedResources: 0,
-                  lastActive: new Date().toISOString(),
+                  cover: null,
+                  bio: null,
                 }
                 await saveProfileEncrypted(updatedProfile, password, true) // Preserve existing picture_enc
                 
@@ -179,7 +214,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                   ...prev,
                   memberSince: updatedProfile.memberSince,
                   accountType: updatedProfile.accountType,
-                  lastActive: updatedProfile.lastActive,
                 }))
               } else {
                 // Truly no profile row, create new one
@@ -188,8 +222,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                   email: mail,
                   memberSince: user.created_at || new Date().toISOString(),
                   accountType: ((meta['role'] as string | undefined) || (appMeta['role'] as string | undefined) || 'Free'),
-                  importedResources: 0,
-                  lastActive: new Date().toISOString(),
+                  cover: null,
+                  bio: null,
                 }
                 await saveProfileEncrypted(newProfile, password)
                 
@@ -197,7 +231,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                   ...prev,
                   memberSince: newProfile.memberSince,
                   accountType: newProfile.accountType,
-                  lastActive: newProfile.lastActive,
                 }))
               }
               
@@ -233,11 +266,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       email: user.email,
       memberSince: profile.memberSince || user.created_at || new Date().toISOString(),
       accountType: profile.accountType || 'Free',
-      importedResources: profile.importedResources,
-      lastActive: new Date().toISOString(),
+      cover: profile.coverUrl ?? null,
+      bio: profile.bio ?? null,
     }
     
     await saveProfileEncrypted(profileData, password, true) // Preserve picture_enc
+    void saveEncryptedProfileLocal(profileData as Required<typeof profileData>, user.email, password)
     
     // Update local state immediately
     setProfile(prev => ({ ...prev, displayName: name }))
@@ -256,11 +290,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       email: user.email,
       memberSince: profile.memberSince || user.created_at || new Date().toISOString(),
       accountType: type,
-      importedResources: profile.importedResources,
-      lastActive: new Date().toISOString(),
+      cover: profile.coverUrl ?? null,
+      bio: profile.bio ?? null,
     }
 
     await saveProfileEncrypted(profileData, password, true) // Preserve picture_enc
+    void saveEncryptedProfileLocal(profileData as Required<typeof profileData>, user.email, password)
 
     // Update local state immediately
     setProfile(prev => ({ ...prev, accountType: type }))
@@ -281,13 +316,92 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     // Get the new avatar URL
     const avatarUrl = await avatarService.getAvatarUrl(user.email)
     
-    // Clean up old avatar URL (no-op for data URLs)
-    // if (profile.avatarUrl && profile.avatarUrl.startsWith('blob:')) {
-    //   try { URL.revokeObjectURL(profile.avatarUrl) } catch {}
-    // }
-    
     // Update local state
     setProfile(prev => ({ ...prev, avatarUrl }))
+  }
+
+  const updateCover = async (dataUrlOrBlob: string | Blob | null) => {
+    if (!user?.email) throw new Error('No user email')
+
+    // Convert blob to data URL if needed
+    const toDataUrl = async (b: Blob): Promise<string> => new Promise((resolve, reject) => {
+      try {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = (e) => reject(e)
+        reader.readAsDataURL(b)
+      } catch (e) { reject(e) }
+    })
+
+    const dataUrl = typeof dataUrlOrBlob === 'string'
+      ? dataUrlOrBlob
+      : dataUrlOrBlob instanceof Blob
+        ? await toDataUrl(dataUrlOrBlob)
+        : null
+
+    // Ensure profile row exists and update encrypted profile first (so all required fields exist)
+    const password = await getOrCreateProfileKey(user.email)
+    const profileData = {
+      displayName: profile.displayName || (user.user_metadata?.display_name as string) || user.email?.split('@')[0] || 'User',
+      email: user.email,
+      memberSince: profile.memberSince || user.created_at || new Date().toISOString(),
+      accountType: profile.accountType || 'Free',
+      cover: dataUrl,
+      bio: profile.bio ?? null,
+    }
+
+    await saveProfileEncrypted(profileData, password, true)
+    void saveEncryptedProfileLocal(profileData as Required<typeof profileData>, user.email, password)
+
+    // Update public column with unencrypted data
+    try {
+      const { error } = await (supabase as unknown as SupabaseUpdateClient)
+        .from('profiles')
+        .update({ cover_public: dataUrl })
+        .eq('user_id', user.id)
+      
+      if (error) {
+        console.error('Failed to save cover image to public column:', error)
+      }
+    } catch (error) {
+      console.warn('Could not update public cover field:', error)
+    }
+
+    setProfile(prev => ({ ...prev, coverUrl: dataUrl }))
+  }
+
+  const updateBio = async (bio: string | null) => {
+    if (!user?.email) throw new Error('No user email')
+
+    // Ensure profile row exists and update encrypted profile first (so all required fields exist)
+    const password = await getOrCreateProfileKey(user.email)
+    const profileData = {
+      displayName: profile.displayName || (user.user_metadata?.display_name as string) || user.email?.split('@')[0] || 'User',
+      email: user.email,
+      memberSince: profile.memberSince || user.created_at || new Date().toISOString(),
+      accountType: profile.accountType || 'Free',
+      cover: profile.coverUrl ?? null,
+      bio,
+    }
+
+    await saveProfileEncrypted(profileData, password, true)
+    void saveEncryptedProfileLocal(profileData as Required<typeof profileData>, user.email, password)
+
+    // Update public column with unencrypted data
+    try {
+      const { error } = await (supabase as unknown as SupabaseUpdateClient)
+        .from('profiles')
+        .update({ bio_public: bio })
+        .eq('user_id', user.id)
+      
+      if (error) {
+        console.error('Failed to save bio to public column:', error)
+      }
+    } catch (error) {
+      console.warn('Could not update public bio field:', error)
+    }
+
+    setProfile(prev => ({ ...prev, bio }))
   }
 
   const refreshProfile = async () => {
@@ -307,7 +421,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       isInitialLoad,
       isSyncing,
       updateDisplayName,
+      updateBio,
       updateAvatar,
+      updateCover,
       updateAccountType,
       refreshProfile,
     }}>

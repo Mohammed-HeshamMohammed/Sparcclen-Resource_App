@@ -539,8 +539,8 @@ export function ImportPage() {
     <div className="h-full app-page-surface flex flex-col">
       {/* Fixed Header */}
       <div className="px-6 py-6 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Import Resources</h1>
-        <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-300 max-w-4xl mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4 break-words">Import Resources</h1>
+        <p className="text-lg leading-relaxed text-slate-600 dark:text-slate-300 max-w-4xl mb-8 break-words">
           Import curated resources with a guided workflow. Choose the destination category, refine with a subcategory, and upload JSON that follows the required schema to keep your collection consistent.
         </p>
       </div>
@@ -584,11 +584,11 @@ export function ImportPage() {
             </div>
             <div className="flex h-full flex-col rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900/80">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300">Process overview</p>
-              <div className="mt-3 space-y-3 text-sm leading-5 text-slate-600 dark:text-slate-300">
+                  <div className="mt-3 space-y-3 text-sm leading-5 text-slate-600 dark:text-slate-300">
                 {['Choose a category to define where the resources belong.', 'Refine with a subcategory or confirm that none is needed.', 'Prepare JSON that matches the schema and import.'].map((text, idx) => (
                   <div key={idx} className="flex items-start gap-3">
-                    <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-500" />
-                    <span><strong className="font-semibold">Step {idx + 1}.</strong> {text}</span>
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    <span className="break-words overflow-hidden"><strong className="font-semibold">Step {idx + 1}.</strong> {text}</span>
                   </div>
                 ))}
               </div>
@@ -604,12 +604,12 @@ export function ImportPage() {
             <div className="max-w-7xl mx-auto">
               <div className="rounded-3xl border-2 border-gray-200 bg-white p-10 shadow-lg dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 1</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Choose a category</h2>
-                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white">Pick the resource family that best matches the content you plan to import.</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white break-words">Choose a category</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white break-words">Pick the resource family that best matches the content you plan to import.</p>
                   </div>
-                  <span className="self-start rounded-full border border-blue-200/70 bg-blue-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:border-blue-700/60 dark:bg-blue-900/30 dark:text-blue-200">
+                  <span className="flex-shrink-0 self-start rounded-full border border-blue-200/70 bg-blue-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600 dark:border-blue-700/60 dark:bg-blue-900/30 dark:text-blue-200 break-words max-w-32">
                     {selectedCategoryInfo?.label ?? 'Not selected'}
                   </span>
                 </div>
@@ -638,16 +638,16 @@ export function ImportPage() {
                           }}
                           className="sr-only"
                         />
-                        <div className="flex items-center gap-4">
-                          <Icon className={`h-14 w-14 transition-colors duration-200 ${
+                        <div className="flex items-start gap-4 min-w-0 w-full">
+                          <Icon className={`h-14 w-14 flex-shrink-0 transition-colors duration-200 ${
                             isActive ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-600 dark:text-gray-300 dark:group-hover:text-blue-200'
                           }`} />
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-semibold text-slate-900 dark:text-white">{category.label}</span>
-                              {isActive && <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-500/20 dark:text-blue-200">Selected</span>}
+                          <div className="space-y-2 min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-base font-semibold text-slate-900 dark:text-white break-words">{category.label}</span>
+                              {isActive && <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-500/20 dark:text-blue-200 flex-shrink-0">Selected</span>}
                             </div>
-                            <p className="text-sm leading-relaxed text-slate-600 transition-colors duration-200 dark:text-slate-300">{category.description}</p>
+                            <p className="text-sm leading-relaxed text-slate-600 transition-colors duration-200 dark:text-slate-300 break-words hyphens-auto">{category.description}</p>
                           </div>
                         </div>
                       </label>
@@ -669,8 +669,8 @@ export function ImportPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 2</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Refine the focus</h2>
-                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white">Pick a subcategory to keep your resources organized.</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white break-words">Refine the focus</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white break-words">Pick a subcategory to keep your resources organized.</p>
                   </div>
                   <span className="self-start rounded-full border border-purple-200/70 bg-purple-50/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-purple-600 dark:border-purple-700/60 dark:bg-purple-900/30 dark:text-purple-200">
                     {selectedSubcategoryInfo?.label ?? (hasSubcategories ? 'None selected' : 'Not required')}
@@ -711,7 +711,7 @@ export function ImportPage() {
                               <span className="h-2 w-2 rounded-full bg-slate-300 transition-colors duration-200 group-hover:bg-purple-400 dark:bg-slate-600 dark:group-hover:bg-purple-400"></span>
                             )}
                           </div>
-                          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{subcategory.description}</p>
+                          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 break-words overflow-hidden">{subcategory.description}</p>
                         </label>
                       );
                     })}
@@ -739,8 +739,8 @@ export function ImportPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Step 3</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Prepare your JSON</h2>
-                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white">Use the schema template. You can upload arrays with multiple resources at once.</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white break-words">Prepare your JSON</h2>
+                    <p className="mt-1.5 text-sm text-slate-600 dark:text-white break-words">Use the schema template. You can upload arrays with multiple resources at once.</p>
                   </div>
                 </div>
 

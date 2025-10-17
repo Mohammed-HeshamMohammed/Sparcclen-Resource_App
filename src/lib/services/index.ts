@@ -6,6 +6,7 @@ export {
   uploadProfilePicture,
 } from './profile/profileCloud'; // Cloud encrypted profiles API
 export { getOrCreateProfileKey } from './profile/profileKey'; // Profile encryption keys
+export { saveEncryptedProfileLocal } from './profile/profileLocal'; // Local encrypted profile persistence
 export {
   getCategories,
   getResources,

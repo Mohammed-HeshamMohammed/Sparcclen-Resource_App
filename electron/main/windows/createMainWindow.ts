@@ -13,6 +13,9 @@ const resolvePreloadPath = () => {
 export const createMainWindow = () => {
   const preloadResolved = resolvePreloadPath()
 
+  // Set custom app icon
+  const iconPath = join(__dirname, '..', '..', 'src', 'public', 'Logo.png')
+
   const mainWindow = new BrowserWindow({
     width: 1100,
     height: 850,
@@ -23,6 +26,7 @@ export const createMainWindow = () => {
     frame: false,
     resizable: true,
     hasShadow: true,
+    icon: iconPath,
     webPreferences: {
       ...(preloadResolved ? { preload: preloadResolved } : {}),
       sandbox: false,

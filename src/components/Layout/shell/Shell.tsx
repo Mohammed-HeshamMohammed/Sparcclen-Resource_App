@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ImportPage } from '@/components/Resources/ImportPage';
 import { RoleManagement } from '@/components/Admin/RoleManagement';
 import { Dashboard } from '@/components/Dashboard';
+import { ComingSoon } from '@/components/ComingSoon';
 import { TopBar } from './TopBar';
 import { SkeletonLoader } from '@/components/ui';
 import { Settings, Profile } from '@/components/User';
@@ -20,7 +21,7 @@ export function Shell() {
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
-  const [activeTab, setActiveTab] = useState<'Dashboard' | 'Library' | 'Imports'>('Dashboard');
+  const [activeTab, setActiveTab] = useState<'Dashboard' | 'Library' | 'Imports' | 'ComingSoon'>('Dashboard');
 
   const {
     categories,
@@ -45,7 +46,7 @@ export function Shell() {
     updateFavoriteLocally,
   } = useLibraryData({
     userId: user?.id ?? null,
-    activeTab,
+    activeTab: (activeTab === 'ComingSoon' ? 'Dashboard' : activeTab) as 'Dashboard' | 'Library' | 'Imports',
     selectedResource,
     onSelectedResourceChange: setSelectedResource,
   });
@@ -91,18 +92,21 @@ export function Shell() {
   };
 
   const handleOpenSettings = () => {
+    setActiveTab('Dashboard'); // Reset activeTab to close library submenu
     setShowSettings(true);
     setShowProfile(false);
     setShowRoles(false);
   };
 
   const handleOpenProfile = () => {
+    setActiveTab('Dashboard'); // Reset activeTab to close library submenu
     setShowProfile(true);
     setShowSettings(false);
     setShowRoles(false);
   };
 
   const handleOpenRoles = () => {
+    setActiveTab('Dashboard'); // Reset activeTab to close library submenu
     setShowRoles(true);
     setShowProfile(false);
     setShowSettings(false);
@@ -120,11 +124,11 @@ export function Shell() {
     setShowProfile(false);
     setShowSettings(false);
     setShowRoles(false);
-    clearCategorySelection();
-    applyClassificationFilter(null);
-    applyTagFilter(null);
-    setSearchQuery('');
-    setFavoritesOnly(false);
+    // Only clear filters if we're coming from a different tab
+    if (activeTab !== 'Library') {
+      // Keep existing category selection and filters when switching to Library
+      // This prevents unnecessary reloading of the resource grid
+    }
   };
 
   const handleOpenImports = () => {
@@ -137,6 +141,13 @@ export function Shell() {
     applyTagFilter(null);
     setSearchQuery('');
     setFavoritesOnly(false);
+  };
+
+  const handleOpenComingSoon = () => {
+    setActiveTab('ComingSoon');
+    setShowProfile(false);
+    setShowSettings(false);
+    setShowRoles(false);
   };
 
   const handleOpenLibraryCategory = (slug: string) => {
@@ -258,6 +269,7 @@ export function Shell() {
             onOpenDashboard={handleOpenDashboard}
             onOpenLibrary={handleOpenLibrary}
             onOpenImports={handleOpenImports}
+            onOpenComingSoon={handleOpenComingSoon}
             onOpenLibraryCategory={handleOpenLibraryCategory}
             isLibraryActive={activeTab === 'Library'}
           />
@@ -321,6 +333,8 @@ export function Shell() {
               />
             ) : activeTab === 'Imports' ? (
               <ImportPage />
+            ) : activeTab === 'ComingSoon' ? (
+              <ComingSoon />
             ) : (
               <ResourceGrid
                 resources={resources}

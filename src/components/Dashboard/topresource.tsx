@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Resource } from '@/types'
 import type { Database } from '@/types/database'
@@ -10,13 +10,12 @@ interface Props {
   viewCounts: Database['public']['Views']['view_counts']['Row'][]
   onOpenResource: (r: Resource) => void
   onOpenLibrary: () => void
+  onToggleFavorite: (resourceId: string) => void
 }
 
-export function TopResource({ resources, viewCounts, onOpenResource, onOpenLibrary }: Props) {
+export function TopResource({ resources, viewCounts, onOpenResource, onOpenLibrary, onToggleFavorite }: Props) {
   const { user } = useAuth()
   const [topResources, setTopResources] = useState<Resource[]>([])
-  const topCacheRef = useRef<Record<string, Resource>>({})
-
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -38,7 +37,7 @@ export function TopResource({ resources, viewCounts, onOpenResource, onOpenLibra
           if (triedTitles.has(nt)) continue
           triedTitles.add(nt)
 
-          let res = byNormTitle.get(nt) || topCacheRef.current[title]
+          let res = byNormTitle.get(nt)
           if (!res) {
             try {
               const { searchResources } = await import('@/lib/services')
@@ -60,7 +59,6 @@ export function TopResource({ resources, viewCounts, onOpenResource, onOpenLibra
             } catch {}
           }
           if (res) {
-            topCacheRef.current[title] = res
             if (!picked.some(p => p.id === res!.id)) picked.push(res)
           }
         }
@@ -97,7 +95,7 @@ export function TopResource({ resources, viewCounts, onOpenResource, onOpenLibra
               <ResourceCard
                 resource={resource}
                 onOpen={onOpenResource}
-                onToggleFavorite={() => {}}
+                onToggleFavorite={onToggleFavorite}
                 variant="small"
                 className="rounded-2xl shadow-2xl border-0"
               />

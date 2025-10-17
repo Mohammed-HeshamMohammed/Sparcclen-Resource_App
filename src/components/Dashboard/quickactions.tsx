@@ -1,4 +1,6 @@
 import { LibraryIcon as SidebarLibraryIcon, ImportIcon as SidebarImportIcon, ProfileIcon as SidebarProfileIcon, SettingsIcon as SidebarSettingsIcon, RoleManagementIcon as SidebarRoleIcon } from '@/components/Resources/sidebar/ResourceSidebar'
+import { useAuth } from '@/lib/auth'
+import { useProfile } from '@/lib/contexts/ProfileContext'
 
 interface Props {
   onOpenLibrary: () => void
@@ -10,6 +12,11 @@ interface Props {
 
 export function QuickActions({ onOpenLibrary, onOpenImports, onOpenProfile, onOpenSettings, onOpenRoles }: Props) {
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
+  const { user } = useAuth()
+  const { profile } = useProfile()
+  const roleFromMeta = ((user?.user_metadata || {}) as Record<string, unknown>)['role']
+  const role = (typeof profile.accountType === 'string' && profile.accountType) || (typeof roleFromMeta === 'string' ? roleFromMeta : undefined)
+  const canManageRoles = isOnline && !!role && ['CEO', 'Admin'].includes(role as string)
   return (
     <div className="space-y-3">
       <h3 className="font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
@@ -35,7 +42,7 @@ export function QuickActions({ onOpenLibrary, onOpenImports, onOpenProfile, onOp
           <SidebarSettingsIcon />
           <span className="font-medium">Settings</span>
         </button>
-        {isOnline && (
+        {canManageRoles && (
           <button onClick={onOpenRoles} className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--app-sidebar-bg)] text-[var(--app-sidebar-text)] hover:brightness-105 transition-all shadow-sm">
             <SidebarRoleIcon />
             <span className="font-medium">Role Management</span>

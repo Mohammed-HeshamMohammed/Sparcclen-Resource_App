@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Moon, Sun, Bell, Shield, Palette } from 'lucide-react';
+import { Moon, Sun, Bell, Shield, Palette, Trash2 } from 'lucide-react';
 import { useTheme } from '@/components/Layout/theme/ThemeProvider';
+import { clearAllCaches, clearDashboardCache } from '@/lib/services/dashboardCache';
+import { notify } from '@/lib/toast';
+import { useAuth } from '@/lib/auth';
 
 export function Settings() {
   const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
@@ -14,6 +18,7 @@ export function Settings() {
     profile: 'public',
     data: 'private',
   });
+  const [isClearingCache, setIsClearingCache] = useState(false);
 
   const handleNotificationChange = (key: string, value: boolean) => {
     setNotifications(prev => ({ ...prev, [key]: value }));
@@ -21,6 +26,34 @@ export function Settings() {
 
   const handlePrivacyChange = (key: string, value: string) => {
     setPrivacy(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleClearDashboardCache = async () => {
+    try {
+      setIsClearingCache(true);
+      if (user?.id) {
+        await clearDashboardCache(user.id);
+      }
+      notify.success('Dashboard cache cleared successfully');
+    } catch (error) {
+      notify.error('Failed to clear dashboard cache');
+      console.error('Cache clear error:', error);
+    } finally {
+      setIsClearingCache(false);
+    }
+  };
+
+  const handleClearAllCaches = async () => {
+    try {
+      setIsClearingCache(true);
+      await clearAllCaches();
+      notify.success('All caches cleared successfully');
+    } catch (error) {
+      notify.error('Failed to clear all caches');
+      console.error('Cache clear error:', error);
+    } finally {
+      setIsClearingCache(false);
+    }
   };
 
   return (
@@ -188,39 +221,48 @@ export function Settings() {
             {/* Data Management */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center gap-3 mb-6">
+                <Trash2 className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Data Management</h2>
               </div>
 
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300 mb-4 w-fit">
-                Coming soon
-              </div>
-
-              <div className="space-y-4 opacity-60 pointer-events-none select-none">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">Export Data</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Download your data</p>
                   </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60" disabled aria-disabled="true">
-                    Export
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                    Coming soon
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Clear Dashboard Cache</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Clear dashboard data cache (users, views, etc.)</p>
+                  </div>
+                  <button
+                    onClick={handleClearDashboardCache}
+                    disabled={isClearingCache}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-60"
+                  >
+                    {isClearingCache ? 'Clearing...' : 'Clear'}
                   </button>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Clear Cache</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Clear local storage data (frees up ~5-10MB)</p>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Clear All Caches</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Clear all cached data including favorites, Supabase cache, etc.</p>
                   </div>
                   <button
-                    onClick={() => localStorage.clear()}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-60"
-                    disabled
-                    aria-disabled="true"
+                    onClick={handleClearAllCaches}
+                    disabled={isClearingCache}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60"
                   >
-                    Clear
+                    {isClearingCache ? 'Clearing...' : 'Clear All'}
                   </button>
                 </div>
-
               </div>
             </div>
           </motion.div>

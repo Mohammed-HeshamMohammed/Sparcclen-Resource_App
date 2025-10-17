@@ -1,27 +1,19 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp, Users, Library, Heart } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Library, Heart, Tag } from 'lucide-react';
 import { TopResource } from './topresource'
 import { QuickActions } from './quickactions'
 import { ViewsSparkline } from './viewsSparkline'
 import { TopCategories } from './topCategories'
 import { TopSubcategories } from './topSubcategories'
-// Simple in-module caches to avoid refetching when navigating back to Dashboard
-const USERS_CACHE: { users: User[]; avatars: Record<string, string>; ts: number } = { users: [], avatars: {}, ts: 0 }
-const DASH_CACHE: {
-  viewCounts: Database['public']['Views']['view_counts']['Row'][]
-  favCatAgg: Array<{ name: string; count: number; favourites: number }>
-  favSubAgg: Array<{ category: string; subcategory: string; count: number; favourites: number }>
-  topResources: Resource[]
-  ts: number
-} = { viewCounts: [], favCatAgg: [], favSubAgg: [], topResources: [], ts: 0 }
+import { UserProfileModal } from './UserProfileModal'
 import { ResourceCard } from '@/components/Resources/grid/ResourceCard';
 import type { Category, Resource } from '@/types';
 import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/lib/contexts/ProfileContext';
-import { supabase } from '@/lib/services';
 import * as viewsFavs from '@/lib/services/viewsFavs';
 import type { Database } from '@/types/database';
+import { loadDashboardCache, saveDashboardCache } from '@/lib/services/dashboardCache';
 
 interface SupabaseUser {
   id: string;
@@ -54,10 +46,6 @@ interface User {
   role: string;
 }
 
-interface ProfileData {
-  picture_enc: string | null;
-}
-
 interface DashboardProps {
   resources: Resource[];
   categories: Category[];
@@ -83,6 +71,7 @@ export function Dashboard({
   const { profile } = useProfile();
   const [users, setUsers] = useState<User[]>([]);
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [viewCounts, setViewCounts] = useState<Database['public']['Views']['view_counts']['Row'][]>([]);
   const [, setIsLoadingViews] = useState(false);
   const [favCatAgg, setFavCatAgg] = useState<Array<{ name: string; count: number; favourites: number }>>([]);
@@ -90,136 +79,255 @@ export function Dashboard({
   const [totalFavourites, setTotalFavourites] = useState(0);
   const [recentItems, setRecentItems] = useState<Array<{ id: string; title: string; url?: string | null; ts: number }>>([]);
   const [allResources, setAllResources] = useState<Resource[]>(resources);
-  // moved to TopResource component
+  const [isLoadingCache, setIsLoadingCache] = useState(true);
+  const [lastCacheRefresh, setLastCacheRefresh] = useState<number>(0);
 
-  // Load users for user circles section
+  // Load cached data per-user when user is known
   useEffect(() => {
-    const loadUsers = async () => {
+    const loadCachedData = async () => {
+      if (!user?.id) return;
       try {
-        const now = Date.now()
-        if (USERS_CACHE.users.length > 0 && now - USERS_CACHE.ts < 5 * 60 * 1000) {
-          setUsers(USERS_CACHE.users)
-          setUserAvatars(USERS_CACHE.avatars)
-          return
-        }
-        const api = (window as unknown as { api: WindowApi }).api;
-        if (api?.admin?.listUsers) {
-          const res = await api.admin.listUsers();
-          if (res?.ok) {
-            const userList = (res.users || []).map((u: SupabaseUser) => {
-              const meta = u.user_metadata || {};
-              const app = u.app_metadata || {};
-              const role = meta.role || app.role || 'Free';
-              return {
-                id: u.id,
-                email: u.email ?? null,
-                name: meta.display_name || meta.full_name || meta.name || ((u.email || '').split('@')[0] || null),
-                avatarUrlMeta: meta.avatar_url || null,
-                role,
-              };
-            });
-            setUsers(userList);
-            USERS_CACHE.users = userList
-            USERS_CACHE.ts = now
-            
-            // If we already have avatars cached, use them and skip network
-            if (Object.keys(USERS_CACHE.avatars).length > 0) {
-              setUserAvatars(USERS_CACHE.avatars)
-              return
-            }
-            // Fetch profile pictures from profiles table
-            const avatarPromises = userList.map(async (usr: User) => {
-              console.log(`Fetching avatar for user: ${usr.id}`);
-              try {
-                const { data: profileData }: { data: ProfileData | null } = await supabase
-                  .from('profiles')
-                  .select('picture_enc')
-                  .eq('user_id', usr.id)
-                  .maybeSingle();
-
-                if (profileData?.picture_enc) {
-                  const pictureEnc = profileData.picture_enc;
-                  let mime = 'image/jpeg';
-                  let b64: string;
-                  try {
-                    const parsed = JSON.parse(pictureEnc);
-                    b64 = parsed.b64;
-                    if (parsed.mime) mime = parsed.mime;
-                  } catch {
-                    b64 = pictureEnc;
-                  }
-                  const dataUrl = `data:${mime};base64,${b64}`;
-                  console.log(`Avatar data URL created for user ${usr.id}:`, dataUrl.substring(0, 50) + '...');
-                  return { id: usr.id, url: dataUrl };
-                } else {
-                  console.log(`No profile picture found for user ${usr.id}, falling back to avatarUrlMeta:`, usr.avatarUrlMeta);
-                  return { id: usr.id, url: usr.avatarUrlMeta || null };
-                }
-              } catch (error) {
-                console.error(`Error fetching avatar for user ${usr.id}:`, error);
-                return { id: usr.id, url: usr.avatarUrlMeta || null };
-              }
-            });
-
-            const avatars = await Promise.all(avatarPromises);
-            const avatarMap = avatars.reduce((acc, { id, url }) => {
-              if (url) {
-                acc[id] = url;
-                console.log(`Avatar set for user ${id}:`, url.substring(0, 50) + '...');
-              } else {
-                console.log(`No avatar available for user ${id}`);
-              }
-              return acc;
-            }, {} as Record<string, string>);
-            USERS_CACHE.avatars = avatarMap
-            setUserAvatars(avatarMap);
-          }
+        const cachedData = await loadDashboardCache(user.id);
+        if (cachedData) {
+          setUsers(cachedData.users);
+          setUserAvatars(cachedData.userAvatars);
+          setViewCounts(cachedData.viewCounts);
+          setFavCatAgg(cachedData.favCatAgg);
+          setFavSubAgg(cachedData.favSubAgg);
+          setTotalFavourites(cachedData.totalFavourites);
+          setLastCacheRefresh(cachedData.timestamp);
+          setIsLoadingCache(false);
+          return;
         }
       } catch {}
+      setIsLoadingCache(false);
     };
-    void loadUsers();
-  }, [user?.id]); // Re-run when user changes to update avatars
-
-  // Seed from cache immediately to avoid empty flashes
-  useEffect(() => {
-    if (DASH_CACHE.viewCounts.length) setViewCounts(DASH_CACHE.viewCounts)
-    if (DASH_CACHE.favCatAgg.length) setFavCatAgg(DASH_CACHE.favCatAgg)
-    if (DASH_CACHE.favSubAgg.length) setFavSubAgg(DASH_CACHE.favSubAgg)
-  }, [])
-
-  // Load aggregated view counts from Supabase + favourite category/subcategory aggregates from views_favs (online/offline)
-  useEffect(() => {
-    (async () => {
-      try {
-        setIsLoadingViews(true);
-        const data = await viewsFavs.fetchViewCounts().catch(() => []);
-        if (data && data.length) {
-          setViewCounts(data);
-          DASH_CACHE.viewCounts = data;
-          DASH_CACHE.ts = Date.now();
-        }
-      } catch (e) {
-        console.warn('Failed to fetch view counts:', e);
-        // keep previous state to avoid flash
-      } finally {
-        setIsLoadingViews(false);
-      }
-      try {
-        const merged = await viewsFavs.getMergedItems();
-        const cat = viewsFavs.aggregateCategories(merged)
-        const sub = viewsFavs.aggregateSubcategories(merged)
-        setFavCatAgg(cat);
-        setFavSubAgg(sub);
-        setTotalFavourites(merged.filter(i => i.favourite).length);
-        DASH_CACHE.favCatAgg = cat;
-        DASH_CACHE.favSubAgg = sub;
-        DASH_CACHE.ts = Date.now();
-      } catch (e) {
-        console.warn('Failed to compute favourites aggregates:', e);
-        // keep previous state
-      }
-    })();
+    loadCachedData();
   }, [user?.id]);
+
+  // Separate effect for refresh interval
+  useEffect(() => {
+    if (lastCacheRefresh === 0) return; // Don't set interval until we have initial data
+
+    const refreshInterval = setInterval(() => {
+      const now = Date.now();
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      
+      if (lastCacheRefresh > 0 && (now - lastCacheRefresh) >= FIVE_MINUTES) {
+        console.log('Refreshing dashboard cache after 5 minutes');
+        setIsLoadingCache(true);
+        setLastCacheRefresh(0); // This will trigger fresh data load in users/views effects
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(refreshInterval);
+  }, [lastCacheRefresh]);
+
+  // Load users for user circles section (only if not already cached)
+  useEffect(() => {
+    if (!isLoadingCache && users.length === 0) {
+      const loadUsers = async () => {
+        try {
+          const api = (window as unknown as { api: WindowApi }).api;
+          if (api?.admin?.listUsers) {
+            const res = await api.admin.listUsers();
+            if (res?.ok) {
+              const userList = (res.users || []).map((u: SupabaseUser) => {
+                const meta = u.user_metadata || {};
+                const app = u.app_metadata || {};
+                const role = meta.role || app.role || 'Free';
+                return {
+                  id: u.id,
+                  email: u.email ?? null,
+                  name: meta.display_name || meta.full_name || meta.name || ((u.email || '').split('@')[0] || null),
+                  avatarUrlMeta: meta.avatar_url || null,
+                  role,
+                };
+              });
+              setUsers(userList);
+              
+              // Fetch encrypted profile pictures from Supabase (same approach as Role Management)
+              const avatarMap: Record<string, string> = {};
+              const userIds = userList.map(u => u.id);
+              
+              if (userIds.length > 0) {
+                try {
+                  const { supabase } = await import('@/lib/services');
+                  const { data, error } = await supabase
+                    .from('profiles')
+                    .select('user_id,picture_enc')
+                    .in('user_id', userIds);
+
+                  if (error) {
+                    console.warn('Failed to fetch encrypted profile pictures:', error);
+                  } else {
+                    // Decrypt and process the profile pictures
+                    const rows = (data ?? []) as Array<{ user_id: string | null; picture_enc: string | null }>;
+                    for (const row of rows) {
+                      if (!row?.user_id || !row?.picture_enc) continue;
+                      const pictureEnc = row.picture_enc as string;
+                      let mime = 'image/jpeg';
+                      let base64: string | null = null;
+
+                      try {
+                        // Try to parse as JSON first
+                        const parsed = JSON.parse(pictureEnc) as { b64?: string; mime?: string };
+                        base64 = typeof parsed?.b64 === 'string' ? parsed.b64 : null;
+                        if (parsed?.mime) {
+                          mime = parsed.mime;
+                        }
+                      } catch {
+                        // Fallback to treating the entire string as base64
+                        base64 = pictureEnc;
+                      }
+
+                      if (base64) {
+                        avatarMap[row.user_id] = `data:${mime};base64,${base64}`;
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.warn('Failed to fetch encrypted profile pictures for dashboard:', error);
+                }
+              }
+              
+              // Fallback to avatar metadata or avatar service for users without encrypted pictures
+              for (const usr of userList) {
+                if (avatarMap[usr.id]) continue; // Already have encrypted picture
+                
+                if (usr.avatarUrlMeta) {
+                  avatarMap[usr.id] = usr.avatarUrlMeta;
+                } else if (usr.email) {
+                  try {
+                    const { avatarService } = await import('@/lib/services');
+                    const fallbackUrl = await avatarService.getAvatarUrl(usr.email, true);
+                    if (fallbackUrl) {
+                      avatarMap[usr.id] = fallbackUrl;
+                    }
+                  } catch (error) {
+                    console.warn(`Failed to get fallback avatar for user ${usr.id}:`, error);
+                  }
+                }
+              }
+              
+              setUserAvatars(avatarMap);
+            }
+          }
+        } catch {}
+      };
+      void loadUsers();
+    }
+  }, [user?.id, isLoadingCache, users.length]);
+
+
+  // Load aggregated view counts and favourite aggregates (skip if cached)
+  useEffect(() => {
+    if (!isLoadingCache && viewCounts.length === 0) {
+      (async () => {
+        let latestViewCounts: Database['public']['Views']['view_counts']['Row'][] = [];
+        try {
+          setIsLoadingViews(true);
+          const data = await viewsFavs.fetchViewCounts().catch(() => []);
+          if (data && data.length) {
+            setViewCounts(data);
+            latestViewCounts = data;
+          }
+        } catch (e) {
+          console.warn('Failed to fetch view counts:', e);
+        } finally {
+          setIsLoadingViews(false);
+        }
+        try {
+          const merged = await viewsFavs.getMergedItems();
+          // Use the new functions that consider view counts from view_counts table
+          const cat = viewsFavs.aggregateCategoriesWithViews(merged, latestViewCounts.length ? latestViewCounts : viewCounts)
+          const sub = viewsFavs.aggregateSubcategoriesWithViews(merged, latestViewCounts.length ? latestViewCounts : viewCounts)
+          setFavCatAgg(cat);
+          setFavSubAgg(sub);
+          setTotalFavourites(merged.filter(i => i.favourite).length);
+        } catch (e) {
+          console.warn('Failed to compute favourites aggregates:', e);
+        }
+      })();
+    }
+  }, [user?.id, isLoadingCache, viewCounts]);
+
+  // Save dashboard data to cache when all data is loaded (debounced)
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!isLoadingCache && users.length > 0 && viewCounts.length > 0 && favCatAgg.length > 0) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          // Compute top resources from view_counts before caching
+          const computeTop = async (): Promise<Resource[]> => {
+            try {
+              const sorted = [...viewCounts].sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))
+              const titles = sorted.map(v => v.title).slice(0, 30)
+              const norm = (s: string) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim()
+              const byNormTitle = new Map<string, Resource>()
+              for (const r of allResources) {
+                const nt = norm(r.title)
+                if (nt && !byNormTitle.has(nt)) byNormTitle.set(nt, r)
+              }
+              const picked: Resource[] = []
+              const tried = new Set<string>()
+              for (const title of titles) {
+                if (picked.length >= 6) break
+                if (!title) continue
+                const nt = norm(title)
+                if (tried.has(nt)) continue
+                tried.add(nt)
+                let res = byNormTitle.get(nt)
+                if (!res) {
+                  try {
+                    const { searchResources } = await import('@/lib/services')
+                    const filters = { query: title, categoryId: null, subcategoryId: null, tags: [], favoritesOnly: false, resourceType: null }
+                    const results: Resource[] = await searchResources(filters, user?.id || undefined)
+                    if (results && results.length > 0) {
+                      const scored = results.map(r => {
+                        const nrt = norm(r.title)
+                        let score = 0
+                        if (nrt === nt) score = 3
+                        else if (nrt.includes(nt) || nt.includes(nrt)) score = 2
+                        else score = 1
+                        score += Math.min(1, (r.view_count || 0) / 1000)
+                        return { r, score }
+                      })
+                      scored.sort((a, b) => b.score - a.score)
+                      res = scored[0].r
+                    }
+                  } catch {}
+                }
+                if (res && !picked.some(p => p.id === res!.id)) picked.push(res)
+              }
+              if (picked.length < 6) {
+                const filler = [...allResources]
+                  .filter(r => !picked.some(p => p.id === r.id))
+                  .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
+                  .slice(0, 6 - picked.length)
+                picked.push(...filler)
+              }
+              return picked
+            } catch { return [] }
+          }
+
+          const topResources = await computeTop()
+          await saveDashboardCache(user.id, {
+            users,
+            userAvatars,
+            viewCounts,
+            favCatAgg,
+            favSubAgg,
+            topResources,
+            totalFavourites,
+          });
+        } catch (error) {
+          console.warn('Failed to save dashboard data to cache:', error);
+        }
+      }, 1000)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [user?.id, users, userAvatars, viewCounts, favCatAgg, favSubAgg, totalFavourites, isLoadingCache, allResources]);
 
   // Keep a local copy of resources; if empty, fetch a small set as fallback for dashboard display
   useEffect(() => { setAllResources(resources) }, [resources])
@@ -350,14 +458,44 @@ export function Dashboard({
     return bPriority - aPriority;
   });
 
-  const handleOpenResource = async (r: Resource) => {
-    try { await viewsFavs.recordViewFromResource(r) } catch {}
-    try {
-      const recent = await import('@/lib/services/recent')
-      recent.addRecent(user?.id ?? null, { id: r.id, title: r.title, url: r.url })
-      setRecentItems(recent.getRecents(user?.id, 20))
-    } catch {}
+  const subcategoriesCount = categories.reduce((sum, c) => sum + (c.subcategories?.length || 0), 0)
+
+  const handleOpenResource = (r: Resource) => {
     onOpenResource(r)
+    void (async () => {
+      try { await viewsFavs.recordViewFromResource(r) } catch {}
+      try {
+        const recent = await import('@/lib/services/recent')
+        recent.addRecent(user?.id ?? null, { id: r.id, title: r.title, url: r.url })
+        setRecentItems(recent.getRecents(user?.id, 20))
+      } catch {}
+    })()
+  }
+
+  const handleToggleFavorite = async (resourceId: string) => {
+    // Optimistically toggle in local resources used by dashboard cards
+    setAllResources(prev => prev.map(r => r.id === resourceId ? { ...r, is_favorite: !r.is_favorite } : r))
+    try {
+      // Recompute aggregates from views_favs per-user to keep the 5-card stats correct
+      const merged = await viewsFavs.getMergedItems()
+      const cat = viewsFavs.aggregateCategoriesWithViews(merged, viewCounts)
+      const sub = viewsFavs.aggregateSubcategoriesWithViews(merged, viewCounts)
+      setFavCatAgg(cat)
+      setFavSubAgg(sub)
+      setTotalFavourites(merged.filter(i => i.favourite).length)
+      // Persist updated dashboard cache for this user
+      if (user?.id) {
+        await saveDashboardCache(user.id, {
+          users,
+          userAvatars,
+          viewCounts,
+          favCatAgg: cat,
+          favSubAgg: sub,
+          topResources: [],
+          totalFavourites: merged.filter(i => i.favourite).length,
+        })
+      }
+    } catch {}
   }
 
   return (
@@ -385,14 +523,31 @@ export function Dashboard({
       <TopSubcategories items={favSubAgg} />
       
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Left: totals */}
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
           <div className="flex items-center gap-2 mb-2">
             <Library className="h-5 w-5 text-blue-500" />
             <div className="text-sm text-gray-500 dark:text-gray-400">Total Resources</div>
           </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{resources.length}</div>
+          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{allResources.length}</div>
         </div>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-5 w-5 text-purple-500" />
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Views</div>
+          </div>
+          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{viewCounts.reduce((sum, v) => sum + (Number(v.views) || 0), 0)}</div>
+        </div>
+        {/* Middle: favourites */}
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+          <div className="flex items-center gap-2 mb-2">
+            <Heart className="h-5 w-5 text-red-500" />
+            <div className="text-sm text-gray-500 dark:text-gray-400">Favourites</div>
+          </div>
+          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{totalFavourites}</div>
+        </div>
+        {/* Right: categories */}
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
           <div className="flex items-center gap-2 mb-2">
             <BarChart3 className="h-5 w-5 text-emerald-500" />
@@ -402,17 +557,10 @@ export function Dashboard({
         </div>
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-5 w-5 text-purple-500" />
-            <div className="text-sm text-gray-500 dark:text-gray-400">Total Views</div>
+            <Tag className="h-5 w-5 text-orange-500" />
+            <div className="text-sm text-gray-500 dark:text-gray-400">Subcategories</div>
           </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{viewCounts.reduce((sum, v) => sum + (Number(v.views) || 0), 0)}</div>
-        </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-2">
-            <Heart className="h-5 w-5 text-red-500" />
-            <div className="text-sm text-gray-500 dark:text-gray-400">Favourites</div>
-          </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{totalFavourites}</div>
+          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{subcategoriesCount}</div>
         </div>
       </div>
       
@@ -424,6 +572,7 @@ export function Dashboard({
           viewCounts={viewCounts}
           onOpenResource={handleOpenResource}
           onOpenLibrary={onOpenLibrary}
+          onToggleFavorite={handleToggleFavorite}
         />
         
         {/* Quick Actions */}
@@ -451,7 +600,7 @@ export function Dashboard({
                     <ResourceCard
                       resource={res}
                       onOpen={handleOpenResource}
-                      onToggleFavorite={() => { /* handled in card */ }}
+                      onToggleFavorite={handleToggleFavorite}
                       variant="small"
                     />
                   </div>
@@ -494,7 +643,7 @@ export function Dashboard({
               return (
                 <div key={usr.id} className="text-center">
                   {displayRole === 'CEO' ? (
-                    <div className="relative w-16 h-16 mx-auto mb-2 flex-shrink-0">
+                    <div className="relative w-24 h-24 mx-auto mb-2 flex-shrink-0 cursor-pointer" role="button" onClick={() => setSelectedUser(usr)}>
                       {/* Rotating color ring */}
                       <div className="absolute inset-0 rounded-full">
                         <div className="absolute inset-0 rounded-full bg-[conic-gradient(#ff005e,#ffbe0b,#00f5d4,#00bbf9,#9b5de5,#ff005e)] animate-rotate-slow"></div>
@@ -515,7 +664,7 @@ export function Dashboard({
                     </div>
                   </div>
                   ) : (
-                    <div className="relative w-16 h-16 mx-auto mb-2 flex-shrink-0">
+                    <div className="relative w-[5.5rem] h-[5.5rem] mx-auto mb-2 flex-shrink-0 cursor-pointer" role="button" onClick={() => setSelectedUser(usr)}>
                       {userAvatars[usr.id] ? (
                         <img src={userAvatars[usr.id]} alt={usr.name || 'User'} className={`w-full h-full object-cover rounded-full ring-2 ring-offset-1 dark:ring-offset-gray-950 ring-offset-white ${displayRole === 'Admin' ? 'ring-amber-500' : displayRole === 'Premium' ? 'ring-emerald-500' : 'ring-gray-400'}`} />
                       ) : usr.avatarUrlMeta ? (
@@ -541,6 +690,17 @@ export function Dashboard({
           )}
         </div>
       </div>
+      <UserProfileModal
+        open={!!selectedUser}
+        user={selectedUser ? {
+          id: selectedUser.id,
+          name: selectedUser.name,
+          email: selectedUser.email,
+          role: (selectedUser.role || 'Free'),
+          avatarUrl: selectedUser ? (userAvatars[selectedUser.id] || selectedUser.avatarUrlMeta || null) : null,
+        } : null}
+        onClose={() => setSelectedUser(null)}
+      />
     </motion.div>
   );
 }

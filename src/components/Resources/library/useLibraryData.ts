@@ -76,7 +76,7 @@ export function useLibraryData({
       const canUseLibraryApi =
         typeof window !== 'undefined' && window.api?.resources?.listLibraryBins;
 
-      if (canUseLibraryApi && activeTab === 'Library') {
+      if (canUseLibraryApi) {
         const files = await listLibraryBinFiles();
         const { categories: derivedCategories, segmentsMap } =
           buildLibraryCategories(files);
@@ -92,14 +92,14 @@ export function useLibraryData({
     } finally {
       setIsLoadingCategories(false);
     }
-  }, [activeTab]);
+  }, []);
 
   const loadResources = useCallback(async () => {
     setIsLoading(true);
     try {
       const canUseLibraryApi =
         typeof window !== 'undefined' && window.api?.resources?.listLibraryBins;
-      if (canUseLibraryApi && activeTab === 'Library') {
+      if (canUseLibraryApi) {
         let categorySegment: string | null = null;
         let subcategorySegment: string | null = null;
 
@@ -324,7 +324,6 @@ export function useLibraryData({
   }, [
     activeCategory,
     activeSubcategory,
-    activeTab,
     availableClassifications.length,
     availableTags.length,
     classificationFilter,

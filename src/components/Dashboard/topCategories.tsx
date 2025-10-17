@@ -1,6 +1,6 @@
 import { BarChart3 } from 'lucide-react'
 
-interface Cat { name: string; count: number; favourites: number }
+interface Cat { name: string; count: number; favourites: number; totalViews?: number }
 
 export function TopCategories({ items }: { items: Cat[] }) {
   return (
@@ -20,7 +20,10 @@ export function TopCategories({ items }: { items: Cat[] }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700 dark:text-gray-300 truncate">{cat.name}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{cat.count} items • {cat.favourites} favs</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {cat.count} items • {cat.favourites} favs
+                    {cat.totalViews !== undefined && ` • ${cat.totalViews} views`}
+                  </div>
                 </div>
                 <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded mt-1 overflow-hidden">
                   <div className={`h-full ${colors[i % colors.length]} opacity-80`} style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }} />

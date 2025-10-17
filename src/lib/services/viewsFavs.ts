@@ -91,37 +91,95 @@ export async function getMergedItems(): Promise<Item[]> {
   }
 }
 
-export function aggregateCategories(items: Item[]): { name: string; count: number; favourites: number }[] {
-  const map = new Map<string, { name: string; count: number; favourites: number }>()
+// Enhanced aggregation that considers view counts from view_counts table
+export function aggregateCategoriesWithViews(items: Item[], viewCounts: Database['public']['Views']['view_counts']['Row'][] = []): { name: string; count: number; favourites: number; totalViews: number }[] {
+  
+  // Create a map of title -> views for quick lookup
+  const viewsMap = new Map<string, number>();
+  viewCounts.forEach(vc => {
+    if (vc.title) {
+      viewsMap.set(vc.title.toLowerCase().trim(), Number(vc.views) || 0);
+    }
+  });
+  
+  const map = new Map<string, { name: string; count: number; favourites: number; totalViews: number }>()
+  let _filteredCount = 0;
+  
   for (const it of items) {
     const rawKey = it.category || 'General'
     // Filter out placeholder or synthetic categories like 'top'
-    if (typeof rawKey === 'string' && rawKey.trim().toLowerCase() === 'top') continue
+    if (typeof rawKey === 'string' && (rawKey.trim().toLowerCase() === 'top' || rawKey.trim() === '')) {
+      _filteredCount++;
+      continue;
+    }
+    
     const key = rawKey
-    const curr = map.get(key) || { name: key, count: 0, favourites: 0 }
+    const curr = map.get(key) || { name: key, count: 0, favourites: 0, totalViews: 0 }
     curr.count += 1
     if (it.favourite) curr.favourites += 1
+    
+    // Add view count for this specific title
+    const titleViews = viewsMap.get(it.title.toLowerCase().trim()) || 0;
+    curr.totalViews += titleViews;
+    
     map.set(key, curr)
   }
-  return Array.from(map.values()).sort((a, b) => b.count - a.count || b.favourites - a.favourites)
+  
+  // Sort by total views first, then by favourites, then by count
+  const result = Array.from(map.values()).sort((a, b) => b.totalViews - a.totalViews || b.favourites - a.favourites || b.count - a.count);
+  return result;
 }
 
-export function aggregateSubcategories(items: Item[]): { category: string; subcategory: string; count: number; favourites: number }[] {
-  type Stat = { category: string; subcategory: string; count: number; favourites: number }
+// Keep original function for backward compatibility
+export function aggregateCategories(items: Item[]): { name: string; count: number; favourites: number }[] {
+  return aggregateCategoriesWithViews(items, []).map(({ totalViews: _totalViews, ...rest }) => rest);
+}
+
+// Enhanced subcategory aggregation that considers view counts
+export function aggregateSubcategoriesWithViews(items: Item[], viewCounts: Database['public']['Views']['view_counts']['Row'][] = []): { category: string; subcategory: string; count: number; favourites: number; totalViews: number }[] {
+  
+  // Create a map of title -> views for quick lookup
+  const viewsMap = new Map<string, number>();
+  viewCounts.forEach(vc => {
+    if (vc.title) {
+      viewsMap.set(vc.title.toLowerCase().trim(), Number(vc.views) || 0);
+    }
+  });
+  
+  type Stat = { category: string; subcategory: string; count: number; favourites: number; totalViews: number }
   const map = new Map<string, Stat>()
+  let _filteredCount = 0;
+  
   for (const it of items) {
     const rawCat = it.category || 'General'
     // Filter out placeholder or synthetic categories like 'top'
-    if (typeof rawCat === 'string' && rawCat.trim().toLowerCase() === 'top') continue
+    if (typeof rawCat === 'string' && (rawCat.trim().toLowerCase() === 'top' || rawCat.trim() === '')) {
+      _filteredCount++;
+      continue;
+    }
+    
     const cat = rawCat
     const sub = it.subcategory || '—'
     const key = `${cat}|||${sub}`
-    const curr = map.get(key) || { category: cat, subcategory: sub, count: 0, favourites: 0 }
+    const curr = map.get(key) || { category: cat, subcategory: sub, count: 0, favourites: 0, totalViews: 0 }
     curr.count += 1
     if (it.favourite) curr.favourites += 1
+    
+    // Add view count for this specific title
+    const titleViews = viewsMap.get(it.title.toLowerCase().trim()) || 0;
+    curr.totalViews += titleViews;
+    
     map.set(key, curr)
   }
-  return Array.from(map.values()).sort((a, b) => b.count - a.count || b.favourites - a.favourites)
+  
+  // Sort by total views first, then by favourites, then by count
+  const result = Array.from(map.values()).sort((a, b) => b.totalViews - a.totalViews || b.favourites - a.favourites || b.count - a.count);
+  return result;
+}
+
+// Keep original function for backward compatibility
+export function aggregateSubcategories(items: Item[]): { category: string; subcategory: string; count: number; favourites: number }[] {
+  return aggregateSubcategoriesWithViews(items, []).map(({ totalViews: _totalViews, ...rest }) => rest);
 }
 
 // Helpers to update from a Resource object

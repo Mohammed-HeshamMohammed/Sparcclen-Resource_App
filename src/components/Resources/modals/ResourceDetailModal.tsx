@@ -210,10 +210,10 @@ export function ResourceDetailModal({
 
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-800 transition-colors"
+              className="absolute top-4 right-4 p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-800 transition-colors shadow"
               aria-label="Close modal"
             >
-              <X className="h-5 w-5" />
+              <X className="h-6 w-6" />
             </button>
           </div>
 
@@ -230,7 +230,7 @@ export function ResourceDetailModal({
                 {resource.url && (
                   <button
                     onClick={() => onOpenExternal(resource.url!)}
-                    className="flex items-center gap-1 px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex-shrink-0"
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors flex-shrink-0 shadow-sm"
                     title="Open in browser"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -244,10 +244,10 @@ export function ResourceDetailModal({
                     onToggleFavorite(resource.id);
                   }}
                   className={cn(
-                    'p-2 rounded-lg transition-colors flex-shrink-0',
+                    'h-9 w-9 inline-flex items-center justify-center rounded-full transition-colors flex-shrink-0 ring-1',
                     resource.is_favorite
-                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400'
+                      ? 'bg-red-500 text-white ring-red-500/60 hover:bg-red-600'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 ring-gray-300/60 dark:ring-gray-700/60 hover:ring-red-400/70'
                   )}
                   aria-label={resource.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
                 >
@@ -293,11 +293,11 @@ export function ResourceDetailModal({
                   <TagIcon className="h-4 w-4" />
                   Tags
                 </h3>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {resource.tags.map((tag) => (
                     <span
                       key={tag.id}
-                      className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md text-xs"
+                      className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-md text-sm"
                     >
                       {tag.name}
                     </span>

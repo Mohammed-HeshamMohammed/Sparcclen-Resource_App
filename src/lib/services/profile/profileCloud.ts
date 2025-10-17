@@ -1,5 +1,5 @@
 import { supabase } from '../auth/supabase'
-import type { Database } from '@/types/database'
+// import type { Database } from '@/types/database' // types will be regenerated after DB migration
 import { encrypt, decrypt } from '@/lib/utils/crypto'
 
 // Plain profile shape used by the UI
@@ -8,8 +8,8 @@ export type ProfileData = {
   email: string
   memberSince: string // ISO string
   accountType: string
-  importedResources: number
-  lastActive: string // ISO string
+  cover: string | null // data URL or URL
+  bio: string | null
 }
 
 // Helpers
@@ -41,29 +41,29 @@ async function dec<T>(cipherText: string, password: string): Promise<T> {
 }
 
 // Map plain -> encrypted row
-async function toEncryptedRow(userId: string, profile: ProfileData, password: string, preservePicture?: boolean): Promise<Database['public']['Tables']['profiles']['Insert']> {
+async function toEncryptedRow(userId: string, profile: ProfileData, password: string, preservePicture?: boolean): Promise<Record<string, unknown>> {
   // Intentionally omit picture_path here to avoid resetting it during profile saves.
   return {
     user_id: userId,
     display_name_enc: await enc(profile.displayName, password),
     email_enc: await enc(profile.email, password),
     account_type_enc: await enc(profile.accountType, password),
-    imported_resources_enc: await enc(profile.importedResources, password),
     member_since_enc: await enc(profile.memberSince, password),
-    last_active_enc: await enc(profile.lastActive, password),
+    cover_public: profile.cover, // Store as unencrypted public data
+    bio_public: profile.bio, // Store as unencrypted public data
     ...(preservePicture ? {} : { picture_enc: undefined }), // Only set to undefined if not preserving
   }
 }
 
 // Map encrypted row -> plain
-async function fromEncryptedRow(row: Database['public']['Tables']['profiles']['Row'], password: string): Promise<ProfileData> {
+async function fromEncryptedRow(row: Record<string, unknown>, password: string): Promise<ProfileData> {
   return {
-    displayName: await dec<string>(row.display_name_enc, password),
-    email: await dec<string>(row.email_enc, password),
-    accountType: await dec<string>(row.account_type_enc, password),
-    importedResources: await dec<number>(row.imported_resources_enc, password),
-    memberSince: await dec<string>(row.member_since_enc, password),
-    lastActive: await dec<string>(row.last_active_enc, password),
+    displayName: await dec<string>(row.display_name_enc as string, password),
+    email: await dec<string>(row.email_enc as string, password),
+    accountType: await dec<string>(row.account_type_enc as string, password),
+    memberSince: await dec<string>(row.member_since_enc as string, password),
+    cover: (row.cover_public as string | null) || null, // Read as unencrypted public data
+    bio: (row.bio_public as string | null) || null, // Read as unencrypted public data
   }
 }
 
@@ -74,8 +74,7 @@ export async function saveProfileEncrypted(profile: ProfileData, password: strin
     const userId = await getUserId()
     const row = await toEncryptedRow(userId, profile, password, preservePicture)
     // TS struggles to infer typed Insert here in some tooling; runtime is correct.
-    // @ts-expect-error Supabase type inference returns never for Insert in some setups
-    const { error } = await supabase.from('profiles').upsert(row, { onConflict: 'user_id' })
+    const { error } = await supabase.from('profiles').upsert(row as never, { onConflict: 'user_id' })
     if (error) return { ok: false, error: error.message }
     return { ok: true }
   } catch (e) {
@@ -157,12 +156,11 @@ export async function uploadProfilePicture(file: Blob | ArrayBuffer | Uint8Array
         email: mail,
         memberSince: u?.created_at || new Date().toISOString(),
         accountType: 'free',
-        importedResources: 0,
-        lastActive: new Date().toISOString(),
+        cover: null,
+        bio: null,
       }
       const initRow = await toEncryptedRow(userId, profile, 'dummy') // Password not needed for picture
-      // @ts-expect-error See note above about inference for upsert
-      const { error: initErr } = await supabase.from('profiles').insert(initRow)
+      const { error: initErr } = await supabase.from('profiles').insert(initRow as never)
       if (initErr) return { ok: false, error: initErr.message }
     }
 
