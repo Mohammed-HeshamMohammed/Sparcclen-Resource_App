@@ -239,8 +239,12 @@ export function ResourceDetailModal({
                 )}
                 
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
+                    try {
+                      const svc = await import('@/lib/services/viewsFavs')
+                      void svc.upsertFromResource(resource, !resource.is_favorite)
+                    } catch {}
                     onToggleFavorite(resource.id);
                   }}
                   className={cn(

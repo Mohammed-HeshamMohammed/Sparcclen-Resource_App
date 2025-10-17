@@ -12,6 +12,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import type { Category, Resource } from '@/types';
 import { incrementViewCount } from '@/lib/services';
 import { useLibraryData } from '@/components/Resources/library/useLibraryData';
+import { useDashboardData } from '@/components/Dashboard/useDashboardData';
 import { FiltersTap } from '@/components/Resources/library/FiltersTap';
 import { useAuth } from '@/lib/auth';
 
@@ -63,18 +64,19 @@ export function Shell() {
   };
 
   const handleToggleFavorite = async (resourceId: string) => {
-    if (!user?.id || !user?.email) return;
+    if (!user?.id) return;
     try {
-      const raw = localStorage.getItem(`favorites_${user.id}`);
-      let favorites: string[] = raw ? JSON.parse(raw) : [];
-      const isFav = favorites.includes(resourceId);
-      if (isFav) {
-        favorites = favorites.filter((id) => id !== resourceId);
-      } else {
-        favorites.push(resourceId);
-      }
-      localStorage.setItem(`favorites_${user.id}`, JSON.stringify(favorites));
-      updateFavoriteLocally(resourceId, !isFav);
+      // Find the resource from either Library or Dashboard datasets
+      const resObj = resources.find(r => r.id === resourceId) || dashResources.find(r => r.id === resourceId) || null;
+      const nextFav = resObj ? !resObj.is_favorite : true;
+      try {
+        const svc = await import('@/lib/services/viewsFavs')
+        // Persist to local file (Documents/Sparcclen via preload) and Supabase
+        void svc.upsertFromResource(resObj ?? { id: resourceId, title: '', url: null } as unknown as Resource, nextFav)
+      } catch {}
+      // Update both Library and Dashboard UI copies
+      updateFavoriteLocally(resourceId, nextFav);
+      updateFavoriteLocallyDash(resourceId, nextFav);
     } catch (error) {
       console.error('Error toggling favorite:', error);
     }
@@ -254,6 +256,13 @@ export function Shell() {
     }
   }
 
+  // Independent dashboard data (decoupled from Library filters/state)
+  const {
+    categories: dashCategories,
+    resources: dashResources,
+    updateFavoriteLocally: updateFavoriteLocallyDash,
+  } = useDashboardData(user?.id ?? null)
+
   return (
     <div className="h-full flex flex-col relative bg-[#87CEEB] dark:bg-gray-800">
       <div className="flex-1 flex relative min-h-0">
@@ -322,14 +331,15 @@ export function Shell() {
               <RoleManagement />
             ) : activeTab === 'Dashboard' ? (
               <Dashboard
-                resources={resources}
-                categories={categories}
+                resources={dashResources}
+                categories={dashCategories}
                 onOpenResource={handleOpenResource}
                 onOpenLibrary={handleOpenLibrary}
                 onOpenImports={handleOpenImports}
                 onOpenProfile={handleOpenProfile}
                 onOpenSettings={handleOpenSettings}
                 onOpenRoles={handleOpenRoles}
+                onToggleFavorite={handleToggleFavorite}
               />
             ) : activeTab === 'Imports' ? (
               <ImportPage />

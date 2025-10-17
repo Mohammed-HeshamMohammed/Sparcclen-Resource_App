@@ -8,6 +8,12 @@ import type { Resource } from '@/types';
  * Never touches Supabase. Falls back to localStorage when fs API is unavailable.
  */
 
+interface UserPublicProfile {
+  coverUrl: string | null;
+  bio: string | null;
+  ts: number;
+}
+
 interface DashboardCacheData {
   users: Array<{
     id: string;
@@ -22,10 +28,13 @@ interface DashboardCacheData {
   favSubAgg: Array<{ category: string; subcategory: string; count: number; favourites: number; totalViews?: number }>;
   topResources: Resource[];
   totalFavourites: number;
+  // Map of targetUserId -> public profile (cover/bio) cached for this owner user
+  userPublicProfiles?: Record<string, UserPublicProfile>;
   timestamp: number;
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+export const USER_PUBLIC_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for public profiles
 
 const hasFs = () => typeof window !== 'undefined' && !!(window as unknown as { api?: { fs?: unknown } }).api?.fs
 const getCacheKey = (userId: string) => `dashboard_cache:${userId}`
@@ -71,6 +80,58 @@ export async function loadDashboardCache(userId: string): Promise<DashboardCache
   } catch (error) {
     console.warn('[dashboardCache.load] Failed:', error)
     return null
+  }
+}
+
+// Internal: read cache file without applying overall TTL
+async function readCacheRaw(userId: string): Promise<DashboardCacheData | Record<string, unknown> | null> {
+  try {
+    if (hasFs()) {
+      const api = (window as unknown as { api: { fs: { readFile: (p: string) => Promise<string | null> } } }).api
+      const content = await api.fs.readFile(getCacheFilePath(userId))
+      if (content) return JSON.parse(content)
+    }
+    if (typeof localStorage !== 'undefined') {
+      const local = localStorage.getItem(getCacheKey(userId))
+      if (local) return JSON.parse(local)
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Get a cached public profile for a target user, respecting its own TTL
+export async function getUserPublicProfileCached(ownerUserId: string, targetUserId: string, maxAgeMs: number = USER_PUBLIC_TTL_MS): Promise<{ coverUrl: string | null; bio: string | null } | null> {
+  const raw = await readCacheRaw(ownerUserId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const map = (raw as any)?.userPublicProfiles as Record<string, UserPublicProfile> | undefined
+  if (!map) return null
+  const entry = map[targetUserId]
+  if (!entry) return null
+  if (Date.now() - entry.ts > maxAgeMs) return null
+  return { coverUrl: entry.coverUrl, bio: entry.bio }
+}
+
+// Set/update a cached public profile for a target user, preserving existing cache fields
+export async function setUserPublicProfileCached(ownerUserId: string, targetUserId: string, data: { coverUrl: string | null; bio: string | null }): Promise<void> {
+  try {
+    let payload: DashboardCacheData | Record<string, unknown> | null = await readCacheRaw(ownerUserId)
+    if (!payload || typeof payload !== 'object') payload = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyPayload = payload as any
+    if (!anyPayload.userPublicProfiles) anyPayload.userPublicProfiles = {}
+    anyPayload.userPublicProfiles[targetUserId] = { ...data, ts: Date.now() }
+
+    if (hasFs()) {
+      const api = (window as unknown as { api: { fs: { ensureDir: (p: string) => Promise<boolean>; writeFile: (p: string, d: string) => Promise<boolean> } } }).api
+      await api.fs.ensureDir('Dashboards')
+      await api.fs.writeFile(getCacheFilePath(ownerUserId), JSON.stringify(payload, null, 2))
+    } else if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(getCacheKey(ownerUserId), JSON.stringify(payload))
+    }
+  } catch (error) {
+    console.warn('[dashboardCache.setUserPublicProfileCached] Failed:', error)
   }
 }
 

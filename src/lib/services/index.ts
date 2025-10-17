@@ -22,3 +22,11 @@ export {
 export { supabase } from './auth/supabase';
 export * as viewsFavsService from './viewsFavs';
 export { authenticateWithPasskeyOffline, isWebAuthnSupported } from './auth/webauthn';
+export {
+  loadDashboardCache,
+  saveDashboardCache,
+  getUserPublicProfileCached,
+  setUserPublicProfileCached,
+  clearDashboardCache,
+  clearAllCaches,
+} from './dashboardCache';

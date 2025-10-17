@@ -13,8 +13,34 @@ const resolvePreloadPath = () => {
 export const createMainWindow = () => {
   const preloadResolved = resolvePreloadPath()
 
-  // Set custom app icon
-  const iconPath = join(__dirname, '..', '..', 'src', 'public', 'Logo.png')
+  // Set custom app icon with proper path resolution
+  const getIconPath = () => {
+    // In dev mode, __dirname points to the compiled JS location
+    // In prod mode, __dirname points to the app root
+    const possiblePaths = [
+      // Prefer .ico for Windows compatibility (better taskbar display)
+      join(__dirname, '..', '..', 'src', 'public', 'Logo.ico'),
+      join(__dirname, '..', '..', '..', 'src', 'public', 'Logo.ico'),
+      // Fallback to .png if .ico doesn't exist
+      join(__dirname, '..', '..', 'src', 'public', 'Logo.png'),
+      join(__dirname, '..', '..', '..', 'src', 'public', 'Logo.png'),
+      // Final fallback to root level
+      join(__dirname, '..', '..', 'Logo.ico'),
+      join(__dirname, '..', '..', 'Logo.png')
+    ]
+
+    // Return the first path that exists
+    for (const path of possiblePaths) {
+      if (existsSync(path)) {
+        return path
+      }
+    }
+
+    // If no custom icon found, let Electron use default
+    return undefined
+  }
+
+  const iconPath = getIconPath()
 
   const mainWindow = new BrowserWindow({
     width: 1100,
@@ -26,7 +52,7 @@ export const createMainWindow = () => {
     frame: false,
     resizable: true,
     hasShadow: true,
-    icon: iconPath,
+    ...(iconPath && { icon: iconPath }), // Only set icon if path exists
     webPreferences: {
       ...(preloadResolved ? { preload: preloadResolved } : {}),
       sandbox: false,

@@ -55,6 +55,7 @@ interface DashboardProps {
   onOpenProfile: () => void;
   onOpenSettings: () => void;
   onOpenRoles: () => void;
+  onToggleFavorite?: (resourceId: string) => void;
 }
 
 export function Dashboard({
@@ -66,6 +67,7 @@ export function Dashboard({
   onOpenProfile,
   onOpenSettings,
   onOpenRoles,
+  onToggleFavorite,
 }: DashboardProps) {
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -80,7 +82,7 @@ export function Dashboard({
   const [recentItems, setRecentItems] = useState<Array<{ id: string; title: string; url?: string | null; ts: number }>>([]);
   const [allResources, setAllResources] = useState<Resource[]>(resources);
   const [isLoadingCache, setIsLoadingCache] = useState(true);
-  const [lastCacheRefresh, setLastCacheRefresh] = useState<number>(0);
+  const [, setLastCacheRefresh] = useState<number>(0);
 
   // Load cached data per-user when user is known
   useEffect(() => {
@@ -105,23 +107,36 @@ export function Dashboard({
     loadCachedData();
   }, [user?.id]);
 
-  // Separate effect for refresh interval
+  // Background refresh: re-fetch view_counts and favourites every minute regardless of cache
   useEffect(() => {
-    if (lastCacheRefresh === 0) return; // Don't set interval until we have initial data
-
-    const refreshInterval = setInterval(() => {
-      const now = Date.now();
-      const FIVE_MINUTES = 5 * 60 * 1000;
-      
-      if (lastCacheRefresh > 0 && (now - lastCacheRefresh) >= FIVE_MINUTES) {
-        console.log('Refreshing dashboard cache after 5 minutes');
-        setIsLoadingCache(true);
-        setLastCacheRefresh(0); // This will trigger fresh data load in users/views effects
+    let cancelled = false
+    const fetchOnce = async () => {
+      try {
+        setIsLoadingViews(true)
+        const latest = await viewsFavs.fetchViewCounts().catch(() => [])
+        if (!cancelled && latest && latest.length) setViewCounts(latest)
+      } catch (e) {
+        console.warn('Refresh view_counts failed:', e)
+      } finally {
+        setIsLoadingViews(false)
       }
-    }, 60000); // Check every minute
-
-    return () => clearInterval(refreshInterval);
-  }, [lastCacheRefresh]);
+      try {
+        const merged = await viewsFavs.getMergedItems()
+        if (cancelled) return
+        const cat = viewsFavs.aggregateCategoriesWithViews(merged, viewCounts)
+        const sub = viewsFavs.aggregateSubcategoriesWithViews(merged, viewCounts)
+        setFavCatAgg(cat)
+        setFavSubAgg(sub)
+        setTotalFavourites(merged.filter(i => i.favourite).length)
+        if (user?.id) setLastCacheRefresh(Date.now())
+      } catch (e) {
+        console.warn('Refresh favourites aggregates failed:', e)
+      }
+    }
+    void fetchOnce()
+    const t = window.setInterval(fetchOnce, 60000)
+    return () => { cancelled = true; if (t) window.clearInterval(t) }
+  }, [user?.id])
 
   // Load users for user circles section (only if not already cached)
   useEffect(() => {
@@ -186,6 +201,28 @@ export function Dashboard({
                       }
                     }
                   }
+                  
+                  // Also pre-cache public profile data (cover/bio) for faster modal loading
+                  try {
+                    const { data: publicData, error: publicError } = await supabase
+                      .from('profiles')
+                      .select('user_id,cover_public,bio_public')
+                      .in('user_id', userIds);
+                      
+                    if (!publicError && publicData) {
+                      const { setUserPublicProfileCached } = await import('@/lib/services/dashboardCache');
+                      for (const row of publicData) {
+                        if (row?.user_id && user?.id && row.user_id !== user.id) {
+                          await setUserPublicProfileCached(user.id, row.user_id, {
+                            coverUrl: row.cover_public,
+                            bio: row.bio_public
+                          });
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    console.warn('Failed to pre-cache public profile data:', error);
+                  }
                 } catch (error) {
                   console.warn('Failed to fetch encrypted profile pictures for dashboard:', error);
                 }
@@ -220,37 +257,37 @@ export function Dashboard({
   }, [user?.id, isLoadingCache, users.length]);
 
 
-  // Load aggregated view counts and favourite aggregates (skip if cached)
+  // Initial load of view_counts and favourites (independent of cache)
   useEffect(() => {
-    if (!isLoadingCache && viewCounts.length === 0) {
-      (async () => {
-        let latestViewCounts: Database['public']['Views']['view_counts']['Row'][] = [];
-        try {
-          setIsLoadingViews(true);
-          const data = await viewsFavs.fetchViewCounts().catch(() => []);
-          if (data && data.length) {
-            setViewCounts(data);
-            latestViewCounts = data;
-          }
-        } catch (e) {
-          console.warn('Failed to fetch view counts:', e);
-        } finally {
-          setIsLoadingViews(false);
+    let cancelled = false
+    ;(async () => {
+      let latestViewCounts: Database['public']['Views']['view_counts']['Row'][] = []
+      try {
+        setIsLoadingViews(true)
+        const data = await viewsFavs.fetchViewCounts().catch(() => [])
+        if (!cancelled && data && data.length) {
+          setViewCounts(data)
+          latestViewCounts = data
         }
-        try {
-          const merged = await viewsFavs.getMergedItems();
-          // Use the new functions that consider view counts from view_counts table
-          const cat = viewsFavs.aggregateCategoriesWithViews(merged, latestViewCounts.length ? latestViewCounts : viewCounts)
-          const sub = viewsFavs.aggregateSubcategoriesWithViews(merged, latestViewCounts.length ? latestViewCounts : viewCounts)
-          setFavCatAgg(cat);
-          setFavSubAgg(sub);
-          setTotalFavourites(merged.filter(i => i.favourite).length);
-        } catch (e) {
-          console.warn('Failed to compute favourites aggregates:', e);
-        }
-      })();
-    }
-  }, [user?.id, isLoadingCache, viewCounts]);
+      } catch (e) {
+        console.warn('Failed to fetch view counts:', e)
+      } finally {
+        setIsLoadingViews(false)
+      }
+      try {
+        const merged = await viewsFavs.getMergedItems()
+        if (cancelled) return
+        const cat = viewsFavs.aggregateCategoriesWithViews(merged, latestViewCounts.length ? latestViewCounts : viewCounts)
+        const sub = viewsFavs.aggregateSubcategoriesWithViews(merged, latestViewCounts.length ? latestViewCounts : viewCounts)
+        setFavCatAgg(cat)
+        setFavSubAgg(sub)
+        setTotalFavourites(merged.filter(i => i.favourite).length)
+      } catch (e) {
+        console.warn('Failed to compute favourites aggregates:', e)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [user?.id])
 
   // Save dashboard data to cache when all data is loaded (debounced)
   useEffect(() => {
@@ -343,9 +380,8 @@ export function Dashboard({
     })()
   }, [resources])
 
-  // Load recent items from local storage (Library opens) and refresh periodically
+  // Load recent items from local storage (Library opens) and refresh periodically + on event
   useEffect(() => {
-    // refresh timer
     const load = async () => {
       try {
         const { getRecents } = await import('@/lib/services/recent');
@@ -355,8 +391,13 @@ export function Dashboard({
       }
     }
     void load()
+    const onRecentUpdated = () => void load()
+    window.addEventListener('recent:updated', onRecentUpdated as EventListener)
     const t = window.setInterval(load, 5000)
-    return () => { if (t) window.clearInterval(t) }
+    return () => {
+      window.removeEventListener('recent:updated', onRecentUpdated as EventListener)
+      if (t) window.clearInterval(t)
+    }
   }, [user?.id]);
 
   // sparkline moved to ViewsSparkline component
@@ -473,6 +514,8 @@ export function Dashboard({
   }
 
   const handleToggleFavorite = async (resourceId: string) => {
+    // Also update Library/localStorage if handler provided
+    try { onToggleFavorite?.(resourceId) } catch {}
     // Optimistically toggle in local resources used by dashboard cards
     setAllResources(prev => prev.map(r => r.id === resourceId ? { ...r, is_favorite: !r.is_favorite } : r))
     try {
@@ -523,44 +566,103 @@ export function Dashboard({
       <TopSubcategories items={favSubAgg} />
       
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Left: totals */}
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-2">
-            <Library className="h-5 w-5 text-blue-500" />
-            <div className="text-sm text-gray-500 dark:text-gray-400">Total Resources</div>
+      {/* Desktop Layout (above 1025px) */}
+      <div className="hidden min-[1026px]:block">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2">
+              <Library className="h-5 w-5 text-blue-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Total Resources</div>
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white">{resources.length}</div>
           </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{allResources.length}</div>
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="h-5 w-5 text-purple-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Total Views</div>
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white">{viewCounts.reduce((sum, v) => sum + (Number(v.views) || 0), 0)}</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2">
+              <Heart className="h-5 w-5 text-red-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Favourites</div>
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white">{totalFavourites}</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2">
+              <BarChart3 className="h-5 w-5 text-emerald-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Categories</div>
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white">{categories.length}</div>
+          </div>
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2">
+              <Tag className="h-5 w-5 text-orange-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Subcategories</div>
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white">{subcategoriesCount}</div>
+          </div>
         </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-5 w-5 text-purple-500" />
-            <div className="text-sm text-gray-500 dark:text-gray-400">Total Views</div>
+      </div>
+      
+      {/* Mobile Layout (1025px and below) - 2x2 grid with circular overlay */}
+      <div className="block min-[1026px]:hidden relative">
+        {/* Normal 2x2 grid layout */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Top Left - Total Resources */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2">
+              <Library className="h-5 w-5 text-blue-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Total Resources</div>
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white">{resources.length}</div>
           </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{viewCounts.reduce((sum, v) => sum + (Number(v.views) || 0), 0)}</div>
+          
+          {/* Top Right - Total Views */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2 justify-end">
+              <div className="text-sm text-gray-500 dark:text-gray-400">Total Views</div>
+              <TrendingUp className="h-5 w-5 text-purple-500" />
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white text-right">{viewCounts.reduce((sum, v) => sum + (Number(v.views) || 0), 0)}</div>
+          </div>
+          
+          {/* Bottom Left - Categories */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2">
+              <BarChart3 className="h-5 w-5 text-emerald-500" />
+              <div className="text-sm text-gray-500 dark:text-gray-400">Categories</div>
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white">{categories.length}</div>
+          </div>
+          
+          {/* Bottom Right - Subcategories */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-2 mb-2 justify-end">
+              <div className="text-sm text-gray-500 dark:text-gray-400">Subcategories</div>
+              <Tag className="h-5 w-5 text-orange-500" />
+            </div>
+            <div className="text-2xl font-semibold text-gray-900 dark:text-white text-right">{subcategoriesCount}</div>
+          </div>
         </div>
-        {/* Middle: favourites */}
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-2">
-            <Heart className="h-5 w-5 text-red-500" />
-            <div className="text-sm text-gray-500 dark:text-gray-400">Favourites</div>
+        
+        {/* Circular Favourites Overlay - positioned on top of the grid */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative w-36 h-36 rounded-full border-4 backdrop-blur-sm pointer-events-auto border-white dark:border-[#111827]">
+            {/* Inner border */}
+            <div className="absolute inset-0 rounded-full border-2 border-red-300 dark:border-[#030712]">
+              {/* Inner content area */}
+              <div className="w-full h-full rounded-full bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/90 dark:to-pink-900/90 p-4">
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <Heart className="h-7 w-7 text-red-600 dark:text-red-400 mb-1" fill="currentColor" />
+                  <div className="text-sm text-red-700 dark:text-red-300 font-medium leading-tight">Favourites</div>
+                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">{totalFavourites}</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{totalFavourites}</div>
-        </div>
-        {/* Right: categories */}
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart3 className="h-5 w-5 text-emerald-500" />
-            <div className="text-sm text-gray-500 dark:text-gray-400">Categories</div>
-          </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{categories.length}</div>
-        </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-2 mb-2">
-            <Tag className="h-5 w-5 text-orange-500" />
-            <div className="text-sm text-gray-500 dark:text-gray-400">Subcategories</div>
-          </div>
-          <div className="text-2xl font-semibold text-gray-900 dark:text-white">{subcategoriesCount}</div>
         </div>
       </div>
       
@@ -593,7 +695,7 @@ export function Dashboard({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {recentItems.slice(0, 4).map(item => {
               const thumbnailUrl = item.url ? `https://api.thumbnail.ws/api/thumbnail?url=${encodeURIComponent(item.url)}&width=64&height=64` : null;
-              const res = resources.find(r => r.id === item.id);
+              const res = allResources.find(r => r.id === item.id);
               if (res) {
                 return (
                   <div key={item.id} className="h-32">
@@ -607,19 +709,21 @@ export function Dashboard({
                 );
               }
               return (
-                <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors" onClick={() => {}}>
-                  <div className="w-12 h-12 rounded bg-gray-100 dark:bg-gray-800 flex-shrink-0 overflow-hidden">
-                    {thumbnailUrl ? (
-                      <img src={thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <Library className="h-6 w-6" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.title}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Recently opened</div>
+                <div key={item.id} className="h-32">
+                  <div className="flex h-full items-center gap-3 p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-default transition-colors">
+                    <div className="w-12 h-12 rounded bg-gray-100 dark:bg-gray-800 flex-shrink-0 overflow-hidden">
+                      {thumbnailUrl ? (
+                        <img src={thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <Library className="h-6 w-6" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.title}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Recently opened</div>
+                    </div>
                   </div>
                 </div>
               );

@@ -22,6 +22,10 @@
     "preload:build": "node electron/preload/build-preload.cjs",
     "preload:watch": "node electron/preload/build-preload.cjs --watch",
     "build": "vite build",
+    "build:electron": "npm run build && electron-builder",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "npm run check:components && eslint -c eslint.config.mjs \"src/**/*.{ts,tsx}\"",
@@ -30,6 +34,38 @@
     "sort:components": "node electron/main/tools/sort-indexes.mjs",
     "mirror:supabase-to-src": "node scripts/mirror-supabase-to-src.js",
     "mirror:src-to-supabase": "node scripts/mirror-src-to-supabase.js"
+  },
+  "main": "electron/main/dev-entry.cjs",
+  "homepage": "./",
+  "build": {
+    "appId": "com.sparcclen.app",
+    "productName": "Sparcclen",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/main",
+      "electron/preload",
+      "dist-electron"
+    ],
+    "win": {
+      "icon": "src/public/Logo.ico",
+      "target": "nsis",
+      "verifyUpdateCodeSignature": false
+    },
+    "mac": {
+      "icon": "src/public/Logo.icns",
+      "target": "dmg"
+    },
+    "linux": {
+      "icon": "src/public/Logo.png",
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    }
   },
   "ts-node": {
     "transpileOnly": true,
@@ -64,6 +100,7 @@
     "concurrently": "^9.0.1",
     "cross-env": "^7.0.3",
     "electron": "^38.2.2",
+    "electron-builder": "^24.13.3",
     "esbuild": "^0.25.10",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",

@@ -33,6 +33,16 @@ const setupEnvironment = () => {
   }
 }
 
+const setupAppIcon = () => {
+  // Set proper App User Model ID for Windows
+  const appId = is.dev ? 'com.sparcclen.dev' : 'com.sparcclen.app'
+  electronApp.setAppUserModelId(appId)
+
+  // Note: Windows Task Manager icon is set during build process via electron-builder
+  // The icon file should be specified in package.json build configuration
+  // For dev mode, the icon is handled by the window icon setting in createMainWindow.ts
+}
+
 const setupSingleInstanceLock = () => {
   const gotTheLock = app.requestSingleInstanceLock()
   if (!gotTheLock) {
@@ -71,13 +81,12 @@ const createMainProcessWindow = () => {
 
 const bootstrap = async () => {
   setupEnvironment()
+  setupAppIcon()
   if (!setupSingleInstanceLock()) return
 
   registerGlobalIpcHandlers()
 
   app.whenReady().then(async () => {
-    electronApp.setAppUserModelId('com.electron')
-
     createMainProcessWindow()
 
     app.on('activate', () => {

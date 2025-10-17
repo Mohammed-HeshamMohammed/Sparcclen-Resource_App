@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, Mail } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/lib/contexts/ProfileContext'
@@ -25,21 +25,37 @@ export function UserProfileModal({ open, user, onClose }: Props) {
   const { user: authUser } = useAuth()
   const { profile } = useProfile()
   const [otherUserData, setOtherUserData] = useState<{ coverUrl: string | null; bio: string | null }>({ coverUrl: null, bio: null })
-  const [isLoadingOtherUser, setIsLoadingOtherUser] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const cachedDataRef = useRef<{ coverUrl: string | null; bio: string | null }>({ coverUrl: null, bio: null })
   
   const isMe = !!(user && (user.id === authUser?.id || (user.email && user.email === authUser?.email)))
   
-  // Get cover and bio - use profile data for current user, fetched data for others
+  // Get cover and bio - use profile data for current user, cached data for others
   const coverUrl = isMe ? (profile.coverUrl || null) : (user?.coverUrl || otherUserData.coverUrl)
   const bio = isMe ? (profile.bio || null) : (user?.bio || otherUserData.bio)
 
-  // Fetch cover and bio for other users from encrypted Supabase data
+  // Pipeline: Show cached data immediately, then fetch fresh data and update only if changed
   useEffect(() => {
-    if (!open || !user || isMe || isLoadingOtherUser) return
-    
-    const fetchOtherUserData = async () => {
-      setIsLoadingOtherUser(true)
+    if (!open || !user || isMe) return
+    let cancelled = false
+
+    const loadWithPipeline = async () => {
       try {
+        let hasCachedData = false
+        
+        // Step 1: Load cached data immediately (no await delay)
+        if (authUser?.id) {
+          const { getUserPublicProfileCached } = await import('@/lib/services/dashboardCache')
+          const cached = await getUserPublicProfileCached(authUser.id, user.id)
+          if (cached && !cancelled) {
+            setOtherUserData(cached)
+            cachedDataRef.current = cached
+            hasCachedData = true
+          }
+        }
+        
+        // Step 2: Always fetch fresh data in background (regardless of cache)
+        setIsSyncing(true)
         const { supabase } = await import('@/lib/services')
         const res = await supabase
           .from('profiles')
@@ -50,47 +66,63 @@ export function UserProfileModal({ open, user, onClose }: Props) {
         const error = res.error
         
         if (error) {
-          console.warn('Failed to fetch user profile data:', error)
+          console.warn('Background fetch failed for user profile:', error)
+          setIsSyncing(false)
           return
         }
         
-        let coverUrl: string | null = null
-        let bio: string | null = null
-        
-        // Note: We cannot decrypt other users' data without their password
-        // The encrypted profile data is encrypted with each user's unique password
-        // For now, we'll show placeholder data for other users' covers and bios
-        // This is by design for privacy - only the user can decrypt their own data
-        
-        // For demonstration, we'll show that the data exists but is encrypted
-        if (data?.cover_public) {
-          // We have encrypted cover data but cannot decrypt it
-          coverUrl = null // Keep as null since we can't decrypt
+        const freshData = {
+          coverUrl: data?.cover_public ?? null,
+          bio: data?.bio_public ?? null,
         }
         
-        if (data?.bio_public) {
-          // We have encrypted bio data but cannot decrypt it
-          bio = "🔒 Bio is encrypted and private"
+        if (cancelled) return
+        
+        // Step 3: Only update UI if data actually changed
+        if (hasCachedData) {
+          const currentData = cachedDataRef.current
+          const hasChanges = 
+            currentData.coverUrl !== freshData.coverUrl || 
+            currentData.bio !== freshData.bio
+            
+          if (hasChanges) {
+            setOtherUserData(freshData) // Smooth update with only the changes
+            cachedDataRef.current = freshData
+          }
+        } else {
+          // No cached data was available, show fresh data
+          setOtherUserData(freshData)
+          cachedDataRef.current = freshData
         }
         
-        setOtherUserData({ coverUrl, bio })
+        // Step 4: Always update cache with fresh data
+        if (authUser?.id) {
+          const { setUserPublicProfileCached } = await import('@/lib/services/dashboardCache')
+          await setUserPublicProfileCached(authUser.id, user.id, freshData)
+        }
+        
+        setIsSyncing(false)
+        
       } catch (error) {
-        console.warn('Failed to fetch other user profile data:', error)
-      } finally {
-        setIsLoadingOtherUser(false)
+        console.warn('Pipeline load failed for user profile data:', error)
+        setIsSyncing(false)
       }
     }
     
-    fetchOtherUserData()
-  }, [open, user, isMe, isLoadingOtherUser])
+    loadWithPipeline()
+    return () => { cancelled = true }
+  }, [open, user?.id, isMe, authUser?.id])
 
   // Reset other user data when modal closes or user changes
   useEffect(() => {
     if (!open || !user) {
       setOtherUserData({ coverUrl: null, bio: null })
-      setIsLoadingOtherUser(false)
+      setIsSyncing(false)
+      cachedDataRef.current = { coverUrl: null, bio: null }
     }
   }, [open, user])
+
+  
 
   useEffect(() => {
     if (!open) return
@@ -126,18 +158,25 @@ export function UserProfileModal({ open, user, onClose }: Props) {
             role="dialog"
             aria-modal="true"
           >
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-800 shadow"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              {isSyncing && !isMe && (
+                <div className="p-2 rounded-full bg-blue-100/80 dark:bg-blue-900/80 backdrop-blur">
+                  <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              <button
+                onClick={onClose}
+                className="p-2.5 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-800 shadow"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
             {/* Cover header */}
             <div className="h-44 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 relative">
               {coverUrl && (
-                <img src={coverUrl} alt="cover" className="absolute inset-0 w-full h-full object-cover" />
+                <img src={coverUrl} alt="cover" className="absolute inset-0 w-full h-full object-cover transition-all duration-300 ease-in-out" />
               )}
             </div>
 
@@ -197,11 +236,9 @@ export function UserProfileModal({ open, user, onClose }: Props) {
               <div className="md:col-span-1 space-y-4">
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900 opacity-90">
                   <div className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Intro</div>
-                  {isLoadingOtherUser && !isMe ? (
-                    <div className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">Loading...</div>
-                  ) : (
+                  <div className="transition-all duration-300 ease-in-out">
                     <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line min-h-[1rem]">{bio || '—'}</p>
-                  )}
+                  </div>
                 </div>
               </div>
 

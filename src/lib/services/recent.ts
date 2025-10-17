@@ -31,6 +31,8 @@ export function addRecent(userId: string | null | undefined, item: { id: string,
     const deduped = existing.filter(r => r.id !== item.id)
     const next: RecentItem[] = [{ id: item.id, title: item.title, url: item.url ?? null, ts: now }, ...deduped]
     window.localStorage.setItem(key, JSON.stringify(next.slice(0, 50)))
+    // Broadcast update so dashboards can refresh immediately without polling
+    try { window.dispatchEvent(new CustomEvent('recent:updated', { detail: { userId, item } })) } catch {}
   } catch {
     // ignore
   }

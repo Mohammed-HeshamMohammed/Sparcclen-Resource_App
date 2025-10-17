@@ -5,6 +5,7 @@ import {
   getResources,
   searchResources
 } from '@/lib/services';
+import * as viewsFavs from '@/lib/services/viewsFavs';
 import {
   listLibraryBinFiles,
   buildLibraryCategories,
@@ -175,11 +176,24 @@ export function useLibraryData({
           setTagFilter(null);
         }
 
-        const favoritesSet = readFavoriteSet(userId);
-        derivedResources = derivedResources.map((resource: Resource) => ({
-          ...resource,
-          is_favorite: favoritesSet.has(resource.id),
-        }));
+        // Sync favourites from merged local(remote) views_favs so Library reflects Supabase and local file
+        try {
+          const merged = await viewsFavs.getMergedItems();
+          const favKeys = new Set(
+            merged.filter(i => i.favourite).map(i => `${i.title}|${i.category}|${i.subcategory}`)
+          );
+          derivedResources = derivedResources.map((resource: Resource) => {
+            const item = viewsFavs.toItem(resource, false);
+            const k = `${item.title}|${item.category}|${item.subcategory}`;
+            return { ...resource, is_favorite: favKeys.has(k) };
+          });
+        } catch {
+          const favoritesSet = readFavoriteSet(userId);
+          derivedResources = derivedResources.map((resource: Resource) => ({
+            ...resource,
+            is_favorite: favoritesSet.has(resource.id),
+          }));
+        }
 
         if (classificationFilter) {
           const filterLower = classificationFilter.toLowerCase();

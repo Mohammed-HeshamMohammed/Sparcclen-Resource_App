@@ -38,9 +38,15 @@ class LocalStore {
   getFavoritesSet(userId?: string): Set<string> {
     if (!userId || typeof window === 'undefined') return new Set<string>();
     try {
-      const raw = window.localStorage.getItem(`favorites:${userId}`);
+      // Primary key used across the app
+      let raw = window.localStorage.getItem(`favorites_${userId}`);
+      // Backward compatibility fallback (older key format)
+      if (!raw) raw = window.localStorage.getItem(`favorites:${userId}`);
       if (!raw) return new Set<string>();
-      const arr = JSON.parse(raw) as string[];
+      const parsed = JSON.parse(raw);
+      const arr = Array.isArray(parsed)
+        ? (parsed as unknown[]).filter((v): v is string => typeof v === 'string')
+        : [];
       return new Set(arr);
     } catch {
       return new Set<string>();

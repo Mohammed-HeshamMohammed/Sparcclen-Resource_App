@@ -3,6 +3,36 @@ import type { Database } from '@/types/database'
 
 export type Item = { title: string; category: string; subcategory: string; favourite: boolean }
 
+function normalizeItems(raw: unknown): Item[] {
+  try {
+    let arr: unknown = raw
+    if (typeof raw === 'string') {
+      // Handle the case where the JSON array is stored as text (e.g. CSV import)
+      try { arr = JSON.parse(raw) } catch { return [] }
+    }
+    if (!Array.isArray(arr)) return []
+    return (arr as unknown[])
+      .map((it): Item => {
+        const o = (it ?? {}) as Record<string, unknown>
+        const favRaw = o['favourite']
+        const favourite = typeof favRaw === 'boolean'
+          ? favRaw
+          : typeof favRaw === 'string'
+            ? favRaw.trim().toLowerCase() === 'true'
+            : Boolean(favRaw)
+        return {
+          title: String(o['title'] ?? ''),
+          category: String(o['category'] ?? ''),
+          subcategory: String(o['subcategory'] ?? ''),
+          favourite,
+        }
+      })
+      .filter(i => i.title)
+  } catch {
+    return []
+  }
+}
+
 export async function loadRemoteItems(): Promise<Item[]> {
   const { data: { user }, error: aerr } = await supabase.auth.getUser()
   if (aerr || !user) throw aerr ?? new Error('No user')
@@ -13,9 +43,8 @@ export async function loadRemoteItems(): Promise<Item[]> {
     .eq('user_id', user.id)
     .maybeSingle()
   if (error) throw error
-  // items is Json in DB types; ensure array of our Item
-  const items = (data?.items ?? []) as unknown[]
-  return Array.isArray(items) ? (items as Item[]) : []
+  // items is Json in DB types; robustly coerce to Item[]
+  return normalizeItems((data as { items?: unknown } | null)?.items ?? [])
 }
 
 export async function saveRemoteItems(items: Item[]): Promise<void> {
@@ -24,7 +53,7 @@ export async function saveRemoteItems(items: Item[]): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('views_favs')
-    .upsert({ user_id: user.id, items })
+    .upsert({ user_id: user.id, items: normalizeItems(items) })
   if (error) throw error
 }
 
@@ -61,7 +90,8 @@ export const filterNonFavourites = (items: Item[]) => items.filter(i => !i.favou
 export async function loadLocalItems(): Promise<Item[]> {
   const api = window.api?.viewsFavs
   if (!api) return []
-  return api.load()
+  const raw = await api.load()
+  return normalizeItems(raw as unknown)
 }
 
 export async function saveLocalItems(items: Item[]): Promise<boolean> {
@@ -85,6 +115,7 @@ export async function getMergedItems(): Promise<Item[]> {
       loadLocalItems().catch(() => [] as Item[]),
       loadRemoteItems().catch(() => [] as Item[]),
     ])
+    // Items are already normalized; merge will OR favourites across duplicates
     return mergeItems(remote, local)
   } catch {
     return []
