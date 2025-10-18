@@ -7,7 +7,7 @@ export function TopSubcategories({ items }: { items: Sub[] }) {
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
       <div className="flex items-center gap-2 mb-3">
         <BarChart3 className="h-5 w-5 text-orange-500" />
-        <h3 className="font-semibold text-gray-900 dark:text-white">Subcategories</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-white">Top Subcategories</h3>
       </div>
       <div className="space-y-2">
         {items.slice(0, 6).map((sc, i) => {
