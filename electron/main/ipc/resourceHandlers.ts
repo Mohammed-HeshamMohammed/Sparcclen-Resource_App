@@ -43,7 +43,7 @@ export const registerResourceHandlers = (getWindow: () => BrowserWindow | null) 
         const safeFileName = sanitizePathSegment(fileName) || 'library.bin'
 
         const baseDir = resolveLibraryBaseDir()
-        const targetDir = join(baseDir, ...sanitizedSegments)
+        const targetDir = join(baseDir, 'library', ...sanitizedSegments)
 
         await fs.mkdir(targetDir, { recursive: true })
         const fullPath = join(targetDir, safeFileName)

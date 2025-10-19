@@ -1,6 +1,7 @@
 import { config as loadEnv } from 'dotenv'
 import { app, BrowserWindow } from 'electron'
 import { join, resolve } from 'path'
+import { createServer, Server } from 'http'
 
 // Replace @electron-toolkit/utils functionality
 const is = {
@@ -26,6 +27,10 @@ const credentialManager = new CredentialManager()
 const uploadTracker = new UploadTracker()
 
 let mainWindow: BrowserWindow | null = null
+
+const DEEP_LINK_SCHEME = 'sparcclen'
+let pendingDeepLinkUrl: string | null = null
+let trampolineServer: Server | null = null
 
 const getMainWindow = () => mainWindow
 
@@ -54,12 +59,22 @@ const setupSingleInstanceLock = () => {
     return false
   }
 
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
     const existing = BrowserWindow.getAllWindows()[0]
     if (existing) {
       if (existing.isMinimized()) existing.restore()
       existing.show()
       existing.focus()
+    }
+    if (process.platform === 'win32' && Array.isArray(argv)) {
+      const urlArg = argv.find((a) => typeof a === 'string' && a.startsWith(`${DEEP_LINK_SCHEME}://`)) as string | undefined
+      if (urlArg) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('auth:deeplink', urlArg)
+        } else {
+          pendingDeepLinkUrl = urlArg
+        }
+      }
     }
   })
 
@@ -81,6 +96,60 @@ const createMainProcessWindow = () => {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  if (pendingDeepLinkUrl && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      if (pendingDeepLinkUrl) {
+        mainWindow?.webContents.send('auth:deeplink', pendingDeepLinkUrl as string)
+        pendingDeepLinkUrl = null
+      }
+    })
+  }
+}
+
+const startTrampolineServer = () => {
+  try {
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <title>Opening Sparcclen…</title>
+    <style>body{font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; color:#111} a{color:#2563eb}</style>
+  </head>
+  <body>
+    <h1>Opening Sparcclen…</h1>
+    <p>If you are not redirected automatically, click the link below.</p>
+    <div id="link"></div>
+    <script>
+      (function() {
+        var h = window.location.hash || '';
+        var s = window.location.search || '';
+        var target = 'sparcclen://auth/confirm' + (s ? s : '') + (h ? h : '');
+        try { window.location.replace(target); } catch (e) {}
+        var a = document.createElement('a');
+        a.href = target;
+        a.textContent = 'Open Sparcclen';
+        document.getElementById('link').appendChild(a);
+      })();
+    </script>
+  </body>
+</html>`
+
+    trampolineServer = createServer((_req, res) => {
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      })
+      res.end(html)
+    })
+    trampolineServer.listen(3000)
+    trampolineServer.on('error', () => {
+      // Port in use or other error; continue without trampoline
+    })
+  } catch {
+    // Ignore server start errors
+  }
 }
 
 const bootstrap = async () => {
@@ -91,6 +160,10 @@ const bootstrap = async () => {
   registerGlobalIpcHandlers()
 
   app.whenReady().then(async () => {
+    if (!app.isDefaultProtocolClient(DEEP_LINK_SCHEME)) {
+      try { app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME) } catch {}
+    }
+
     createMainProcessWindow()
 
     app.on('activate', () => {
@@ -100,6 +173,9 @@ const bootstrap = async () => {
     })
 
     await ensureInitialSaveFile()
+
+    // Start local trampoline to capture http://localhost:3000/#... and forward to sparcclen://
+    startTrampolineServer()
   })
 
   app.on('window-all-closed', () => {
@@ -108,6 +184,31 @@ const bootstrap = async () => {
         app.quit()
       }
     }
+  })
+
+  if (process.platform === 'darwin') {
+    app.on('open-url', (event, url) => {
+      event.preventDefault()
+      if (url && url.startsWith(`${DEEP_LINK_SCHEME}://`)) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('auth:deeplink', url)
+        } else {
+          pendingDeepLinkUrl = url
+        }
+      }
+    })
+  }
+
+  if (process.platform === 'win32') {
+    const urlArg = process.argv.find((a) => typeof a === 'string' && a.startsWith(`${DEEP_LINK_SCHEME}://`)) as string | undefined
+    if (urlArg) {
+      pendingDeepLinkUrl = urlArg
+    }
+  }
+
+  app.on('before-quit', () => {
+    try { trampolineServer?.close() } catch {}
+    trampolineServer = null
   })
 }
 

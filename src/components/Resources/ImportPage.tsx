@@ -273,7 +273,7 @@ export function ImportPage() {
       
       // Step 4: Generate target file path
       const categorySegment = sanitizeFolderSegment(selectedCategoryInfo?.label ?? selectedCategory);
-      const folderSegments = ['library', categorySegment];
+      const folderSegments = [categorySegment];
       if (selectedSubcategoryInfo) {
         folderSegments.push(sanitizeFolderSegment(selectedSubcategoryInfo.label));
       }
@@ -482,7 +482,7 @@ export function ImportPage() {
       const payload = JSON.stringify(entries, null, 2);
 
       const categorySegment = sanitizeFolderSegment(selectedCategoryInfo?.label ?? selectedCategory);
-      const folderSegments = ['library', categorySegment];
+      const folderSegments = [categorySegment];
       if (selectedSubcategoryInfo) {
         folderSegments.push(sanitizeFolderSegment(selectedSubcategoryInfo.label));
       }
