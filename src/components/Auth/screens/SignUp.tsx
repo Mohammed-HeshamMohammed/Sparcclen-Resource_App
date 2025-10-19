@@ -20,6 +20,10 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  // Validation states
+  const isEmailValid = email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const doPasswordsMatch = repeatPassword === '' || password === repeatPassword
+
   // Password strength calculation
   const passwordStrength = useMemo(() => {
     if (!password) return { score: 0, label: '', color: '' }
@@ -86,10 +90,10 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
   }
 
   return (
-    <div className="w-[850px] h-[700px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
+    <div className="w-[800px] h-[600px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
       <div className="flex w-full h-full">
         {/* Left side - Form */}
-        <div className="w-1/2 p-10 md:p-12 flex flex-col">
+        <div className="w-1/2 p-8 md:p-10 flex flex-col">
           <div className="max-w-lg mx-auto w-full h-full flex flex-col">
             {success ? (
               <>
@@ -99,27 +103,35 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
                   </h1>
                 </div>
 
-                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
                   <FormContentWrapper isVisible={!isTransitioning}>
-                    <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+                    <div className="flex flex-col items-center space-y-6">
+                      {/* Centered check circle */}
+                      <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto">
+                        <CheckCircle className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+
+                      {/* Title with proper spacing */}
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                        Account Created!
+                      </h2>
+
+                      {/* Message with better spacing and width */}
+                      <p className="text-gray-600 dark:text-gray-400 max-w-sm leading-relaxed">
+                        We've sent a confirmation link to <strong>{email}</strong>.
+                        Please check your inbox and click the link to activate your account.
+                      </p>
+
+                      {/* Button with proper spacing */}
+                      <div className="pt-4 w-full max-w-sm">
+                        <Button
+                          onClick={onBackToLogin || onSuccess}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-medium transition-colors"
+                        >
+                          Back to Login
+                        </Button>
+                      </div>
                     </div>
-
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      Account Created!
-                    </h2>
-
-                    <p className="text-gray-600 dark:text-gray-400 max-w-xs">
-                      We've sent a confirmation link to <strong>{email}</strong>.
-                      Please check your inbox and click the link to activate your account.
-                    </p>
-
-                    <Button
-                      onClick={onBackToLogin || onSuccess}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-md"
-                    >
-                      Back to Login
-                    </Button>
                   </FormContentWrapper>
                 </div>
  
@@ -127,19 +139,16 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
             ) : (
               <>
                 <div className="mb-6">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Create a Sparcclen Account
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                    Create an account
                   </h1>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Initiate the impossible with Sparcclen's powerful platform
-                  </p>
                 </div>
 
                 <div className="flex-1 flex flex-col">
                   <FormContentWrapper isVisible={!isTransitioning}>
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form onSubmit={handleSubmit} className="space-y-4">
                       {/* Display Name Field */}
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <Label htmlFor="displayName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Display Name</Label>
                         <div className="relative">
                           <Input
@@ -148,13 +157,13 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
                             value={displayName}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
                             placeholder="Your name"
-                            className="pl-4 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                            className="px-4 py-2.5 h-11"
                           />
                         </div>
                       </div>
 
                       {/* Email Field */}
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <Label htmlFor="email" className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Address</Label>
                         <div className="relative">
                           <Input
@@ -164,15 +173,23 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                             placeholder="youremail@gmail.com"
                             required
-                            className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                            hasError={!isEmailValid}
+                            className="pl-10 pr-4 py-2.5 h-11"
                           />
                           <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                         </div>
                       </div>
 
                       {/* Password Field with Integrated Strength Indicator */}
-                      <div className="space-y-2">
-                        <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</Label>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="password" className="text-sm font-medium text-gray-700 dark:text-gray-300">Password</Label>
+                          {password && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {password.length}/8+ characters
+                            </span>
+                          )}
+                        </div>
                         <div className="relative">
                           <Input
                             id="password"
@@ -181,7 +198,7 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                             placeholder="Create a strong password"
                             required
-                            className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                            className="pl-10 pr-4 py-2.5 h-11"
                           />
                           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                           
@@ -201,27 +218,10 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
                             </div>
                           )}
                         </div>
-                        
-                        {/* Password Strength Label */}
-                        {password && (
-                          <div className="flex justify-between items-center text-xs">
-                            <span className={`font-medium ${
-                              passwordStrength.score <= 2 ? 'text-red-600' :
-                              passwordStrength.score <= 3 ? 'text-orange-600' :
-                              passwordStrength.score <= 4 ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                              {passwordStrength.label}
-                            </span>
-                            <span className="text-gray-500 dark:text-gray-400">
-                              {password.length}/8+ characters
-                            </span>
-                          </div>
-                        )}
                       </div>
 
                       {/* Confirm Password Field */}
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <Label htmlFor="repeatPassword" className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</Label>
                         <div className="relative">
                           <Input
@@ -231,16 +231,20 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRepeatPassword(e.target.value)}
                             placeholder="Confirm your password"
                             required
-                            className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                            hasError={!doPasswordsMatch}
+                            className="pl-10 pr-4 py-2.5 h-11"
                           />
                           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                         </div>
-                        {repeatPassword && password !== repeatPassword && (
-                          <p className="text-xs text-red-600 dark:text-red-400">Passwords do not match</p>
-                        )}
-                        {repeatPassword && password === repeatPassword && password && (
-                          <p className="text-xs text-green-600 dark:text-green-400">Passwords match</p>
-                        )}
+                        {/* Validation message with fixed height to prevent layout shift */}
+                        <div className="h-3.5 text-xs">
+                          {repeatPassword && password !== repeatPassword && (
+                            <p className="text-red-600 dark:text-red-400">Passwords do not match</p>
+                          )}
+                          {repeatPassword && password === repeatPassword && password && (
+                            <p className="text-green-600 dark:text-green-400">Passwords match</p>
+                          )}
+                        </div>
                       </div>
 
                       {error && (
@@ -250,17 +254,17 @@ export const SignUp: React.FC<SignUpProps> = ({ onSuccess, onBackToLogin, isTran
                         </div>
                       )}
 
-                      <div className="pt-4">
+                      <div className="pt-3">
                         <Button
                           type="submit"
                           disabled={loading || password !== repeatPassword || passwordStrength.score < 2}
-                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                         >
                           {loading ? 'Creating Account...' : 'Create Account'}
                         </Button>
                       </div>
 
-                      <div className="text-center text-sm pt-2">
+                      <div className="text-center text-sm pt-1.5">
                         <span className="text-gray-600 dark:text-gray-400">Already have an account? </span>
                         <button
                           type="button"

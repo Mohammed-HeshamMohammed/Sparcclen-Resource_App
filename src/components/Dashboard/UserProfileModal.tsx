@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/lib/contexts/ProfileContext'
+import { getUserPublicProfileCached, setUserPublicProfileCached } from '@/lib/services/dashboardCache'
+import { supabase } from '@/lib/services'
 
 interface ModalUser {
   id: string
@@ -45,7 +47,6 @@ export function UserProfileModal({ open, user, onClose }: Props) {
         
         // Step 1: Load cached data immediately (no await delay)
         if (authUser?.id) {
-          const { getUserPublicProfileCached } = await import('@/lib/services/dashboardCache')
           const cached = await getUserPublicProfileCached(authUser.id, user.id)
           if (cached && !cancelled) {
             setOtherUserData(cached)
@@ -56,7 +57,6 @@ export function UserProfileModal({ open, user, onClose }: Props) {
         
         // Step 2: Always fetch fresh data in background (regardless of cache)
         setIsSyncing(true)
-        const { supabase } = await import('@/lib/services')
         const res = await supabase
           .from('profiles')
           .select('user_id,cover_public,bio_public')
@@ -97,7 +97,6 @@ export function UserProfileModal({ open, user, onClose }: Props) {
         
         // Step 4: Always update cache with fresh data
         if (authUser?.id) {
-          const { setUserPublicProfileCached } = await import('@/lib/services/dashboardCache')
           await setUserPublicProfileCached(authUser.id, user.id, freshData)
         }
         
@@ -111,7 +110,7 @@ export function UserProfileModal({ open, user, onClose }: Props) {
     
     loadWithPipeline()
     return () => { cancelled = true }
-  }, [open, user?.id, isMe, authUser?.id])
+  }, [open, user?.id, isMe, authUser?.id, user])
 
   // Reset other user data when modal closes or user changes
   useEffect(() => {

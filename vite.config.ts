@@ -16,40 +16,23 @@ export default defineConfig({
     global: 'globalThis',
   },
   build: {
-    outDir: path.join(__dirname, 'dist-electron', 'renderer'),
+    outDir: path.join(__dirname, 'Releases'),
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000, // Increase limit to 1000 kB
     rollupOptions: {
+      external: [],
       output: {
-        manualChunks: (id) => {
-          // Split Supabase into its own chunk (large library)
-          if (id.includes('@supabase')) {
-            return 'supabase'
-          }
-          
-          // Split React and React-DOM into vendor chunk
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-vendor'
-          }
-          
-          // Split Framer Motion (animations)
-          if (id.includes('framer-motion')) {
-            return 'framer'
-          }
-          
-          // Split Lucide icons
-          if (id.includes('lucide-react')) {
-            return 'icons'
-          }
-          
-          // All other node_modules go into vendor chunk
-          if (id.includes('node_modules')) {
-            return 'vendor'
-          }
+        format: 'es',
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'supabase': ['@supabase/supabase-js'],
+          'framer': ['framer-motion'],
+          'icons': ['lucide-react']
         },
       },
     },
   },
+  base: process.env.NODE_ENV === 'production' ? './' : '/',
   plugins: [
     react(),
     tsconfigPaths(),
@@ -60,6 +43,14 @@ export default defineConfig({
     strictPort: true,
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    include: [
+      'react', 
+      'react-dom', 
+      'react/jsx-runtime', 
+      'react/jsx-dev-runtime',
+      '@supabase/supabase-js',
+      'framer-motion',
+      'lucide-react'
+    ],
   },
 })

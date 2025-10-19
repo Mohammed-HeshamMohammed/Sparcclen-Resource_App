@@ -16,19 +16,29 @@ export function LibrarySubmenu({ isOpen, sidebarOpen, onSelect }: LibrarySubmenu
     { label: 'Tools', slug: 'tools', Icon: Wrench },
   ];
 
+  // Calculate max height for 3 items (each item is 48px with gap)
+  const maxHeight = 3 * 48; // 144px for 3 items
+
   return (
-    <div className="mt-1 flex flex-col gap-0.5 pl-12">
-      {items.map(({ label, slug, Icon }) => (
-        <button
-          key={slug}
-          className="group w-full h-8 px-3 rounded flex items-center gap-3 sidebar-button"
-          onClick={() => onSelect(slug)}
-          title={label}
-        >
-          <Icon className="h-5 w-5 sidebar-icon" />
-          <span className="text-sm truncate text-black dark:text-white">{label}</span>
-        </button>
-      ))}
+    <div className="mt-1 pl-12">
+      <div 
+        className="flex flex-col gap-0 overflow-y-auto scrollbar-submenu pr-1"
+        style={{ maxHeight: `${maxHeight}px` }}
+      >
+        {items.map(({ label, slug, Icon }) => (
+          <button
+            key={slug}
+            className="group w-full h-12 px-3 rounded flex items-center gap-3 sidebar-button flex-shrink-0"
+            onClick={() => onSelect(slug)}
+            title={label}
+          >
+            <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+              <Icon className="h-5 w-5 sidebar-icon" />
+            </div>
+            <span className="text-sm truncate text-black dark:text-white">{label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

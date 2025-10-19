@@ -1,20 +1,19 @@
 import { useState, useEffect } from 'react';
-import { ResourceSidebar, ResourceGrid, ResourceDetailModal } from '@/components/Resources';
-import { motion } from 'framer-motion';
+import { ResourceSidebar, ResourceDetailModal } from '@/components/Resources';
 import { ImportPage } from '@/components/Resources/ImportPage';
 import { RoleManagement } from '@/components/Admin/RoleManagement';
 import { Dashboard } from '@/components/Dashboard';
 import { ComingSoon } from '@/components/ComingSoon';
-import { TopBar } from './TopBar';
 import { SkeletonLoader } from '@/components/ui';
 import { Settings, Profile } from '@/components/User';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import type { Category, Resource } from '@/types';
 import { incrementViewCount } from '@/lib/services';
+import * as viewsFavsService from '@/lib/services/viewsFavs';
 import { useLibraryData } from '@/components/Resources/library/useLibraryData';
 import { useDashboardData } from '@/components/Dashboard/useDashboardData';
-import { FiltersTap } from '@/components/Resources/library/FiltersTap';
 import { useAuth } from '@/lib/auth';
+import { LibraryView } from '@/components/Resources/library/LibraryView';
 
 export function Shell() {
   const { user } = useAuth();
@@ -47,7 +46,6 @@ export function Shell() {
     updateFavoriteLocally,
   } = useLibraryData({
     userId: user?.id ?? null,
-    activeTab: (activeTab === 'ComingSoon' ? 'Dashboard' : activeTab) as 'Dashboard' | 'Library' | 'Imports',
     selectedResource,
     onSelectedResourceChange: setSelectedResource,
   });
@@ -70,9 +68,8 @@ export function Shell() {
       const resObj = resources.find(r => r.id === resourceId) || dashResources.find(r => r.id === resourceId) || null;
       const nextFav = resObj ? !resObj.is_favorite : true;
       try {
-        const svc = await import('@/lib/services/viewsFavs')
         // Persist to local file (Documents/Sparcclen via preload) and Supabase
-        void svc.upsertFromResource(resObj ?? { id: resourceId, title: '', url: null } as unknown as Resource, nextFav)
+        void viewsFavsService.upsertFromResource(resObj ?? { id: resourceId, title: '', url: null } as unknown as Resource, nextFav)
       } catch {}
       // Update both Library and Dashboard UI copies
       updateFavoriteLocally(resourceId, nextFav);
@@ -284,76 +281,63 @@ export function Shell() {
           />
         )}
 
-        <main className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-hide bg-[#F0FFFF] dark:bg-gray-950 rounded-l-3xl rounded-r-2xl relative z-10 shadow-xl my-2 mr-2.5">
+        <main className="flex-1 flex flex-col min-h-0 rounded-3xl relative z-10 shadow-xl my-2 mr-2.5 overflow-hidden">
+          <div className="absolute inset-0 bg-[#F0FFFF] dark:bg-gray-950 rounded-3xl" style={{ zIndex: -1 }} />
           {!showSettings && !showProfile && !showRoles && activeTab === 'Library' && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              <div className="sticky top-0 z-30 px-6 pt-8 pb-4 bg-transparent dark:bg-transparent">
-                <TopBar
-                  searchQuery={searchQuery}
-                  onSearchChange={handleSearchChange}
-                  onToggleFavoritesView={handleToggleFavoritesView}
-                  favoritesOnly={favoritesOnly}
-                />
-              </div>
-              <div className="px-6 mb-4">
-                <FiltersTap
-                  categories={categories}
-                  activeCategory={activeCategory}
-                  activeSubcategory={activeSubcategory}
-                  onSelectCategory={handleSelectCategory}
-                  onClearCategoryFilter={() => {
-                    clearCategorySelection();
-                    applyClassificationFilter(null);
-                    applyTagFilter(null);
-                  }}
-                  classificationOptions={availableClassifications}
-                  activeClassification={classificationFilter}
-                  onClassificationChange={applyClassificationFilter}
-                  tagOptions={availableTags}
-                  activeTag={tagFilter}
-                  onTagChange={applyTagFilter}
-                  isLoading={isLoading}
-                />
-              </div>
-            </motion.div>
+            <LibraryView
+              categories={categories}
+              resources={resources}
+              availableClassifications={availableClassifications}
+              availableTags={availableTags}
+              activeCategory={activeCategory}
+              activeSubcategory={activeSubcategory}
+              classificationFilter={classificationFilter}
+              tagFilter={tagFilter}
+              searchQuery={searchQuery}
+              favoritesOnly={favoritesOnly}
+              isLoading={isLoading}
+              onSearchChange={handleSearchChange}
+              onSelectCategory={handleSelectCategory}
+              onClearCategorySelection={() => {
+                clearCategorySelection();
+                applyClassificationFilter(null);
+                applyTagFilter(null);
+              }}
+              onClassificationChange={applyClassificationFilter}
+              onTagChange={applyTagFilter}
+              onOpenResource={handleOpenResource}
+              onToggleFavorite={handleToggleFavorite}
+              onToggleFavoritesView={handleToggleFavoritesView}
+            />
           )}
 
-          <div className="flex-1 flex flex-col pb-6">
-            {showProfile ? (
-              <Profile />
-            ) : showSettings ? (
-              <Settings />
-            ) : showRoles ? (
-              <RoleManagement />
-            ) : activeTab === 'Dashboard' ? (
-              <Dashboard
-                resources={dashResources}
-                categories={dashCategories}
-                onOpenResource={handleOpenResource}
-                onOpenLibrary={handleOpenLibrary}
-                onOpenImports={handleOpenImports}
-                onOpenProfile={handleOpenProfile}
-                onOpenSettings={handleOpenSettings}
-                onOpenRoles={handleOpenRoles}
-                onToggleFavorite={handleToggleFavorite}
-              />
-            ) : activeTab === 'Imports' ? (
-              <ImportPage />
-            ) : activeTab === 'ComingSoon' ? (
-              <ComingSoon />
-            ) : (
-              <ResourceGrid
-                resources={resources}
-                onOpenResource={handleOpenResource}
-                onToggleFavorite={handleToggleFavorite}
-                isLoading={isLoading}
-              />
-            )}
-          </div>
+          {(showProfile || showSettings || showRoles || activeTab !== 'Library') && (
+            <div className="flex-1 flex flex-col pb-6 overflow-y-auto scrollbar-hide">
+              {showProfile ? (
+                <Profile />
+              ) : showSettings ? (
+                <Settings />
+              ) : showRoles ? (
+                <RoleManagement />
+              ) : activeTab === 'Dashboard' ? (
+                <Dashboard
+                  resources={dashResources}
+                  categories={dashCategories}
+                  onOpenResource={handleOpenResource}
+                  onOpenLibrary={handleOpenLibrary}
+                  onOpenImports={handleOpenImports}
+                  onOpenProfile={handleOpenProfile}
+                  onOpenSettings={handleOpenSettings}
+                  onOpenRoles={handleOpenRoles}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              ) : activeTab === 'Imports' ? (
+                <ImportPage />
+              ) : activeTab === 'ComingSoon' ? (
+                <ComingSoon />
+              ) : null}
+            </div>
+          )}
         </main>
       </div>
 

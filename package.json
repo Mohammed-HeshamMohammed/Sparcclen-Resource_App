@@ -21,7 +21,8 @@
     "electron:dev": "cross-env NODE_NO_WARNINGS=1 VITE_DEV_SERVER_URL=http://127.0.0.1:5175 electron ./electron/main/dev-entry.cjs",
     "preload:build": "node electron/preload/build-preload.cjs",
     "preload:watch": "node electron/preload/build-preload.cjs --watch",
-    "build": "vite build",
+    "main:build": "node electron/main/build-main.cjs",
+    "build": "npm run preload:build && vite build",
     "build:electron": "npm run build && electron-builder",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
@@ -35,7 +36,7 @@
     "mirror:supabase-to-src": "node scripts/mirror-supabase-to-src.js",
     "mirror:src-to-supabase": "node scripts/mirror-src-to-supabase.js"
   },
-  "main": "electron/main/dev-entry.cjs",
+  "main": "electron/main/prod-main.js",
   "homepage": "./",
   "build": {
     "appId": "com.sparcclen.app",
@@ -46,7 +47,7 @@
     "files": [
       "electron/main",
       "electron/preload",
-      "dist-electron"
+      "Releases/**/*"
     ],
     "win": {
       "icon": "src/public/Logo.ico",

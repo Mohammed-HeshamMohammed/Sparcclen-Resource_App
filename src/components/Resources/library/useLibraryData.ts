@@ -15,7 +15,7 @@ import {
 
 interface UseLibraryDataOptions {
   userId?: string | null;
-  activeTab: 'Dashboard' | 'Library' | 'Imports';
+  activeTab?: 'Dashboard' | 'Library' | 'Imports';
   selectedResource: Resource | null;
   onSelectedResourceChange?: (resource: Resource | null) => void;
 }
@@ -48,10 +48,11 @@ const shuffleResources = <T,>(items: T[]): T[] => {
 
 export function useLibraryData({
   userId,
-  activeTab,
+  // activeTab, // Commented out as it's unused to prevent TypeScript error
   selectedResource,
   onSelectedResourceChange,
 }: UseLibraryDataOptions) {
+  // activeTab is now optional and unused to prevent unnecessary refreshes
   const [categories, setCategories] = useState<Category[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [librarySegments, setLibrarySegments] = useState<LibrarySegmentsMap>({});
@@ -353,11 +354,8 @@ export function useLibraryData({
     loadCategories();
   }, [loadCategories]);
 
-  useEffect(() => {
-    if (activeTab === 'Library') {
-      loadCategories();
-    }
-  }, [activeTab, loadCategories]);
+  // Remove activeTab dependency to prevent unnecessary refreshes
+  // Categories are loaded once on mount via the loadCategories useEffect above
 
   useEffect(() => {
     loadResources();

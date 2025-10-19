@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useTheme as useThemeHook } from '@/hooks/useTheme';
 import { ThemeTransition } from './ThemeTransition';
 import type { Theme } from '@/hooks/useTheme';
@@ -23,7 +23,16 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const themeData = useThemeHook();
-  const { isTransitioning, transitionTheme, handleTransitionComplete } = themeData;
+  const { isTransitioning, transitionTheme, handleTransitionComplete, resolvedTheme } = themeData;
+
+  // Keep Electron window background in sync with theme for rounded corners
+  useEffect(() => {
+    const color = resolvedTheme === 'dark' ? '#030712' : '#F0FFFF';
+    try {
+      // @ts-expect-error - window.api is injected by preload
+      window?.api?.setBackgroundColor?.(color);
+    } catch {}
+  }, [resolvedTheme]);
 
   return (
     <ThemeContext.Provider value={themeData}>

@@ -3,7 +3,7 @@ import { useAuth } from '@/lib/auth'
 import { getOrCreateProfileKey } from '@/lib/services'
 import { fetchProfileDecrypted, saveProfileEncrypted } from '@/lib/services'
 import { supabase } from '@/lib/services'
-import { saveWrite } from '@/lib/system/saveClient'
+import { saveWrite, readSave } from '@/lib/system/saveClient'
 import { avatarService } from '@/lib/services'
 import { saveEncryptedProfileLocal } from '@/lib/services'
 
@@ -96,7 +96,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
         // Step 1: Load offline data immediately (from save file and local avatar cache)
         try {
-          const saveData = await import('@/lib/system/saveClient').then(m => m.readSave())
+          const saveData = await readSave()
           const offlineDisplayName = saveData.displayName || dn
           
           // Set offline data immediately

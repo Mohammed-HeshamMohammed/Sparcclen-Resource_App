@@ -13,7 +13,9 @@ import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/lib/contexts/ProfileContext';
 import * as viewsFavs from '@/lib/services/viewsFavs';
 import type { Database } from '@/types/database';
-import { loadDashboardCache, saveDashboardCache } from '@/lib/services/dashboardCache';
+import { loadDashboardCache, saveDashboardCache, setUserPublicProfileCached } from '@/lib/services/dashboardCache';
+import { supabase, avatarService, searchResources, getResources } from '@/lib/services';
+import { getRecents, addRecent } from '@/lib/services/recent';
 
 interface SupabaseUser {
   id: string;
@@ -111,9 +113,10 @@ export function Dashboard({
   useEffect(() => {
     let cancelled = false
     const fetchOnce = async () => {
+      let latest: Database['public']['Views']['view_counts']['Row'][] = []
       try {
         setIsLoadingViews(true)
-        const latest = await viewsFavs.fetchViewCounts().catch(() => [])
+        latest = await viewsFavs.fetchViewCounts().catch(() => [])
         if (!cancelled && latest && latest.length) setViewCounts(latest)
       } catch (e) {
         console.warn('Refresh view_counts failed:', e)
@@ -123,8 +126,10 @@ export function Dashboard({
       try {
         const merged = await viewsFavs.getMergedItems()
         if (cancelled) return
-        const cat = viewsFavs.aggregateCategoriesWithViews(merged, viewCounts)
-        const sub = viewsFavs.aggregateSubcategoriesWithViews(merged, viewCounts)
+        // Use latest viewCounts from the fetch above instead of the stale state
+        const currentViewCounts = latest && latest.length ? latest : viewCounts
+        const cat = viewsFavs.aggregateCategoriesWithViews(merged, currentViewCounts)
+        const sub = viewsFavs.aggregateSubcategoriesWithViews(merged, currentViewCounts)
         setFavCatAgg(cat)
         setFavSubAgg(sub)
         setTotalFavourites(merged.filter(i => i.favourite).length)
@@ -136,7 +141,7 @@ export function Dashboard({
     void fetchOnce()
     const t = window.setInterval(fetchOnce, 60000)
     return () => { cancelled = true; if (t) window.clearInterval(t) }
-  }, [user?.id])
+  }, [user?.id, viewCounts])
 
   // Load users for user circles section (only if not already cached)
   useEffect(() => {
@@ -167,7 +172,7 @@ export function Dashboard({
               
               if (userIds.length > 0) {
                 try {
-                  const { supabase } = await import('@/lib/services');
+                  // Use imported supabase
                   const { data, error } = await supabase
                     .from('profiles')
                     .select('user_id,picture_enc')
@@ -210,8 +215,8 @@ export function Dashboard({
                       .in('user_id', userIds);
                       
                     if (!publicError && publicData) {
-                      const { setUserPublicProfileCached } = await import('@/lib/services/dashboardCache');
-                      for (const row of publicData) {
+                      // Use imported setUserPublicProfileCached
+                      for (const row of publicData as Array<{ user_id: string | null; cover_public: string | null; bio_public: string | null }>) {
                         if (row?.user_id && user?.id && row.user_id !== user.id) {
                           await setUserPublicProfileCached(user.id, row.user_id, {
                             coverUrl: row.cover_public,
@@ -236,7 +241,7 @@ export function Dashboard({
                   avatarMap[usr.id] = usr.avatarUrlMeta;
                 } else if (usr.email) {
                   try {
-                    const { avatarService } = await import('@/lib/services');
+                    // Use imported avatarService
                     const fallbackUrl = await avatarService.getAvatarUrl(usr.email, true);
                     if (fallbackUrl) {
                       avatarMap[usr.id] = fallbackUrl;
@@ -287,7 +292,7 @@ export function Dashboard({
       }
     })()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [user?.id, viewCounts])
 
   // Save dashboard data to cache when all data is loaded (debounced)
   useEffect(() => {
@@ -317,7 +322,6 @@ export function Dashboard({
                 let res = byNormTitle.get(nt)
                 if (!res) {
                   try {
-                    const { searchResources } = await import('@/lib/services')
                     const filters = { query: title, categoryId: null, subcategoryId: null, tags: [], favoritesOnly: false, resourceType: null }
                     const results: Resource[] = await searchResources(filters, user?.id || undefined)
                     if (results && results.length > 0) {
@@ -372,7 +376,6 @@ export function Dashboard({
     (async () => {
       if (!resources || resources.length === 0) {
         try {
-          const { getResources } = await import('@/lib/services')
           const data = await getResources(undefined, undefined)
           setAllResources(data)
         } catch {}
@@ -384,7 +387,6 @@ export function Dashboard({
   useEffect(() => {
     const load = async () => {
       try {
-        const { getRecents } = await import('@/lib/services/recent');
         setRecentItems(getRecents(user?.id, 20));
       } catch {
         setRecentItems([]);
@@ -506,9 +508,8 @@ export function Dashboard({
     void (async () => {
       try { await viewsFavs.recordViewFromResource(r) } catch {}
       try {
-        const recent = await import('@/lib/services/recent')
-        recent.addRecent(user?.id ?? null, { id: r.id, title: r.title, url: r.url })
-        setRecentItems(recent.getRecents(user?.id, 20))
+        addRecent(user?.id ?? null, { id: r.id, title: r.title, url: r.url })
+        setRecentItems(getRecents(user?.id, 20))
       } catch {}
     })()
   }

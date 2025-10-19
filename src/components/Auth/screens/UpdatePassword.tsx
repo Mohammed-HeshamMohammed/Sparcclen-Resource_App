@@ -45,10 +45,10 @@ export function UpdatePassword({ onSuccess, isTransitioning = false }: UpdatePas
   }
 
   return (
-    <div className="w-[850px] h-[700px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
+    <div className="w-[800px] h-[600px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
       <div className="flex w-full h-full">
         {/* Left side - Update Password form */}
-        <div className="w-1/2 p-12 flex flex-col justify-center">
+        <div className="w-1/2 p-8 md:p-10 flex flex-col justify-center">
           <div className="max-w-lg mx-auto w-full h-full flex flex-col">
             <div className="mb-8">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -69,14 +69,14 @@ export function UpdatePassword({ onSuccess, isTransitioning = false }: UpdatePas
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                         placeholder="********"
                         required
-                        className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                        className="pl-10 pr-4 py-2.5 h-11"
                       />
                       <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     </div>
                   </div>
 
                   {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg flex items-center text-sm">
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 p-3 rounded-lg flex items-center text-sm">
                       <Info className="w-4 h-4 mr-2 flex-shrink-0" />
                       {error}
                     </div>
@@ -86,7 +86,7 @@ export function UpdatePassword({ onSuccess, isTransitioning = false }: UpdatePas
                     <Button
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                     >
                       {loading ? 'Updating...' : 'Update Password'}
                     </Button>
@@ -97,14 +97,14 @@ export function UpdatePassword({ onSuccess, isTransitioning = false }: UpdatePas
 
             {/* Bottom section with password info */}
             <BottomSectionWrapper isVisible={!isTransitioning}>
-              <div className="pt-6 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 bg-indigo-100 rounded-full p-1">
-                    <Lock className="w-4 h-4 text-indigo-600" />
+                  <div className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-full p-1">
+                    <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-gray-900">Password Updated Successfully</h3>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Password Updated Successfully</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Your password has been securely updated and encrypted.
                     </p>
                   </div>
@@ -115,7 +115,7 @@ export function UpdatePassword({ onSuccess, isTransitioning = false }: UpdatePas
         </div>
 
         {/* Right side - Visual Design */}
-        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+        <div className="w-1/2 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-900 dark:to-indigo-900 flex items-center justify-center relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-80 h-80 relative">
               {/* Main cube */}
@@ -132,9 +132,9 @@ export function UpdatePassword({ onSuccess, isTransitioning = false }: UpdatePas
           </div>
           {/* Background pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 rounded-full"></div>
-            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 rounded-full"></div>
-            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 rounded-full"></div>
+            <div className="absolute top-10 left-10 w-32 h-32 border border-indigo-300 dark:border-indigo-600 rounded-full"></div>
+            <div className="absolute bottom-20 right-20 w-24 h-24 border border-purple-300 dark:border-purple-600 rounded-full"></div>
+            <div className="absolute top-1/2 right-10 w-16 h-16 border border-pink-300 dark:border-pink-600 rounded-full"></div>
           </div>
         </div>
       </div>

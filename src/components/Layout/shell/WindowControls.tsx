@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Minus, Square, X } from 'lucide-react'
 import { ToggleTheme } from '../theme/ToggleTheme'
 import { useThemeRateLimit } from '@/hooks/useThemeRateLimit'
 
@@ -99,32 +98,41 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
         <ToggleTheme />
       </div>
 
-      {/* Minimize Button */}
+      {/* Minimize - filled yellow circle */}
       <button
         onClick={handleMinimize}
-        className="control-button flex items-center justify-center w-8 h-8"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <Minus className="w-4 h-4" />
-      </button>
+        className="h-4 w-4 rounded-full bg-yellow-400 hover:bg-yellow-500 transition-colors"
+        style={{
+          //@ts-expect-error - WebkitAppRegion is not in React CSSProperties but needed for Electron
+          WebkitAppRegion: 'no-drag'
+        }}
+        title="Minimize"
+        aria-label="Minimize"
+      />
 
-      {/* Maximize Button */}
+      {/* Maximize - filled green circle */}
       <button
         onClick={handleMaximize}
-        className="control-button flex items-center justify-center w-8 h-8"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <Square className="w-4 h-4" />
-      </button>
+        className="h-4 w-4 rounded-full bg-green-500 hover:bg-green-600 transition-colors"
+        style={{
+          //@ts-expect-error - WebkitAppRegion is not in React CSSProperties but needed for Electron
+          WebkitAppRegion: 'no-drag'
+        }}
+        title="Maximize"
+        aria-label="Maximize"
+      />
 
-      {/* Close Button */}
+      {/* Close - filled red circle */}
       <button
         onClick={handleClose}
-        className="control-button control-button-close flex items-center justify-center w-8 h-8"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <X className="w-4 h-4" />
-      </button>
+        className="h-4 w-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
+        style={{
+          //@ts-expect-error - WebkitAppRegion is not in React CSSProperties but needed for Electron
+          WebkitAppRegion: 'no-drag'
+        }}
+        title="Close"
+        aria-label="Close"
+      />
     </div>
   )
 }

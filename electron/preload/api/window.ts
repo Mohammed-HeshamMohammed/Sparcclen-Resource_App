@@ -14,4 +14,5 @@ export const createWindowApi = (): WindowApi => ({
     ipcRenderer.on(resizeChannel, handler)
     return () => ipcRenderer.removeListener(resizeChannel, handler)
   },
+  setBackgroundColor: (color: string) => ipcRenderer.invoke('win:setBackgroundColor', color),
 })

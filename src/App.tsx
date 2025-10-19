@@ -4,7 +4,7 @@ import { SplashScreen, Shell, ThemeSelection, ThemeProvider, WindowControls, use
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { SonnerToaster } from './lib/toast';
 import { ProfileProvider, useProfile } from './lib/contexts/ProfileContext';
-import { Login, SignUp, ForgotPassword, UpdatePassword, AuthConfirm, AuthError, OfflineInterstitial } from './components/Auth';
+import { Login, SignUp, ForgotPassword, UpdatePassword, AuthConfirm, AuthError } from './components/Auth';
 
 type AuthState = 'login' | 'signup' | 'forgot-password' | 'update-password' | 'auth-confirm' | 'auth-error';
 
@@ -17,6 +17,7 @@ function MainApp() {
   const { profile, isInitialLoad } = useProfile()
   const [showWelcome, setShowWelcome] = useState(true)
   const [isMaximized, setIsMaximized] = useState(false)
+
 
   useEffect(() => {
     if (!isInitialLoad && showWelcome) {
@@ -51,10 +52,8 @@ function MainApp() {
             className="h-10 bg-[#87CEEB] dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
             style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
           >
-            <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-black dark:text-white transition-colors duration-300">
-                Sparcclen
-              </h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">Sparcclen</h1>
             </div>
             <WindowControls
               className="flex-shrink-0"
@@ -82,10 +81,8 @@ function MainApp() {
           className="h-10 bg-[#87CEEB] dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-black dark:text-white transition-colors duration-300">
-              Sparcclen
-            </h1>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">Sparcclen</h1>
           </div>
           <WindowControls
             className="flex-shrink-0"
@@ -234,10 +231,8 @@ function AuthFlow() {
               WebkitAppRegion: 'drag'
             } as React.CSSProperties}
           >
-            <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
-                Sparcclen
-              </h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">Sparcclen</h1>
             </div>
             <WindowControls
               className="flex-shrink-0"
@@ -258,15 +253,13 @@ function AuthFlow() {
       <div className={`h-screen w-screen overflow-hidden`}>
         <div className="h-full flex flex-col relative">
           <div
-            className="h-10 bg-[#87CEEB] dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 relative z-[60] transition-colors duration-300"
+            className="h-10 bg-[#87CEEB] dark:bg-gray-800 flex items-center justify-between px-4 select-none flex-shrink-0 relative z-[60] transition-colors duration-300"
             style={{
               WebkitAppRegion: 'drag'
             } as React.CSSProperties}
           >
-            <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
-                Sparcclen
-              </h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">Sparcclen</h1>
             </div>
             <WindowControls
               className="flex-shrink-0"
@@ -292,10 +285,8 @@ function AuthFlow() {
               WebkitAppRegion: 'drag'
             } as React.CSSProperties}
           >
-            <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
-                Sparcclen
-              </h1>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">Sparcclen</h1>
             </div>
             <WindowControls
               className="flex-shrink-0"
@@ -311,34 +302,7 @@ function AuthFlow() {
     );
   }
 
-  if ((offlineSession && !isOnline) && showOfflineInterstitial && !offlineInterstitialDone && !showStartupSplash) {
-    return (
-      <div className={`h-screen w-screen overflow-hidden`}>
-        <div className="h-full flex flex-col relative">
-          <div
-            className="h-10 bg-[#87CEEB] dark:bg-gray-950 flex items-center justify-between px-4 select-none flex-shrink-0 transition-colors duration-300"
-            style={{
-              WebkitAppRegion: 'drag'
-            } as React.CSSProperties}
-          >
-            <div className="flex items-center space-x-4">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
-                Sparcclen
-              </h1>
-            </div>
-            <WindowControls
-              className="flex-shrink-0"
-              isMaximized={isMaximized}
-              onMaximizeToggle={() => setIsMaximized(!isMaximized)}
-            />
-          </div>
-          <div className="flex-1">
-            <OfflineInterstitial onDone={() => setOfflineInterstitialDone(true)} />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  
 
   if ((user || (offlineSession && !isOnline)) && !showStartupSplash && showMainApp) {
     return <MainApp />;
@@ -422,10 +386,8 @@ function AuthFlow() {
             WebkitAppRegion: 'drag'
           } as React.CSSProperties}
         >
-          <div className="flex items-center space-x-4">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">
-              Sparcclen
-            </h1>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-300">Sparcclen</h1>
           </div>
           <WindowControls
             className="flex-shrink-0"

@@ -31,6 +31,9 @@ export function Login({ onSuccess, onSignUp, onForgotPassword, isTransitioning =
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const passwordRef = useRef<HTMLInputElement | null>(null)
 
+  // Email validation
+  const isEmailValid = email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
   // Check Windows Credential Manager and load saved emails
   useEffect(() => {
     let mounted = true
@@ -185,10 +188,10 @@ export function Login({ onSuccess, onSignUp, onForgotPassword, isTransitioning =
   }
 
   return (
-    <div className={`${isOnline ? 'w-[850px] h-[700px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl' : 'w-full h-full bg-transparent rounded-none shadow-none'}`}>
+    <div className={`${isOnline ? 'w-[800px] h-[600px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl' : 'w-full h-full bg-transparent rounded-none shadow-none'}`}>
       <div className="flex w-full h-full">
         {/* Left side - Login form */}
-        <div className={`${isOnline ? 'w-1/2' : 'w-full'} p-10 md:p-12 flex flex-col`}>
+        <div className={`${isOnline ? 'w-1/2' : 'w-full'} p-8 md:p-10 flex flex-col`}>
           <div className="max-w-lg mx-auto w-full h-full flex flex-col">
             {isOnline && (
               <div className="mb-6">
@@ -256,8 +259,9 @@ export function Login({ onSuccess, onSignUp, onForgotPassword, isTransitioning =
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                         placeholder="youremail@gmail.com"
                         required
+                        hasError={!isEmailValid}
                         list="stored-emails"
-                        className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                        className="pl-10 pr-4 py-2.5 h-11"
                       />
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       {storedEmails.length > 0 && (
@@ -283,7 +287,7 @@ export function Login({ onSuccess, onSignUp, onForgotPassword, isTransitioning =
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                         placeholder="********"
                         required
-                        className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                        className="pl-10 pr-4 py-2.5 h-11"
                       />
                       <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     </div>
@@ -302,7 +306,7 @@ export function Login({ onSuccess, onSignUp, onForgotPassword, isTransitioning =
                     <Button
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                     >
                       {loading ? 'Signing in...' : 'Log in'}
                     </Button>
@@ -327,19 +331,16 @@ export function Login({ onSuccess, onSignUp, onForgotPassword, isTransitioning =
 
             {/* Bottom section with password change (online only) */}
             <BottomSectionWrapper isVisible={!isTransitioning && isOnline}>
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-start">
                   <div className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-full p-1">
-                    <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <Lock className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Need to change your password?</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Update your password securely anytime you need to.
-                    </p>
+                  <div className="ml-2">
+                    <h3 className="text-xs font-medium text-gray-900 dark:text-white">Need to change your password?</h3>
                     <button
                       onClick={onForgotPassword}
-                      className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 hover:text-indigo-800 dark:hover:text-indigo-300"
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-800 dark:hover:text-indigo-300"
                     >
                       Change Password
                     </button>

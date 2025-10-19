@@ -1,7 +1,11 @@
 import { config as loadEnv } from 'dotenv'
 import { app, BrowserWindow } from 'electron'
 import { join, resolve } from 'path'
-import { electronApp, is } from '@electron-toolkit/utils'
+
+// Replace @electron-toolkit/utils functionality
+const is = {
+  dev: process.env.NODE_ENV === 'development' || process.argv.includes('--dev')
+}
 
 import { CredentialManager } from './security/credentialManager'
 import { UploadTracker } from './state/uploadTracker'
@@ -36,7 +40,7 @@ const setupEnvironment = () => {
 const setupAppIcon = () => {
   // Set proper App User Model ID for Windows
   const appId = is.dev ? 'com.sparcclen.dev' : 'com.sparcclen.app'
-  electronApp.setAppUserModelId(appId)
+  app.setAppUserModelId(appId)
 
   // Note: Windows Task Manager icon is set during build process via electron-builder
   // The icon file should be specified in package.json build configuration

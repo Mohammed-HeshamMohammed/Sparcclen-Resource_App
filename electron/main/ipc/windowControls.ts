@@ -43,4 +43,15 @@ export const registerWindowControlHandlers = (
     const [width, height] = window?.getSize() ?? [0, 0]
     return { width, height }
   })
+
+  ipcMain.handle('win:setBackgroundColor', (_event, color: string) => {
+    const window = getWindow()
+    if (!window) return false
+    try {
+      window.setBackgroundColor(color)
+      return true
+    } catch {
+      return false
+    }
+  })
 }

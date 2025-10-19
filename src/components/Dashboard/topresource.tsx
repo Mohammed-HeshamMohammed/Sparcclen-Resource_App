@@ -4,6 +4,7 @@ import type { Resource } from '@/types'
 import type { Database } from '@/types/database'
 import { ResourceCard } from '@/components/Resources/grid/ResourceCard'
 import { useAuth } from '@/lib/auth'
+import { searchResources } from '@/lib/services'
 
 interface Props {
   resources: Resource[]
@@ -40,7 +41,6 @@ export function TopResource({ resources, viewCounts, onOpenResource, onOpenLibra
           let res = byNormTitle.get(nt)
           if (!res) {
             try {
-              const { searchResources } = await import('@/lib/services')
               const filters = { query: title, categoryId: null, subcategoryId: null, tags: [], favoritesOnly: false, resourceType: null }
               const results: Resource[] = await searchResources(filters, user?.id || undefined)
               if (results && results.length > 0) {

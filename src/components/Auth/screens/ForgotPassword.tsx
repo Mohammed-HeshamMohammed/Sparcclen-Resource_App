@@ -17,6 +17,9 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
   const [success, setSuccess] = useState(false)
   const [showSupport, setShowSupport] = useState(false)
 
+  // Email validation
+  const isEmailValid = email === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -43,7 +46,7 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
 
   if (success) {
     return (
-      <div className="w-[850px] h-[700px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
+      <div className="w-[800px] h-[600px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
         <div className="flex w-full h-full">
           {/* Left side - Success message */}
           <div className="w-1/2 p-12 flex flex-col justify-center">
@@ -71,7 +74,7 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
 
                   <Button
                     onClick={onBack}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-md"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-medium transition-colors"
                   >
                     <div className="flex items-center justify-center gap-2">
                       <ArrowLeft className="w-4 h-4" />
@@ -83,7 +86,7 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
 
               {/* Bottom section with plan info */}
               <BottomSectionWrapper isVisible={!isTransitioning}>
-                <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-start">
                     <div className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-full p-1">
                       <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -137,10 +140,10 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
   }
 
   return (
-    <div className="w-[900px] h-[750px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
+    <div className="w-[800px] h-[600px] bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-2xl">
       <div className="flex w-full h-full">
         {/* Left side - Forgot Password form */}
-        <div className="w-1/2 p-12 flex flex-col justify-center">
+        <div className="w-1/2 p-8 md:p-10 flex flex-col justify-center">
           <div className="max-w-lg mx-auto w-full h-full flex flex-col">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -164,7 +167,8 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                         placeholder="youremail@gmail.com"
                         required
-                        className="pl-10 pr-4 py-3 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800 transition-colors"
+                        hasError={!isEmailValid}
+                        className="pl-10 pr-4 py-2.5 h-11"
                       />
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     </div>
@@ -181,7 +185,7 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
                     <Button
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                     >
                       {loading ? 'Sending...' : 'Send Reset Link'}
                     </Button>
@@ -202,7 +206,7 @@ export function ForgotPassword({ onBack, isTransitioning = false }: ForgotPasswo
 
             {/* Bottom section with plan info */}
             <BottomSectionWrapper isVisible={!isTransitioning}>
-              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-start">
                   <div className="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-full p-1">
                     <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />

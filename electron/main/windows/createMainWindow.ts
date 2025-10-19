@@ -1,7 +1,11 @@
 import { BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
-import { is } from '@electron-toolkit/utils'
+
+// Replace @electron-toolkit/utils functionality
+const is = {
+  dev: process.env.NODE_ENV === 'development' || process.argv.includes('--dev')
+}
 
 const resolvePreloadPath = () => {
   const prodPreload = join(__dirname, '..', 'preload.js')
@@ -43,15 +47,16 @@ export const createMainWindow = () => {
   const iconPath = getIconPath()
 
   const mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 850,
-    minWidth: 1000,
-    minHeight: 850,
+    width: 900,
+    height: 750,
+    minWidth: 850,
+    minHeight: 700,
     show: false,
     autoHideMenuBar: true,
     frame: false,
     resizable: true,
     hasShadow: true,
+    backgroundColor: '#030712', // Gray-950 for dark theme - enables Windows 11 rounded corners
     ...(iconPath && { icon: iconPath }), // Only set icon if path exists
     webPreferences: {
       ...(preloadResolved ? { preload: preloadResolved } : {}),
@@ -88,7 +93,7 @@ export const createMainWindow = () => {
       mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
   } else {
-    mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'))
+    mainWindow.loadFile(join(__dirname, '..', '..', 'Releases', 'index.html'))
   }
 
   return mainWindow

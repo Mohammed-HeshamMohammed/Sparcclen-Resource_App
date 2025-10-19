@@ -1,7 +1,7 @@
 "use strict";
 
 // electron/preload/index.ts
-var import_electron8 = require("electron");
+var import_electron9 = require("electron");
 var import_preload = require("@electron-toolkit/preload");
 
 // electron/preload/api/window.ts
@@ -16,7 +16,8 @@ var createWindowApi = () => ({
     const handler = (_event, size) => callback(size);
     import_electron.ipcRenderer.on(resizeChannel, handler);
     return () => import_electron.ipcRenderer.removeListener(resizeChannel, handler);
-  }
+  },
+  setBackgroundColor: (color) => import_electron.ipcRenderer.invoke("win:setBackgroundColor", color)
 });
 
 // electron/preload/api/save.ts
@@ -71,6 +72,13 @@ var createAdminApi = () => ({
   updateUserRole: (userId, role) => import_electron7.ipcRenderer.invoke("admin:updateUserRole", userId, role)
 });
 
+// electron/preload/api/viewsFavs.ts
+var import_electron8 = require("electron");
+var createViewsFavsApi = () => ({
+  load: () => import_electron8.ipcRenderer.invoke("vf:load"),
+  save: (items) => import_electron8.ipcRenderer.invoke("vf:save", items ?? [])
+});
+
 // electron/preload/api/index.ts
 var createPreloadApi = () => {
   const windowApi = createWindowApi();
@@ -86,7 +94,8 @@ var createPreloadApi = () => {
     uploads: createUploadsApi(),
     fs: createFileSystemApi(),
     resources: createResourcesApi(),
-    admin: createAdminApi()
+    admin: createAdminApi(),
+    viewsFavs: createViewsFavsApi()
   };
 };
 
@@ -94,8 +103,8 @@ var createPreloadApi = () => {
 var api = createPreloadApi();
 if (process.contextIsolated) {
   try {
-    import_electron8.contextBridge.exposeInMainWorld("electron", import_preload.electronAPI);
-    import_electron8.contextBridge.exposeInMainWorld("api", api);
+    import_electron9.contextBridge.exposeInMainWorld("electron", import_preload.electronAPI);
+    import_electron9.contextBridge.exposeInMainWorld("api", api);
   } catch (error) {
     console.error(error);
   }

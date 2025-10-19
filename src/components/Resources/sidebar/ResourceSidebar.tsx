@@ -16,7 +16,7 @@ export const DashboardIcon = () => (
 );
 
 export const ProfileIcon = () => (
-    <svg viewBox="0 0 24 24" className="h-8  w-8" fill="none">
+    <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none">
       <circle cx="12" cy="8.2" r="3.2" fill="#f97316" />
       <path d="M18.5 18.2c0-2.7-2.9-4.9-6.5-4.9s-6.5 2.2-6.5 4.9" fill="#fb7185" />
       <path d="M18.5 18.2c0-2.7-2.9-4.9-6.5-4.9s-6.5 2.2-6.5 4.9" stroke="#f97316" strokeWidth="1.1" strokeLinecap="round" />
@@ -24,7 +24,7 @@ export const ProfileIcon = () => (
 );
 
 export const RoleManagementIcon = () => (
-    <ShieldCheck className="h-8 w-8 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />
+    <ShieldCheck className="h-9 w-9 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />
 );
 
 export const ImportIcon = () => (
@@ -36,13 +36,13 @@ export const ImportIcon = () => (
 );
 
 export const SettingsIcon = () => (
-  <SettingsIconLucide className="h-8 w-8 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />
+  <SettingsIconLucide className="h-9 w-9 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />
 );
 
 
 export const LibraryIcon = () => (
-  <div className="h-8 w-8 flex items-center justify-center sidebar-icon rounded">
-    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" className="h-8 w-8">
+  <div className="h-9 w-9 flex items-center justify-center sidebar-icon rounded">
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" className="h-9 w-9">
       <path d="M54.9 39.7l7.3 7.6l-32.1 16.1s-4.2 2.1-6.2-1.2c-8-13 31-22.5 31-22.5" fill="#256382" />
       <path d="M29.2 53.9s-6.1 2.3-5 6.6c1.2 4.5 6.1 1.8 6.1 1.8l30.5-15s-1.7-4.8 1.4-8l-33 14.6" fill="#d9e3e8" />
       <path fill="#42ade2" d="M34.4 8.9L63.6 39L29.1 53.3L7 16.7z" />
@@ -228,7 +228,7 @@ export function ResourceSidebar({
     {
       label: 'Coming Soon',
       href: '/coming-soon',
-      icon: <Clock className="h-8 w-8 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />,
+      icon: <Clock className="h-9 w-9 text-[var(--app-sidebar-icon)]" strokeWidth={1.4} />,
     },
     {
       label: 'Profile',
@@ -256,7 +256,7 @@ export function ResourceSidebar({
   return (
     <Sidebar open={open} setOpen={setOpen}>
       <SidebarBody className="justify-between gap-4">
-        <div className="flex flex-col flex-1 px-1 overflow-y-auto overflow-x-hidden">
+        <div className="flex flex-col flex-1 px-1 overflow-x-hidden">
           {/* Navigation Items */}
           <div className="mt-4 flex flex-col gap-0.5">
             {navigationItems.map((item) => (

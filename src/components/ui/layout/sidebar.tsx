@@ -168,12 +168,12 @@ export const SidebarLink = ({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center justify-start gap-3 group/sidebar py-3 px-3 transition-all duration-200 w-full text-left sidebar-button",
+        "flex items-center justify-start gap-3 group/sidebar py-3 px-3 transition-all duration-200 w-full text-left sidebar-button h-12",
         className
       )}
       {...props}
     >
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center">
         {link.icon}
       </div>
       <motion.span

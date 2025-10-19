@@ -6,6 +6,7 @@ export interface WindowApi {
   close: () => Promise<boolean>
   getWindowSize: () => Promise<{ width: number; height: number }>
   onWindowResize: (callback: (size: { width: number; height: number }) => void) => () => void
+  setBackgroundColor?: (color: string) => Promise<boolean>
 }
 
 export interface CredentialsApi {

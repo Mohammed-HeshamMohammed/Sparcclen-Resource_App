@@ -3,6 +3,7 @@ import { X, ExternalLink, Heart, Eye, Calendar, Tag as TagIcon, Copy, Check } fr
 import type { Resource } from '@/types';
 import { getThumbnailUrl, formatDate, cn } from '@/lib/utils';
 import { useEffect, useMemo, useState } from 'react';
+import * as viewsFavsService from '@/lib/services/viewsFavs';
 
 interface ResourceDetailModalProps {
   resource: Resource | null;
@@ -242,8 +243,7 @@ export function ResourceDetailModal({
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
-                      const svc = await import('@/lib/services/viewsFavs')
-                      void svc.upsertFromResource(resource, !resource.is_favorite)
+                      void viewsFavsService.upsertFromResource(resource, !resource.is_favorite)
                     } catch {}
                     onToggleFavorite(resource.id);
                   }}

@@ -3,6 +3,8 @@ import { ExternalLink, Heart, Eye } from 'lucide-react';
 import type { Resource } from '@/types';
 import { getThumbnailUrl, truncateText, cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
+import * as viewsFavsService from '@/lib/services/viewsFavs';
+import { addRecent } from '@/lib/services/recent';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -136,12 +138,10 @@ export function ResourceCard({
       )}
       onClick={async () => {
         try {
-          const vf = await import('@/lib/services/viewsFavs')
-          void vf.recordViewFromResource(resource)
+          void viewsFavsService.recordViewFromResource(resource)
         } catch (err) { console.warn('record view failed', err) }
         try {
-          const recent = await import('@/lib/services/recent')
-          recent.addRecent(user?.id ?? null, { id: resource.id, title: resource.title, url: resource.url })
+          addRecent(user?.id ?? null, { id: resource.id, title: resource.title, url: resource.url })
         } catch {}
         onOpen(resource)
       }}
@@ -191,8 +191,7 @@ export function ResourceCard({
             e.stopPropagation();
             // Update views_favs locally and remotely
             try {
-              const svc = await import('@/lib/services/viewsFavs')
-              void svc.upsertFromResource(resource, !resource.is_favorite)
+              void viewsFavsService.upsertFromResource(resource, !resource.is_favorite)
             } catch (err) { console.warn('fav toggle sync failed', err) }
             onToggleFavorite(resource.id);
           }}
