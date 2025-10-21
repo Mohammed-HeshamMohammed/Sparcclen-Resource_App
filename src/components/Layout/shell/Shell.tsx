@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ResourceSidebar, ResourceDetailModal } from '@/components/Resources';
+import { ResourceDetailModal } from '@/components/Resources';
+import { ResourceSidebar } from '@/components/Layout/sidebar';
 import { ImportPage } from '@/components/Resources/ImportPage';
 import { RoleManagement } from '@/components/Admin/RoleManagement';
 import { Dashboard } from '@/components/Dashboard';
@@ -269,7 +270,7 @@ export function Shell() {
     <div className="h-full flex flex-col relative bg-[#87CEEB] dark:bg-gray-800">
       <div className="flex-1 flex relative min-h-0">
         {isLoadingCategories ? (
-          <div className="w-[360px] flex-shrink-0">
+          <div className="w-[90px] flex-shrink-0">
             <SkeletonLoader type="sidebar" />
           </div>
         ) : (

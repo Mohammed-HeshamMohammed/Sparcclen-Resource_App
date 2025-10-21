@@ -55,7 +55,6 @@ export function WelcomeLoading({
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="text-center space-y-8 max-w-md mx-auto px-6"
       >
-        {/* Avatar */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -85,7 +84,6 @@ export function WelcomeLoading({
           </div>
         </motion.div>
 
-        {/* Welcome Message */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -105,7 +103,6 @@ export function WelcomeLoading({
           </motion.p>
         </motion.div>
 
-        {/* Loading Steps */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -123,7 +120,6 @@ export function WelcomeLoading({
             {steps[currentStep]}
           </motion.p>
 
-          {/* Progress Bar */}
           <div className="w-full max-w-xs mx-auto">
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <motion.div
@@ -144,7 +140,6 @@ export function WelcomeLoading({
           </div>
         </motion.div>
 
-        {/* Floating Elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(6)].map((_, i) => (
             <motion.div

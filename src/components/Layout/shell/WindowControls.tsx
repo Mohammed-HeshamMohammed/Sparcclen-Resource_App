@@ -98,14 +98,14 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
           <>
             {/* Arrow pointing to the dropdown top center */}
             <ArrowBigDown
-              className="absolute left-1/2 -translate-x-1/2 top-5 h-4 w-4 text-gray-300 dark:text-gray-700"
+              className="absolute left-1/2 -translate-x-1/2 top-14 h-4 w-4 text-gray-300 dark:text-gray-700"
               style={{
                 //@ts-expect-error - WebkitAppRegion is not in React CSSProperties; needed to keep arrow interactive in Electron
                 WebkitAppRegion: 'no-drag'
               }}
             />
             <div
-              className="absolute left-1/2 -translate-x-1/2 top-7 z-[100] min-w-[200px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3"
+              className="absolute left-1/2 -translate-x-1/2 top-20 z-[100] min-w-[200px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3"
               style={{
                 //@ts-expect-error - WebkitAppRegion is not in React CSSProperties; needed to allow dropdown interaction in Electron
                 WebkitAppRegion: 'no-drag'

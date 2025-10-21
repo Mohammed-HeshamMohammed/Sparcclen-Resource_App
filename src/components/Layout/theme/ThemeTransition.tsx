@@ -23,7 +23,6 @@ export function ThemeTransition({ isTransitioning, newTheme, onTransitionComplet
     onTransitionComplete();
   };
 
-  // Simple, clean theme colors
   const themeColors = {
     light: {
       from: '#ffffff',
@@ -49,7 +48,6 @@ export function ThemeTransition({ isTransitioning, newTheme, onTransitionComplet
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
         >
-          {/* Smooth expanding overlay */}
           <motion.div
             className="absolute inset-0"
             style={{
@@ -64,7 +62,6 @@ export function ThemeTransition({ isTransitioning, newTheme, onTransitionComplet
             onAnimationComplete={handleAnimationComplete}
           />
           
-          {/* Subtle accent ripple */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center"
             initial={{ opacity: 0, scale: 0 }}
@@ -84,7 +81,6 @@ export function ThemeTransition({ isTransitioning, newTheme, onTransitionComplet
             />
           </motion.div>
 
-          {/* Clean theme icon indicator */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center"
             initial={{ opacity: 0, scale: 0.5, rotate: -180 }}

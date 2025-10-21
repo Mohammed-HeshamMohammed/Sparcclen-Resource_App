@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import React, { useState, createContext, useContext } from "react";
+import React, { useState, useEffect, useRef, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
@@ -85,17 +85,45 @@ export const DesktopSidebar = ({
   ...props
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
+  const [ready, setReady] = useState(false);
+  const enterTimer = useRef<number | null>(null);
+  const leaveTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setReady(true), 800);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (enterTimer.current) window.clearTimeout(enterTimer.current);
+      if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (!ready) return;
+    if (leaveTimer.current) window.clearTimeout(leaveTimer.current);
+    enterTimer.current = window.setTimeout(() => setOpen(true), 140);
+  };
+
+  const handleMouseLeave = () => {
+    if (!ready) return;
+    if (enterTimer.current) window.clearTimeout(enterTimer.current);
+    leaveTimer.current = window.setTimeout(() => setOpen(false), 240);
+  };
   return (
     <motion.div
       className={cn(
         "h-full px-5 py-5 hidden md:flex md:flex-col app-sidebar-surface w-[420px] flex-shrink-0",
         className
       )}
+      initial={false}
       animate={{
         width: animate ? (open ? "420px" : "90px") : "420px",
       }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       {...props}
     >
       {children}

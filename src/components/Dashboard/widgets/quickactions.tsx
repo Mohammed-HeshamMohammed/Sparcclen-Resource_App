@@ -1,4 +1,4 @@
-import { LibraryIcon as SidebarLibraryIcon, ImportIcon as SidebarImportIcon, ProfileIcon as SidebarProfileIcon, SettingsIcon as SidebarSettingsIcon, RoleManagementIcon as SidebarRoleIcon } from '@/components/Resources/sidebar/ResourceSidebar'
+import { LibraryIcon as SidebarLibraryIcon, ImportIcon as SidebarImportIcon, ProfileIcon as SidebarProfileIcon, SettingsIcon as SidebarSettingsIcon, RoleManagementIcon as SidebarRoleIcon } from '@/components/Layout/sidebar'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/lib/contexts/ProfileContext'
 
@@ -40,7 +40,7 @@ export function QuickActions({ onOpenLibrary, onOpenImports, onOpenProfile, onOp
         {canManageRoles && (
           <button onClick={onOpenRoles} className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--app-sidebar-bg)] text-[var(--app-sidebar-text)] hover:brightness-105 transition-all shadow-sm">
             <SidebarRoleIcon />
-            <span className="font-medium">Role Management</span>
+            <span className="font-medium">Mangament</span>
           </button>
         )}
       </div>

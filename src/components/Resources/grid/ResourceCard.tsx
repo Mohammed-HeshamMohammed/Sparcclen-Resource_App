@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 import { ExternalLink, Heart, Eye } from 'lucide-react';
 import type { Resource } from '@/types';
 import { getThumbnailUrl, truncateText, cn } from '@/lib/utils';
@@ -15,7 +16,7 @@ interface ResourceCardProps {
   className?: string;
 }
 
-export function ResourceCard({
+export const ResourceCard = memo(function ResourceCard({
   resource,
   onOpen,
   onToggleFavorite,
@@ -258,4 +259,4 @@ export function ResourceCard({
       </div>
     </motion.div>
   );
-}
+})

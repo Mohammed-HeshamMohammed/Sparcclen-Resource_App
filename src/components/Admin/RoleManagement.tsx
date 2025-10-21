@@ -292,7 +292,7 @@ export function RoleManagement() {
   if (!hasAdminApi) {
     return (
       <div className="p-8">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Role Management</h2>
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Mangament</h2>
         <p className="text-yellow-600 dark:text-yellow-400">
           Admin API is not configured. Set SUPABASE_SERVICE_ROLE_KEY in the environment to enable this page.
         </p>
@@ -303,7 +303,7 @@ export function RoleManagement() {
   if (!['CEO', 'Admin'].includes(String(myRole))) {
     return (
       <div className="p-8">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Role Management</h2>
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Mangament</h2>
         <p className="text-gray-600 dark:text-gray-400">
           You need Admin or CEO role to access Role Management.
         </p>
@@ -320,7 +320,7 @@ export function RoleManagement() {
     >
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Role Management</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Mangament</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Manage user access levels across Sparcclen.
           </p>
@@ -334,6 +334,7 @@ export function RoleManagement() {
         <div className="text-gray-600 dark:text-gray-400">Loading users...</div>
       ) : (
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-950">
+          <div className="px-6 py-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Role Management</div>
           <div className="hidden md:grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(240px,1fr)] items-center gap-4 px-6 py-3 bg-gray-50 dark:bg-gray-900/50 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
             <span className="text-left">User</span>
             <span className="text-left">Email</span>
@@ -458,6 +459,11 @@ export function RoleManagement() {
           </div>
         </div>
       )}
+
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-950">
+        <div className="px-6 py-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Data Managemnt</div>
+        <div className="px-6 py-5 text-sm text-gray-600 dark:text-gray-400">Coming soon</div>
+      </div>
 
       <div className="text-xs text-gray-500 dark:text-gray-400">
         Notes: Avatars for other users are end-to-end encrypted and not accessible to admins; a placeholder is shown. Ensure SUPABASE_SERVICE_ROLE_KEY is set in Electron main.

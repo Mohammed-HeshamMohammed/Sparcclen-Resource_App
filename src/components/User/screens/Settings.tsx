@@ -58,13 +58,11 @@ export function Settings() {
 
   return (
     <div className="h-full app-page-surface flex flex-col">
-      {/* Settings Header */}
       <div className="px-6 py-6 flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
         <p className="text-gray-600 dark:text-gray-400">Manage your preferences and account settings</p>
       </div>
 
-      {/* Settings Content - Scrollable */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         <div className="max-w-4xl mx-auto px-6 py-8">
           <motion.div
@@ -73,7 +71,6 @@ export function Settings() {
             transition={{ duration: 0.5 }}
             className="space-y-6"
           >
-            {/* Appearance */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Palette className="h-5 w-5 text-gray-600 dark:text-gray-400" />
@@ -106,7 +103,6 @@ export function Settings() {
               </div>
             </div>
 
-            {/* Notifications */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Bell className="h-5 w-5 text-gray-600 dark:text-gray-400" />
@@ -174,7 +170,6 @@ export function Settings() {
               </div>
             </div>
 
-            {/* Privacy */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Shield className="h-5 w-5 text-gray-600 dark:text-gray-400" />
@@ -218,7 +213,6 @@ export function Settings() {
               </div>
             </div>
 
-            {/* Data Management */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Trash2 className="h-5 w-5 text-gray-600 dark:text-gray-400" />

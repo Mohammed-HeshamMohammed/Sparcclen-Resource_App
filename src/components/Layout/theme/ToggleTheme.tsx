@@ -43,7 +43,6 @@ export function ToggleTheme() {
     setIsMounted(true);
   }, []);
 
-  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
@@ -73,12 +72,10 @@ export function ToggleTheme() {
       return;
     }
     
-    // Record this switch attempt
     recordSwitch((_remainingTime) => {
       showTooltipMessage("Too many switches! 60s cooldown activated", 3000);
     });
     
-    // Allow the theme change
     setTheme(newTheme);
   };
   if (!isMounted) {
@@ -126,7 +123,6 @@ export function ToggleTheme() {
         </button>
       ))}
 
-      {/* Rate Limit Tooltip */}
       <AnimatePresence>
         {showTooltip && (
           <motion.div
@@ -144,7 +140,6 @@ export function ToggleTheme() {
             )}>
               <div className="relative">
                 {tooltipMessage}
-                {/* Arrow pointing down */}
                 <div className="absolute top-full left-1/2 transform -translate-x-1/2">
                   <div className={cn(
                     "w-2 h-2 rotate-45 border-r border-b",

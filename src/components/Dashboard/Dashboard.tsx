@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { DashboardHeader } from './sections/DashboardHeader'
 import { ChartsRow } from './sections/ChartsRow'
@@ -396,12 +396,12 @@ export function Dashboard({
     }
   }, [user?.id, recentHydrated]);
 
-  const sortedUsers = users.slice().sort((a, b) => {
+  const sortedUsers = useMemo(() => users.slice().sort((a, b) => {
     const rolePriority = { 'CEO': 4, 'Admin': 3, 'Premium': 2, 'Free': 1 };
     const aPriority = rolePriority[a.role as keyof typeof rolePriority] || 0;
     const bPriority = rolePriority[b.role as keyof typeof rolePriority] || 0;
     return bPriority - aPriority;
-  });
+  }), [users]);
 
   const fallbackSubcategoriesCount = categories.reduce((sum, c) => sum + (c.subcategories?.length || 0), 0)
   void fallbackSubcategoriesCount
@@ -448,10 +448,12 @@ export function Dashboard({
     } catch {}
   }
 
-  const recentResources = recentItems
-    .slice(0, 4)
-    .map(item => allResources.find(r => r.id === item.id))
-    .filter((res): res is Resource => res !== undefined)
+  const recentResources = useMemo(() =>
+    recentItems
+      .slice(0, 4)
+      .map(item => allResources.find(r => r.id === item.id))
+      .filter((res): res is Resource => res !== undefined)
+  , [recentItems, allResources])
 
   const showRecentSkeleton = !recentHydrated && isLoadingRecent && recentResources.length === 0
 
@@ -519,7 +521,7 @@ export function Dashboard({
           userAvatars={userAvatars}
           currentUserEmail={user?.email}
           profileAccountType={profile?.accountType as unknown as (string | null | undefined)}
-          onSelectUser={(u) => setSelectedUser(u)}
+          onSelectUser={useCallback((u) => setSelectedUser(u), [])}
         />
       </div>
       <UserProfileModal
