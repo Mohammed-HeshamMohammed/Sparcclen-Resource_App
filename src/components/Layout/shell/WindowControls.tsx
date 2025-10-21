@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ToggleTheme } from '../theme/ToggleTheme'
 import { useThemeRateLimit } from '@/hooks/useThemeRateLimit'
+import { ArrowBigDown } from 'lucide-react'
 
 interface WindowControlsProps {
   className?: string
@@ -11,6 +12,7 @@ interface WindowControlsProps {
 export function WindowControls({ className, isMaximized: _isMaximized, onMaximizeToggle }: WindowControlsProps) {
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true)
   const { isCooldownActive, remainingCooldownTime } = useThemeRateLimit()
+  const [isPointerOpen, setIsPointerOpen] = useState(false)
 
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine)
@@ -78,6 +80,41 @@ export function WindowControls({ className, isMaximized: _isMaximized, onMaximiz
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
+      <div className="relative">
+        <button
+          onClick={() => setIsPointerOpen(v => !v)}
+          className="inline-flex items-center justify-center size-8 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+          style={{
+            //@ts-expect-error - WebkitAppRegion is not in React CSSProperties; needed to make menu button non-draggable in Electron
+            WebkitAppRegion: 'no-drag'
+          }}
+          aria-haspopup="true"
+          aria-expanded={isPointerOpen}
+          title="Open menu"
+        >
+          <ArrowBigDown className="h-5 w-5" />
+        </button>
+        {isPointerOpen && (
+          <>
+            {/* Arrow pointing to the dropdown top center */}
+            <ArrowBigDown
+              className="absolute left-1/2 -translate-x-1/2 top-5 h-4 w-4 text-gray-300 dark:text-gray-700"
+              style={{
+                //@ts-expect-error - WebkitAppRegion is not in React CSSProperties; needed to keep arrow interactive in Electron
+                WebkitAppRegion: 'no-drag'
+              }}
+            />
+            <div
+              className="absolute left-1/2 -translate-x-1/2 top-7 z-[100] min-w-[200px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3"
+              style={{
+                //@ts-expect-error - WebkitAppRegion is not in React CSSProperties; needed to allow dropdown interaction in Electron
+                WebkitAppRegion: 'no-drag'
+              }}
+            >
+            </div>
+          </>
+        )}
+      </div>
       {/* Network status indicator with cooldown display */}
       <div className="flex items-center">
         <span

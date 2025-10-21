@@ -6,6 +6,7 @@ import { supabase } from '@/lib/services'
 import { saveWrite, readSave } from '@/lib/system/saveClient'
 import { avatarService } from '@/lib/services'
 import { saveEncryptedProfileLocal } from '@/lib/services'
+import { normalizeToDataUrl } from '@/lib/utils/dataUrl'
 
 type SupabaseUpdateClient = {
   from: (table: string) => {
@@ -112,6 +113,18 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             if (avatarUrl) {
               setProfile(prev => ({ ...prev, avatarUrl }))
             }
+            // Load cached cover immediately (same offline-first behavior as avatar)
+            try {
+              if (typeof localStorage !== 'undefined') {
+                const cached = localStorage.getItem('cover_cache:' + mail)
+                if (cached) {
+                  const parsed = JSON.parse(cached) as { dataUrl?: string; timestamp?: number }
+                  if (parsed?.dataUrl) {
+setProfile(prev => ({ ...prev, coverUrl: parsed.dataUrl || null }))
+                  }
+                }
+              }
+            } catch {}
           }
 
           // Mark initial load as complete - user sees their data now
@@ -135,6 +148,30 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             const password = await getOrCreateProfileKey(mail)
             const fetched = await fetchProfileDecrypted(password)
             
+            if (!fetched.ok) {
+              // Public fallback: try to read unencrypted fields even if decryption failed
+              try {
+                const publicRes = await supabase
+                  .from('profiles')
+                  .select('cover_public, bio_public')
+                  .eq('user_id', user.id)
+                  .maybeSingle()
+                const publicError = publicRes.error
+                const publicData = publicRes.data as { cover_public: string | null; bio_public: string | null } | null
+                // Normalize cover payload to a data URL for the UI
+                
+                if (!publicError && publicData) {
+                  setProfile(prev => ({
+                    ...prev,
+                    coverUrl: normalizeToDataUrl(publicData.cover_public) ?? prev.coverUrl ?? null,
+                    bio: publicData.bio_public ?? prev.bio ?? null,
+                  }))
+                }
+              } catch (publicError) {
+                console.warn('Failed to load public profile data:', publicError)
+              }
+            }
+
             if (fetched.ok) {
               // Update with fresh online data
               setProfile(prev => ({
@@ -166,11 +203,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 const publicData = publicRes.data as { cover_public: string | null; bio_public: string | null } | null
                 
                 if (!publicError && publicData) {
-                  // Use public data directly since it's now stored unencrypted
                   setProfile(prev => ({
                     ...prev,
-                    coverUrl: publicData.cover_public ?? fetched.data.cover ?? null,
-                    bio: publicData.bio_public ?? fetched.data.bio ?? null,
+                    coverUrl: normalizeToDataUrl(publicData.cover_public) ?? fetched.data.cover ?? prev.coverUrl ?? null,
+                    bio: publicData.bio_public ?? fetched.data.bio ?? prev.bio ?? null,
                   }))
                 }
               } catch (publicError) {
@@ -191,10 +227,29 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 }
               } catch {}
             } else if (fetched.error === 'Profile not found') {
+              // Even if decryption failed for other reasons, still try to load public fields
+              try {
+                const publicRes = await supabase
+                  .from('profiles')
+                  .select('cover_public, bio_public')
+                  .eq('user_id', user.id)
+                  .maybeSingle()
+                const publicError = publicRes.error
+                const publicData = publicRes.data as { cover_public: string | null; bio_public: string | null } | null
+                if (!publicError && publicData) {
+                  setProfile(prev => ({
+                    ...prev,
+                    coverUrl: normalizeToDataUrl(publicData.cover_public) ?? prev.coverUrl ?? null,
+                    bio: publicData.bio_public ?? prev.bio ?? null,
+                  }))
+                }
+              } catch (publicError) {
+                console.warn('Failed to load public profile data:', publicError)
+              }
               // Check if profile row exists but fetch failed due to missing picture_enc or other fields
               const { data: existingRow } = await supabase
                 .from('profiles')
-                .select('picture_enc')
+                .select('user_id')
                 .eq('user_id', user.id)
                 .maybeSingle()
 
@@ -353,11 +408,36 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     await saveProfileEncrypted(profileData, password, true)
     void saveEncryptedProfileLocal(profileData as Required<typeof profileData>, user.email, password)
 
-    // Update public column with unencrypted data
+    // Update public column with unencrypted data (store as base64 JSON)
     try {
+      let payload: string | null = null
+      if (dataUrl) {
+        try {
+          // Convert data URL to base64 + mime
+          const res = await fetch(dataUrl)
+          const blobToStore = await res.blob()
+          const buf = await blobToStore.arrayBuffer()
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+          payload = JSON.stringify({ mime: blobToStore.type || 'image/jpeg', b64 })
+        } catch {
+          // Fallback: if 'dataUrl' is already a data URL, strip header; otherwise assume raw base64
+          let b64 = dataUrl
+          let mimeType = 'image/jpeg'
+          try {
+            if (typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+              const comma = dataUrl.indexOf(',')
+              const header = dataUrl.substring(5, comma) // e.g., "image/png;base64"
+              const [mt] = header.split(';')
+              if (mt) mimeType = mt
+              b64 = dataUrl.substring(comma + 1)
+            }
+          } catch {}
+          payload = JSON.stringify({ mime: mimeType, b64 })
+        }
+      }
       const { error } = await (supabase as unknown as SupabaseUpdateClient)
         .from('profiles')
-        .update({ cover_public: dataUrl })
+        .update({ cover_public: payload })
         .eq('user_id', user.id)
       
       if (error) {
@@ -366,6 +446,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.warn('Could not update public cover field:', error)
     }
+
+    // Cache cover locally to mirror avatar offline-first behavior
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('cover_cache:' + user.email, JSON.stringify({ dataUrl, timestamp: Date.now() }))
+      }
+    } catch {}
 
     setProfile(prev => ({ ...prev, coverUrl: dataUrl }))
   }

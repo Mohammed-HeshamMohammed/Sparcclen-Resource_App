@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { normalizeToDataUrl } from '@/lib/utils/dataUrl'
 
 interface ProfileCoverProps {
   coverUrl?: string | null;
@@ -7,6 +8,7 @@ interface ProfileCoverProps {
 }
 
 export function ProfileCover({ coverUrl, onCoverClick, canEdit }: ProfileCoverProps) {
+  const safeCoverUrl = normalizeToDataUrl(coverUrl)
   return (
     <motion.div
       className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 relative cursor-pointer overflow-hidden"
@@ -22,10 +24,10 @@ export function ProfileCover({ coverUrl, onCoverClick, canEdit }: ProfileCoverPr
         maxHeight: '24rem', // Maximum height (h-96 equivalent)
       }}
     >
-      {coverUrl && (
+      {safeCoverUrl && (
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <img 
-            src={coverUrl} 
+            src={safeCoverUrl} 
             alt="Profile cover" 
             className="w-full h-full object-cover transition-all duration-300 ease-out"
             style={{

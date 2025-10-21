@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { ExternalLink, Heart, Eye } from 'lucide-react';
 import type { Resource } from '@/types';
 import { getThumbnailUrl, truncateText, cn } from '@/lib/utils';
+import { normalizeToDataUrl } from '@/lib/utils/dataUrl';
 import { useAuth } from '@/lib/auth';
 import * as viewsFavsService from '@/lib/services/viewsFavs';
 import { addRecent } from '@/lib/services/recent';
@@ -29,6 +30,18 @@ export function ResourceCard({
   const isGradient = Boolean(classification && classification.toLowerCase().includes('gradient'));
   const isColorResource = resource.colors && resource.colors.length > 0;
   
+  const toDataUrlMaybe = (value: unknown): string | null => {
+    if (typeof value !== 'string' || value.trim().length === 0) return null;
+    const s = value.trim();
+    if (s.startsWith('data:')) {
+      // Accept only proper base64 payloads after 'base64,'
+      const m = s.match(/^data:[^;]+;base64,([A-Za-z0-9+/=]+)$/);
+      return m ? s : null;
+    }
+    if (/^https?:\/\//i.test(s)) return null;
+    try { return normalizeToDataUrl(s); } catch { return null; }
+  };
+
   // Get main card image (screen or screenshot, but not thumbnail)
   const getMainCardImage = () => {
     if (!resource.metadata) return null;
@@ -40,15 +53,13 @@ export function ResourceCard({
     for (const field of imageFields) {
       // Check direct metadata field first
       let imageData = meta[field]
-      if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
-        return imageData
-      }
+      const normalized = toDataUrlMaybe(imageData);
+      if (normalized) return normalized;
       
       // Check nested in original object
       imageData = meta.original?.[field]
-      if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
-        return imageData
-      }
+      const normalizedOrig = toDataUrlMaybe(imageData);
+      if (normalizedOrig) return normalizedOrig;
     }
     return null;
   };
@@ -58,15 +69,13 @@ export function ResourceCard({
     const meta = (resource.metadata ?? {}) as { [k: string]: unknown; original?: { [k: string]: unknown } }
     // Check direct metadata field first
     let thumbnailData = meta['thumbnail']
-    if (typeof thumbnailData === 'string' && thumbnailData.startsWith('data:image/')) {
-      return thumbnailData as string
-    }
+    const normalized = toDataUrlMaybe(thumbnailData);
+    if (normalized) return normalized;
     
     // Check nested in original object
     thumbnailData = meta.original?.['thumbnail']
-    if (typeof thumbnailData === 'string' && thumbnailData.startsWith('data:image/')) {
-      return thumbnailData as string
-    }
+    const normalizedOrig = toDataUrlMaybe(thumbnailData);
+    if (normalizedOrig) return normalizedOrig;
     
     return null;
   };
@@ -74,18 +83,7 @@ export function ResourceCard({
   const mainCardImage = getMainCardImage();
   const thumbnailImage = getThumbnailImage();
   const hasEmbeddedThumbnail = Boolean(thumbnailImage);
-  
 
-  const handleOpenUrl = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (resource.url && typeof window !== 'undefined' && window.api?.resources) {
-      try {
-        await window.api.resources.openExternal(resource.url);
-      } catch (error) {
-        console.error('Failed to open URL:', error);
-      }
-    }
-  };
 
   // Variant-specific styling
   const getVariantClasses = () => {
@@ -104,7 +102,7 @@ export function ResourceCard({
         return {
           container: 'h-full flex flex-col',
           image: 'flex-[2] min-h-0',
-          content: 'p-2 flex-shrink-0',
+          content: 'p-2 flex-shrink-0 h-20',
           title: 'text-sm font-semibold',
           description: 'text-xs',
           showDescription: false,
@@ -208,14 +206,14 @@ export function ResourceCard({
         </button>
       </div>
 
-      <div className={variantClasses.content}>
-        <div className="flex items-center gap-2 mb-1">
+      <div className={cn(variantClasses.content, 'flex flex-col justify-between')}>
+        <div className="flex items-center gap-2 mb-1 min-h-[28px]">
           {hasEmbeddedThumbnail && (
             <div className="flex-shrink-0">
               <img
                 src={thumbnailImage!}
                 alt="thumbnail"
-                className="w-8 h-8 rounded object-cover border border-gray-200 dark:border-gray-700"
+                className="w-10 h-10 rounded object-cover"
                 loading="lazy"
               />
             </div>
@@ -232,7 +230,7 @@ export function ResourceCard({
         )}
 
         <div className="flex items-center justify-between mt-auto">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 max-h-8 overflow-hidden items-start">
             {resource.tags?.slice(0, variantClasses.maxTags).map((tag) => (
               <span
                 key={tag.id}
@@ -249,17 +247,6 @@ export function ResourceCard({
           </div>
 
           <div className="flex items-center gap-2">
-            {resource.url && (
-              <button
-                onClick={handleOpenUrl}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors duration-200"
-                title="Open in browser"
-              >
-                <ExternalLink className="h-3 w-3" />
-                <span>Open</span>
-              </button>
-            )}
-            
             {resource.view_count > 0 && variant !== 'small' && (
               <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-500">
                 <Eye className="h-3 w-3" />

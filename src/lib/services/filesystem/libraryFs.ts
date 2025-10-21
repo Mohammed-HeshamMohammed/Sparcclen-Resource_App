@@ -50,10 +50,15 @@ export async function listLibraryBinFiles(options?: {
     return [];
   }
 
-  const response = await window.api.resources.listLibraryBins({
-    category: options?.categorySegment ?? null,
-    subcategory: options?.subcategorySegment ?? null,
-  });
+  const payload: Record<string, string> = {};
+  if (options?.categorySegment && typeof options.categorySegment === 'string') {
+    payload.category = options.categorySegment;
+  }
+  if (options?.subcategorySegment && typeof options.subcategorySegment === 'string') {
+    payload.subcategory = options.subcategorySegment;
+  }
+
+  const response = await window.api.resources.listLibraryBins(payload);
 
   if (!response?.ok || !Array.isArray(response.files)) {
     return [];
@@ -185,6 +190,10 @@ export function buildLibraryResources(files: LibraryBinFile[]): Resource[] {
       const url = typeof item.url === 'string' ? item.url : null;
       const classification =
         typeof item.classification === 'string' ? item.classification : null;
+      const platform =
+        typeof (item as Record<string, unknown>).platform === 'string'
+          ? ((item as Record<string, unknown>).platform as string)
+          : null;
 
       const colors = Array.isArray(item.colors)
         ? (item.colors as unknown[]).filter((value): value is string => typeof value === 'string')
@@ -220,6 +229,7 @@ export function buildLibraryResources(files: LibraryBinFile[]): Resource[] {
         colors: colors.length > 0 ? colors : null,
         metadata: {
           classification,
+          platform,
           sourceFile: file.fileName,
           categorySegment,
           subcategorySegment,

@@ -11,7 +11,7 @@ import type { Category, Resource } from '@/types';
 import { incrementViewCount } from '@/lib/services';
 import * as viewsFavsService from '@/lib/services/viewsFavs';
 import { useLibraryData } from '@/components/Resources/library/useLibraryData';
-import { useDashboardData } from '@/components/Dashboard/useDashboardData';
+import { useDashboardData } from '@/components/Dashboard/hooks/useDashboardData';
 import { useAuth } from '@/lib/auth';
 import { LibraryView } from '@/components/Resources/library/LibraryView';
 
@@ -28,10 +28,12 @@ export function Shell() {
     resources,
     availableClassifications,
     availableTags,
+    availablePlatforms,
     activeCategory,
     activeSubcategory,
     classificationFilter,
     tagFilter,
+    platformFilter,
     searchQuery,
     favoritesOnly,
     isLoading,
@@ -42,6 +44,7 @@ export function Shell() {
     clearCategorySelection,
     applyClassificationFilter,
     applyTagFilter,
+    applyPlatformFilter,
     patchResourceLocally,
     updateFavoriteLocally,
   } = useLibraryData({
@@ -65,7 +68,7 @@ export function Shell() {
     if (!user?.id) return;
     try {
       // Find the resource from either Library or Dashboard datasets
-      const resObj = resources.find(r => r.id === resourceId) || dashResources.find(r => r.id === resourceId) || null;
+      const resObj = resources.find((r: Resource) => r.id === resourceId) || dashResources.find((r: Resource) => r.id === resourceId) || null;
       const nextFav = resObj ? !resObj.is_favorite : true;
       try {
         // Persist to local file (Documents/Sparcclen via preload) and Supabase
@@ -138,6 +141,7 @@ export function Shell() {
     clearCategorySelection();
     applyClassificationFilter(null);
     applyTagFilter(null);
+    applyPlatformFilter(null);
     setSearchQuery('');
     setFavoritesOnly(false);
   };
@@ -194,6 +198,7 @@ export function Shell() {
     setFavoritesOnly(false);
     applyClassificationFilter(null);
     applyTagFilter(null);
+    applyPlatformFilter(null);
   };
 
   const handleToggleFavoritesView = () => {
@@ -289,10 +294,12 @@ export function Shell() {
               resources={resources}
               availableClassifications={availableClassifications}
               availableTags={availableTags}
+              availablePlatforms={availablePlatforms}
               activeCategory={activeCategory}
               activeSubcategory={activeSubcategory}
               classificationFilter={classificationFilter}
               tagFilter={tagFilter}
+              platformFilter={platformFilter}
               searchQuery={searchQuery}
               favoritesOnly={favoritesOnly}
               isLoading={isLoading}
@@ -302,9 +309,11 @@ export function Shell() {
                 clearCategorySelection();
                 applyClassificationFilter(null);
                 applyTagFilter(null);
+                applyPlatformFilter(null);
               }}
               onClassificationChange={applyClassificationFilter}
               onTagChange={applyTagFilter}
+              onPlatformChange={applyPlatformFilter}
               onOpenResource={handleOpenResource}
               onToggleFavorite={handleToggleFavorite}
               onToggleFavoritesView={handleToggleFavoritesView}

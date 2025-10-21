@@ -28,6 +28,15 @@ export function SkeletonLoader({ type = 'card', count = 6 }: SkeletonLoaderProps
     },
   }
 
+  const Shimmer = () => (
+    <motion.div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent dark:via-white/10"
+      animate={{ x: ['-100%', '100%'] }}
+      transition={{ repeat: Infinity, duration: 1.6, ease: 'linear' }}
+    />
+  )
+
   if (type === 'sidebar') {
     return (
       <motion.div
@@ -65,16 +74,35 @@ export function SkeletonLoader({ type = 'card', count = 6 }: SkeletonLoaderProps
         initial="hidden"
         animate="visible"
         className="grid gap-4 p-6"
-        style={{
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        }}
+        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
       >
         {Array.from({ length: count }).map((_, i) => (
-          <motion.div
-            key={i}
-            variants={itemVariants}
-            className="h-48 bg-gray-200 dark:bg-gray-800 rounded-lg"
-          />
+          <motion.div key={i} variants={itemVariants} className="relative rounded-2xl border border-white/15 bg-white/60 dark:bg-gray-900/40 dark:border-gray-700/40 overflow-hidden shadow-sm">
+            <div className="relative h-44 bg-gray-200/80 dark:bg-gray-800/80">
+              <Shimmer />
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="relative h-10 w-10 rounded bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                  <Shimmer />
+                </div>
+                <div className="relative h-3 w-2/3 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                  <Shimmer />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="relative h-5 w-16 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                  <Shimmer />
+                </div>
+                <div className="relative h-5 w-10 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                  <Shimmer />
+                </div>
+                <div className="relative h-5 w-14 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                  <Shimmer />
+                </div>
+              </div>
+            </div>
+          </motion.div>
         ))}
       </motion.div>
     )
@@ -82,21 +110,34 @@ export function SkeletonLoader({ type = 'card', count = 6 }: SkeletonLoaderProps
 
   // Default card type
   return (
-    <motion.div
-      variants={skeletonVariants}
-      initial="hidden"
-      animate="visible"
-      className="grid gap-4 p-6"
-      style={{
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-      }}
-    >
+    <motion.div variants={skeletonVariants} initial="hidden" animate="visible" className="grid gap-4 p-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
       {Array.from({ length: count }).map((_, i) => (
-        <motion.div
-          key={i}
-          variants={itemVariants}
-          className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg"
-        />
+        <motion.div key={i} variants={itemVariants} className="relative rounded-2xl border border-white/15 bg-white/60 dark:bg-gray-900/40 dark:border-gray-700/40 overflow-hidden shadow-sm">
+          <div className="relative h-48 bg-gray-200/80 dark:bg-gray-800/80">
+            <Shimmer />
+          </div>
+          <div className="p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="relative h-10 w-10 rounded bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                <Shimmer />
+              </div>
+              <div className="relative h-3 w-2/3 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                <Shimmer />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative h-5 w-16 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                <Shimmer />
+              </div>
+              <div className="relative h-5 w-10 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                <Shimmer />
+              </div>
+              <div className="relative h-5 w-14 rounded-full bg-gray-200/80 dark:bg-gray-800/80 overflow-hidden">
+                <Shimmer />
+              </div>
+            </div>
+          </div>
+        </motion.div>
       ))}
     </motion.div>
   )

@@ -14,6 +14,16 @@ interface UserPublicProfile {
   ts: number;
 }
 
+export async function loadDashboardCacheStale(userId: string): Promise<DashboardCacheData | null> {
+  try {
+    const raw = await readCacheRaw(userId)
+    if (!raw) return null
+    return raw as DashboardCacheData
+  } catch {
+    return null
+  }
+}
+
 interface DashboardCacheData {
   users: Array<{
     id: string;

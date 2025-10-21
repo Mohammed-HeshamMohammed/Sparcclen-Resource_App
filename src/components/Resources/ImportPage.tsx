@@ -12,6 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { notify } from '@/lib/toast';
+import { normalizeToDataUrl } from '@/lib/utils/dataUrl';
 
 type CategoryType = 'ai-and-ml' | 'web-and-design' | 'rnd' | 'studying' | 'tools';
 type SubcategoryType = string;
@@ -183,25 +184,30 @@ export function ImportPage() {
     const imageFields = ['screen', 'screenshot', 'thumbnail'];
     
     for (const field of imageFields) {
-      const imagePath = entry[field];
-      if (typeof imagePath === 'string' && imagePath.trim()) {
-        try {
-          if (!window.api?.resources?.readImageAsBase64) {
-            console.warn(`Image processing not available for ${imagePath}`);
-            continue;
-          }
-          const imageResult = await window.api.resources.readImageAsBase64(sourceDir, imagePath);
-          if (imageResult.ok && imageResult.base64Data && imageResult.mimeType) {
-            // Replace the path with base64 data URL
-            processedEntry[field] = `data:${imageResult.mimeType};base64,${imageResult.base64Data}`;
-          } else {
-            console.warn(`Failed to load image ${imagePath}:`, imageResult.error);
-            // Keep the original path if image loading fails
-          }
-        } catch (error) {
-          console.warn(`Error processing image ${imagePath}:`, error);
-          // Keep the original path if there's an error
+      const raw = entry[field];
+      if (typeof raw !== 'string' || !raw.trim()) continue;
+
+      // 1) If incoming value already looks like base64/JSON data, normalize like Profile cover
+      const normalized = normalizeToDataUrl(raw);
+      if (normalized) {
+        processedEntry[field] = normalized;
+        continue;
+      }
+
+      // 2) Otherwise, treat as a file path and try to embed as data URL via preload
+      try {
+        if (!window.api?.resources?.readImageAsBase64) {
+          console.warn(`Image processing not available for ${raw}`);
+          continue;
         }
+        const imageResult = await window.api.resources.readImageAsBase64(sourceDir, raw);
+        if (imageResult?.ok && imageResult.base64Data && imageResult.mimeType) {
+          processedEntry[field] = `data:${imageResult.mimeType};base64,${imageResult.base64Data}`;
+        } else {
+          console.warn(`Failed to load image ${raw}:`, imageResult?.error);
+        }
+      } catch (error) {
+        console.warn(`Error processing image ${raw}:`, error);
       }
     }
     

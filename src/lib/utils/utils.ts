@@ -6,8 +6,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getThumbnailUrl(url: string): string {
-  // Simple thumbnail generation - you can enhance this with a service like Cloudinary
-  return url
+  const trimmed = (url ?? '').trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('data:')) return trimmed
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return ''
 }
 
 export function truncateText(text: string, maxLength: number): string {

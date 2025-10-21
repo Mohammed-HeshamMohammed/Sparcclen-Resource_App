@@ -17,6 +17,9 @@ interface FiltersTapProps {
   tagOptions: string[]
   activeTag: string | null
   onTagChange: (value: string | null) => void
+  platformOptions?: string[]
+  activePlatform?: string | null
+  onPlatformChange?: (value: string | null) => void
   isLoading?: boolean
 }
 
@@ -62,7 +65,7 @@ function SelectFilter({
     const baseColumnWidth = 160
     const gapWidth = 12
     const paddingAllowance = 32
-    const defaultWidth = 280
+    const defaultWidth = 240
     const desiredWidth =
       menuWidth ??
       (menuColumns
@@ -164,7 +167,7 @@ function SelectFilter({
   return (
     <div
       ref={containerRef}
-      className="relative flex min-w-[220px] flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+      className="relative flex min-w-[200px] sm:min-w-[220px] flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
     >
       <span>{label}</span>
       <button
@@ -172,7 +175,7 @@ function SelectFilter({
         disabled={disabled}
         onClick={handleToggle}
         className={cn(
-          'flex w-full items-center justify-between rounded-full border border-white/25 bg-white/45 px-4 py-2 text-sm text-left text-gray-800 shadow-sm backdrop-blur-2xl transition focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700/60 dark:bg-gray-900/45 dark:text-white dark:focus:border-blue-400',
+          'flex w-full items-center justify-between rounded-full border border-white/25 bg-white/45 px-3 py-1.5 text-sm text-left text-gray-800 shadow-sm backdrop-blur-2xl transition focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700/60 dark:bg-gray-900/45 dark:text-white dark:focus:border-blue-400',
         )}
       >
         <span className="truncate capitalize">{displayLabel}</span>
@@ -294,9 +297,13 @@ export function FiltersTap({
   tagOptions,
   activeTag,
   onTagChange,
+  platformOptions = [],
+  activePlatform = null,
+  onPlatformChange,
   isLoading = false,
 }: FiltersTapProps) {
-  const showSecondaryFilters = classificationOptions.length > 0 || tagOptions.length > 0
+  const showSecondaryFilters =
+    classificationOptions.length > 0 || tagOptions.length > 0 || platformOptions.length > 0
 
   return (
     <div className="w-full rounded-3xl border border-white/20 bg-white/10 px-6 py-5 backdrop-blur-xl shadow-sm dark:border-gray-700/60 dark:bg-gray-900/40">
@@ -312,15 +319,27 @@ export function FiltersTap({
         </div>
 
         {showSecondaryFilters && (
-          <div className="flex flex-wrap items-center justify-end gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <SelectFilter
               label="Classification"
-              options={classificationOptions}
+              options={classificationOptions.filter(opt => opt.toLowerCase() !== 'fonts')}
               value={activeClassification}
               onChange={onClassificationChange}
               disabled={isLoading}
               menuColumns={2}
+              menuWidth={260}
             />
+            {platformOptions.length > 0 && (
+              <SelectFilter
+                label="Platform"
+                options={platformOptions}
+                value={activePlatform}
+                onChange={value => onPlatformChange?.(value)}
+                disabled={isLoading}
+                menuColumns={2}
+                menuWidth={260}
+              />
+            )}
             <SelectFilter
               label="Tags"
               options={tagOptions}
@@ -328,6 +347,7 @@ export function FiltersTap({
               onChange={onTagChange}
               disabled={isLoading}
               menuColumns={3}
+              menuWidth={280}
             />
           </div>
         )}

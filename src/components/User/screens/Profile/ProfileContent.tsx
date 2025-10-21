@@ -79,14 +79,14 @@ export function ProfileContent({
 
         {/* Body columns */}
         <motion.div 
-          className="mt-6 grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-16 gap-6 lg:gap-8"
+          className="mt-6 grid grid-cols-12 xl:grid-cols-16 gap-6 lg:gap-8"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 1.3, ease: "easeOut" }}
         >
           {/* Left Column: Member Info + Intro */}
           <motion.div 
-            className="lg:col-span-4 xl:col-span-5 space-y-6"
+            className="col-span-4 xl:col-span-5 space-y-6"
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 1.5, ease: "easeOut" }}
@@ -162,7 +162,7 @@ export function ProfileContent({
 
           {/* Right Column: Posts */}
           <motion.div 
-            className="lg:col-span-8 xl:col-span-11"
+            className="col-span-8 xl:col-span-11"
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 1.7, ease: "easeOut" }}

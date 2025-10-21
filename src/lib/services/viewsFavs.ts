@@ -7,8 +7,18 @@ function normalizeItems(raw: unknown): Item[] {
   try {
     let arr: unknown = raw
     if (typeof raw === 'string') {
-      // Handle the case where the JSON array is stored as text (e.g. CSV import)
-      try { arr = JSON.parse(raw) } catch { return [] }
+      // Handle the case where the JSON array is stored as text (e.g. CSV import).
+      // Try direct JSON parse first; if it fails, attempt to unescape CSV-style doubled quotes.
+      try {
+        arr = JSON.parse(raw)
+      } catch {
+        const trimmed = raw.trim()
+        const withoutOuter = (trimmed.startsWith('"') && trimmed.endsWith('"'))
+          ? trimmed.slice(1, -1)
+          : trimmed
+        const unescaped = withoutOuter.replace(/""/g, '"')
+        try { arr = JSON.parse(unescaped) } catch { return [] }
+      }
     }
     if (!Array.isArray(arr)) return []
     return (arr as unknown[])
@@ -55,6 +65,37 @@ export async function saveRemoteItems(items: Item[]): Promise<void> {
     .from('views_favs')
     .upsert({ user_id: user.id, items: normalizeItems(items) })
   if (error) throw error
+}
+
+export async function loadAllRemoteItems(): Promise<Item[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('views_favs')
+    .select('items')
+  if (error) throw error
+  const rows = (data ?? []) as Array<{ items?: unknown }>
+  const all: Item[] = []
+  for (const row of rows) {
+    const items = normalizeItems(row.items ?? [])
+    if (items.length) all.push(...items)
+  }
+  return all
+}
+export async function loadAllRemoteItemsViaFunction(): Promise<Item[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).functions.invoke('views_favs_items_all', { body: {} })
+  if (error) throw error
+  const payload = (data ?? {}) as { ok?: boolean; items?: unknown }
+  const arr = Array.isArray(payload.items) ? payload.items : []
+  return normalizeItems(arr as unknown)
+}
+
+export async function getAllUsersItems(): Promise<Item[]> {
+  try {
+    const viaFn = await loadAllRemoteItemsViaFunction()
+    if (viaFn.length) return viaFn
+  } catch {}
+  try { return await loadAllRemoteItems() } catch { return [] }
 }
 
 export async function fetchViewCounts(): Promise<Database['public']['Views']['view_counts']['Row'][]> {
@@ -124,41 +165,39 @@ export async function getMergedItems(): Promise<Item[]> {
 
 // Enhanced aggregation that considers view counts from view_counts table
 export function aggregateCategoriesWithViews(items: Item[], viewCounts: Database['public']['Views']['view_counts']['Row'][] = []): { name: string; count: number; favourites: number; totalViews: number }[] {
-  
-  // Create a map of title -> views for quick lookup
-  const viewsMap = new Map<string, number>();
-  viewCounts.forEach(vc => {
-    if (vc.title) {
-      viewsMap.set(vc.title.toLowerCase().trim(), Number(vc.views) || 0);
-    }
-  });
-  
+  const viewsMap = new Map<string, number>()
+  viewCounts.forEach(vc => { if (vc.title) viewsMap.set(String(vc.title).toLowerCase().trim(), Number(vc.views) || 0) })
+
   const map = new Map<string, { name: string; count: number; favourites: number; totalViews: number }>()
-  let _filteredCount = 0;
-  
+  const titleFavByCat = new Map<string, Map<string, number>>()
+
   for (const it of items) {
     const rawKey = it.category || 'General'
-    // Filter out placeholder or synthetic categories like 'top'
-    if (typeof rawKey === 'string' && (rawKey.trim().toLowerCase() === 'top' || rawKey.trim() === '')) {
-      _filteredCount++;
-      continue;
-    }
-    
+    if (typeof rawKey === 'string' && (rawKey.trim().toLowerCase() === 'top' || rawKey.trim() === '')) continue
     const key = rawKey
+    const normTitle = it.title.toLowerCase().trim()
     const curr = map.get(key) || { name: key, count: 0, favourites: 0, totalViews: 0 }
     curr.count += 1
     if (it.favourite) curr.favourites += 1
-    
-    // Add view count for this specific title
-    const titleViews = viewsMap.get(it.title.toLowerCase().trim()) || 0;
-    curr.totalViews += titleViews;
-    
+    map.set(key, curr)
+
+    let tmap = titleFavByCat.get(key)
+    if (!tmap) { tmap = new Map(); titleFavByCat.set(key, tmap) }
+    tmap.set(normTitle, (tmap.get(normTitle) || 0) + (it.favourite ? 1 : 0))
+  }
+
+  for (const [key, curr] of map.entries()) {
+    const tmap = titleFavByCat.get(key) || new Map<string, number>()
+    let sum = 0
+    for (const [title, favCount] of tmap.entries()) {
+      const actual = viewsMap.get(title) || 0
+      sum += Math.max(actual, favCount)
+    }
+    curr.totalViews = sum
     map.set(key, curr)
   }
-  
-  // Sort by total views first, then by favourites, then by count
-  const result = Array.from(map.values()).sort((a, b) => b.totalViews - a.totalViews || b.favourites - a.favourites || b.count - a.count);
-  return result;
+
+  return Array.from(map.values()).sort((a, b) => b.totalViews - a.totalViews || b.favourites - a.favourites || b.count - a.count)
 }
 
 // Keep original function for backward compatibility
@@ -168,44 +207,42 @@ export function aggregateCategories(items: Item[]): { name: string; count: numbe
 
 // Enhanced subcategory aggregation that considers view counts
 export function aggregateSubcategoriesWithViews(items: Item[], viewCounts: Database['public']['Views']['view_counts']['Row'][] = []): { category: string; subcategory: string; count: number; favourites: number; totalViews: number }[] {
-  
-  // Create a map of title -> views for quick lookup
-  const viewsMap = new Map<string, number>();
-  viewCounts.forEach(vc => {
-    if (vc.title) {
-      viewsMap.set(vc.title.toLowerCase().trim(), Number(vc.views) || 0);
-    }
-  });
-  
+  const viewsMap = new Map<string, number>()
+  viewCounts.forEach(vc => { if (vc.title) viewsMap.set(String(vc.title).toLowerCase().trim(), Number(vc.views) || 0) })
+
   type Stat = { category: string; subcategory: string; count: number; favourites: number; totalViews: number }
   const map = new Map<string, Stat>()
-  let _filteredCount = 0;
-  
+  const titleFavBySub = new Map<string, Map<string, number>>()
+
   for (const it of items) {
     const rawCat = it.category || 'General'
-    // Filter out placeholder or synthetic categories like 'top'
-    if (typeof rawCat === 'string' && (rawCat.trim().toLowerCase() === 'top' || rawCat.trim() === '')) {
-      _filteredCount++;
-      continue;
-    }
-    
+    if (typeof rawCat === 'string' && (rawCat.trim().toLowerCase() === 'top' || rawCat.trim() === '')) continue
     const cat = rawCat
     const sub = it.subcategory || '—'
     const key = `${cat}|||${sub}`
+    const normTitle = it.title.toLowerCase().trim()
     const curr = map.get(key) || { category: cat, subcategory: sub, count: 0, favourites: 0, totalViews: 0 }
     curr.count += 1
     if (it.favourite) curr.favourites += 1
-    
-    // Add view count for this specific title
-    const titleViews = viewsMap.get(it.title.toLowerCase().trim()) || 0;
-    curr.totalViews += titleViews;
-    
+    map.set(key, curr)
+
+    let tmap = titleFavBySub.get(key)
+    if (!tmap) { tmap = new Map(); titleFavBySub.set(key, tmap) }
+    tmap.set(normTitle, (tmap.get(normTitle) || 0) + (it.favourite ? 1 : 0))
+  }
+
+  for (const [key, curr] of map.entries()) {
+    const tmap = titleFavBySub.get(key) || new Map<string, number>()
+    let sum = 0
+    for (const [title, favCount] of tmap.entries()) {
+      const actual = viewsMap.get(title) || 0
+      sum += Math.max(actual, favCount)
+    }
+    curr.totalViews = sum
     map.set(key, curr)
   }
-  
-  // Sort by total views first, then by favourites, then by count
-  const result = Array.from(map.values()).sort((a, b) => b.totalViews - a.totalViews || b.favourites - a.favourites || b.count - a.count);
-  return result;
+
+  return Array.from(map.values()).sort((a, b) => b.totalViews - a.totalViews || b.favourites - a.favourites || b.count - a.count)
 }
 
 // Keep original function for backward compatibility

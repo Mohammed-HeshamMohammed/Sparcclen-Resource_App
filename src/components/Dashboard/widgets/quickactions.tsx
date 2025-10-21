@@ -21,11 +21,6 @@ export function QuickActions({ onOpenLibrary, onOpenImports, onOpenProfile, onOp
     <div className="space-y-3">
       <h3 className="font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
       <div className="grid grid-cols-1 gap-3">
-        {/* Dashboard hidden on Dashboard page */}
-        {/* <button onClick={onOpenDashboard} className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--app-sidebar-bg)] text-[var(--app-sidebar-text)] hover:brightness-105 transition-all shadow-sm">
-          <DashboardIcon />
-          <span className="font-medium">Dashboard</span>
-        </button> */}
         <button onClick={onOpenLibrary} className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--app-sidebar-bg)] text-[var(--app-sidebar-text)] hover:brightness-105 transition-all shadow-sm">
           <SidebarLibraryIcon />
           <span className="font-medium">Library</span>

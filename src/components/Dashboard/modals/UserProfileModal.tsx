@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/lib/contexts/ProfileContext'
 import { getUserPublicProfileCached, setUserPublicProfileCached } from '@/lib/services/dashboardCache'
 import { supabase } from '@/lib/services'
+import { normalizeToDataUrl } from '@/lib/utils/dataUrl'
 
 interface ModalUser {
   id: string
@@ -26,17 +27,16 @@ interface Props {
 export function UserProfileModal({ open, user, onClose }: Props) {
   const { user: authUser } = useAuth()
   const { profile } = useProfile()
-  const [otherUserData, setOtherUserData] = useState<{ coverUrl: string | null; bio: string | null }>({ coverUrl: null, bio: null })
+  const [otherUserData, setOtherUserData] = useState<{ coverUrl: string | null; bio: string | null; avatarUrl?: string | null }>({ coverUrl: null, bio: null, avatarUrl: null })
   const [isSyncing, setIsSyncing] = useState(false)
   const cachedDataRef = useRef<{ coverUrl: string | null; bio: string | null }>({ coverUrl: null, bio: null })
   
   const isMe = !!(user && (user.id === authUser?.id || (user.email && user.email === authUser?.email)))
   
-  // Get cover and bio - use profile data for current user, cached data for others
   const coverUrl = isMe ? (profile.coverUrl || null) : (user?.coverUrl || otherUserData.coverUrl)
   const bio = isMe ? (profile.bio || null) : (user?.bio || otherUserData.bio)
+  const avatarUrlResolved = isMe ? (profile.avatarUrl || null) : (user?.avatarUrl || otherUserData.avatarUrl || null)
 
-  // Pipeline: Show cached data immediately, then fetch fresh data and update only if changed
   useEffect(() => {
     if (!open || !user || isMe) return
     let cancelled = false
@@ -45,7 +45,6 @@ export function UserProfileModal({ open, user, onClose }: Props) {
       try {
         let hasCachedData = false
         
-        // Step 1: Load cached data immediately (no await delay)
         if (authUser?.id) {
           const cached = await getUserPublicProfileCached(authUser.id, user.id)
           if (cached && !cancelled) {
@@ -55,14 +54,13 @@ export function UserProfileModal({ open, user, onClose }: Props) {
           }
         }
         
-        // Step 2: Always fetch fresh data in background (regardless of cache)
         setIsSyncing(true)
         const res = await supabase
           .from('profiles')
-          .select('user_id,cover_public,bio_public')
+          .select('user_id,cover_public,bio_public,picture_public')
           .eq('user_id', user.id)
           .maybeSingle()
-        const data = res.data as { user_id: string; cover_public: string | null; bio_public: string | null } | null
+        const data = res.data as { user_id: string; cover_public: string | null; bio_public: string | null; picture_public: string | null } | null
         const error = res.error
         
         if (error) {
@@ -72,13 +70,13 @@ export function UserProfileModal({ open, user, onClose }: Props) {
         }
         
         const freshData = {
-          coverUrl: data?.cover_public ?? null,
+          coverUrl: normalizeToDataUrl(data?.cover_public ?? null),
           bio: data?.bio_public ?? null,
+          avatarUrl: normalizeToDataUrl(data?.picture_public ?? null) ?? null,
         }
         
         if (cancelled) return
         
-        // Step 3: Only update UI if data actually changed
         if (hasCachedData) {
           const currentData = cachedDataRef.current
           const hasChanges = 
@@ -86,16 +84,14 @@ export function UserProfileModal({ open, user, onClose }: Props) {
             currentData.bio !== freshData.bio
             
           if (hasChanges) {
-            setOtherUserData(freshData) // Smooth update with only the changes
+            setOtherUserData(freshData)
             cachedDataRef.current = freshData
           }
         } else {
-          // No cached data was available, show fresh data
           setOtherUserData(freshData)
           cachedDataRef.current = freshData
         }
         
-        // Step 4: Always update cache with fresh data
         if (authUser?.id) {
           await setUserPublicProfileCached(authUser.id, user.id, freshData)
         }
@@ -112,7 +108,6 @@ export function UserProfileModal({ open, user, onClose }: Props) {
     return () => { cancelled = true }
   }, [open, user?.id, isMe, authUser?.id, user])
 
-  // Reset other user data when modal closes or user changes
   useEffect(() => {
     if (!open || !user) {
       setOtherUserData({ coverUrl: null, bio: null })
@@ -172,22 +167,19 @@ export function UserProfileModal({ open, user, onClose }: Props) {
               </button>
             </div>
 
-            {/* Cover header */}
             <div className="h-44 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 relative">
               {coverUrl && (
                 <img src={coverUrl} alt="cover" className="absolute inset-0 w-full h-full object-cover transition-all duration-300 ease-in-out" />
               )}
             </div>
 
-            {/* Header with avatar + name like Facebook */}
             <div className="relative px-6 pb-4">
               <div className="flex items-end gap-4">
-                {/* Avatar overlapping cover, anchored left */}
                 <div className="-mt-12">
                   <div className="relative">
                     <div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-900 shadow-xl outline outline-1 outline-gray-200 dark:outline-gray-800">
-                      {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={user.name || 'User'} className="w-full h-full object-cover" />
+              {avatarUrlResolved ? (
+                <img src={avatarUrlResolved} alt={user.name || 'User'} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-semibold">
                           {(user.name || user.email || 'U').charAt(0).toUpperCase()}
@@ -209,7 +201,6 @@ export function UserProfileModal({ open, user, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Nav tabs row */}
               <div className="mt-4 border-t border-gray-200 dark:border-gray-800">
                 <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0 text-sm">
                   {['Timeline','Friends','Photos','Archive','More'].map(tab => (
@@ -229,9 +220,7 @@ export function UserProfileModal({ open, user, onClose }: Props) {
               </div>
             </div>
 
-            {/* Body columns */}
             <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Left column: Intro */}
               <div className="md:col-span-1 space-y-4">
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900 opacity-90">
                   <div className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Intro</div>
@@ -241,7 +230,6 @@ export function UserProfileModal({ open, user, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Right column: Composer mock */}
               <div className="md:col-span-2 space-y-4">
                 <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 opacity-70">
                   <div className="p-3 border-b border-gray-200 dark:border-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300">Posts</div>

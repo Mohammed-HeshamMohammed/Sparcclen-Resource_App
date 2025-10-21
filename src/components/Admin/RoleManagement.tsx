@@ -4,7 +4,6 @@ import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/lib/contexts/ProfileContext'
 import { notify } from '@/lib/toast'
 import { avatarService, supabase } from '@/lib/services'
-import type { Database } from '@/types/database'
 
 // Define types locally since we removed the preload types file
 interface AdminApiUser {
@@ -31,7 +30,6 @@ interface AdminApi {
 }
 
 type Role = 'Free' | 'Premium' | 'Admin' | 'CEO'
-type ProfileAvatarRow = Pick<Database['public']['Tables']['profiles']['Row'], 'user_id' | 'picture_enc'>
 
 interface AdminUserRow {
   id: string
@@ -126,7 +124,22 @@ export function RoleManagement() {
       const response: AdminListUsersResult = await admin.listUsers()
       if (!response.ok) throw new Error(response.error ?? 'Admin API error')
 
-      const mappedUsers = (response.users ?? []).map(mapAdminUserToRow)
+      let mappedUsers = (response.users ?? []).map(mapAdminUserToRow)
+
+      // Filter to only users who have an existing profile row
+      try {
+        const ids = mappedUsers.map(entry => entry.id)
+        if (ids.length) {
+          const { data: profRows, error: profErr } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .in('user_id', ids)
+          if (!profErr && profRows) {
+            const hasProfile = new Set((profRows as Array<{ user_id: string | null }>).filter(r => !!r.user_id).map(r => String(r.user_id)))
+            mappedUsers = mappedUsers.filter(u => hasProfile.has(u.id))
+          }
+        }
+      } catch {}
 
       if (!shouldUpdate || shouldUpdate()) {
         setUsers(mappedUsers)
@@ -147,29 +160,29 @@ export function RoleManagement() {
         try {
           const { data, error } = await supabase
             .from('profiles')
-            .select<'user_id,picture_enc', ProfileAvatarRow>('user_id,picture_enc')
+.select('user_id,picture_public')
             .in('user_id', userIds)
 
           if (error) throw error
 
-          for (const row of data ?? []) {
-            if (!row.user_id || !row.picture_enc) continue
-            const pictureEnc = row.picture_enc
+          for (const row of (data as Array<{ user_id: string | null; picture_public: string | null }> | null | undefined) ?? []) {
+            if (!row.user_id || !row.picture_public) continue
+            const raw = row.picture_public as unknown as string
             let mime = 'image/jpeg'
-            let base64: string | null = null
 
             try {
-              const parsed = JSON.parse(pictureEnc) as { b64?: string; mime?: string }
-              base64 = typeof parsed?.b64 === 'string' ? parsed.b64 : null
-              if (parsed?.mime) {
-                mime = parsed.mime
+              const parsed = JSON.parse(raw) as { b64?: string; mime?: string }
+              if (typeof parsed?.b64 === 'string') {
+                if (parsed?.mime) mime = parsed.mime
+                resolvedAvatars[row.user_id] = `data:${mime};base64,${parsed.b64}`
+                continue
               }
-            } catch {
-              base64 = pictureEnc
-            }
+            } catch {}
 
-            if (base64) {
-              resolvedAvatars[row.user_id] = `data:${mime};base64,${base64}`
+            if ((raw || '').startsWith('data:')) {
+              resolvedAvatars[row.user_id] = raw
+            } else if (raw) {
+              resolvedAvatars[row.user_id] = `data:${mime};base64,${raw}`
             }
           }
         } catch (error) {

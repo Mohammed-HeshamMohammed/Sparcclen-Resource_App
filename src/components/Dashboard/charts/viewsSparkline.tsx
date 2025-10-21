@@ -8,9 +8,15 @@ interface Props {
 
 export function ViewsSparkline({ viewCounts }: Props) {
   const sparklineData = useMemo(() => {
-    const tops = [...viewCounts].slice(0, 7)
+    const tops = [...viewCounts]
+      .sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0))
+      .slice(0, 7)
     const max = Math.max(1, ...tops.map(t => Number(t.views) || 0))
-    return tops.map((t, idx) => ({ day: idx + 1, views: Math.round(((Number(t.views) || 0) / max) * 60) }))
+    return tops.map((t) => ({
+      title: t.title ?? '—',
+      rawViews: Number(t.views) || 0,
+      heightPct: Math.round(((Number(t.views) || 0) / max) * 100),
+    }))
   }, [viewCounts])
 
   return (
@@ -21,9 +27,11 @@ export function ViewsSparkline({ viewCounts }: Props) {
       </div>
       <div className="flex items-end gap-1 h-16">
         {sparklineData.map((data, i) => (
-          <div key={i} className="flex-1 bg-blue-500 rounded-t opacity-70 hover:opacity-100 transition-opacity"
-               style={{ height: `${(data.views / 60) * 100}%` }}
-               title={`${viewCounts[data.day - 1]?.title ?? '—'}: ${viewCounts[data.day - 1]?.views ?? 0} views`}
+          <div
+            key={i}
+            className="flex-1 bg-blue-500 rounded-t opacity-70 hover:opacity-100 transition-opacity"
+            style={{ height: `${data.heightPct}%` }}
+            title={`${data.title}: ${data.rawViews} views`}
           />
         ))}
       </div>

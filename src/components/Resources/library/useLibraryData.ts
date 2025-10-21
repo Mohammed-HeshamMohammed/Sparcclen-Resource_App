@@ -58,10 +58,12 @@ export function useLibraryData({
   const [librarySegments, setLibrarySegments] = useState<LibrarySegmentsMap>({});
   const [availableClassifications, setAvailableClassifications] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeSubcategory, setActiveSubcategory] = useState<string | null>(null);
   const [classificationFilter, setClassificationFilter] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -105,23 +107,60 @@ export function useLibraryData({
         let categorySegment: string | null = null;
         let subcategorySegment: string | null = null;
 
-        if (activeCategory && librarySegments[activeCategory]) {
-          categorySegment = librarySegments[activeCategory].segment;
-          if (
-            activeSubcategory &&
-            librarySegments[activeCategory].subsegments[activeSubcategory]
-          ) {
-            subcategorySegment =
-              librarySegments[activeCategory].subsegments[activeSubcategory];
+        if (activeCategory) {
+          const mapEntry = librarySegments[activeCategory];
+          // Prefer segment from segmentsMap, fallback to categories list title
+          const catTitle = mapEntry?.segment ?? categories.find(c => c.id === activeCategory)?.title ?? null;
+          categorySegment = catTitle;
+
+          if (activeSubcategory) {
+            const subFromMap = mapEntry?.subsegments?.[activeSubcategory];
+            if (subFromMap) {
+              subcategorySegment = subFromMap;
+            } else {
+              const cat = categories.find(c => c.id === activeCategory);
+              const sub = cat?.subcategories?.find(s => s.id === activeSubcategory);
+              if (sub) {
+                subcategorySegment = sub.title;
+              } else {
+                const parts = activeSubcategory.split('::');
+                if (parts.length === 2) {
+                  const subSlug = parts[1];
+                  const sub2 = cat?.subcategories?.find(s => s.slug === subSlug);
+                  if (sub2) subcategorySegment = sub2.title;
+                }
+              }
+            }
           }
         }
 
-        const files = await listLibraryBinFiles({
+        let files = await listLibraryBinFiles({
           categorySegment,
           subcategorySegment,
         });
+        if ((!files || files.length === 0) && (categorySegment || subcategorySegment)) {
+          files = await listLibraryBinFiles();
+        }
 
         let derivedResources = buildLibraryResources(files);
+        // Enforce client-side guard: ensure results align with selected category/subcategory
+        if (activeCategory) {
+          derivedResources = derivedResources.filter(r => r.category_id === activeCategory);
+        }
+        if (activeSubcategory) {
+          derivedResources = derivedResources.filter(r => r.subcategory_id === activeSubcategory);
+        }
+        // If nothing matched after guards (possible backend segment mismatch), refetch all
+        if (derivedResources.length === 0 && (activeCategory || activeSubcategory)) {
+          const allFiles = await listLibraryBinFiles();
+          derivedResources = buildLibraryResources(allFiles);
+          if (activeCategory) {
+            derivedResources = derivedResources.filter(r => r.category_id === activeCategory);
+          }
+          if (activeSubcategory) {
+            derivedResources = derivedResources.filter(r => r.subcategory_id === activeSubcategory);
+          }
+        }
         const orderKey = `${categorySegment ?? 'all'}::${subcategorySegment ?? 'all'}`;
         const ids = derivedResources.map((resourceItem: Resource) => resourceItem.id);
         const existingOrder = orderCache.current[orderKey];
@@ -177,7 +216,6 @@ export function useLibraryData({
           setTagFilter(null);
         }
 
-        // Sync favourites from merged local(remote) views_favs so Library reflects Supabase and local file
         try {
           const merged = await viewsFavs.getMergedItems();
           const favKeys = new Set(
@@ -278,6 +316,32 @@ export function useLibraryData({
           );
         }
 
+        // Compute platform options from the set narrowed by classification/tag/search/favorites
+        const candidatePlatformSet = new Set<string>();
+        derivedResources.forEach((resourceItem: Resource) => {
+          const p =
+            typeof (resourceItem.metadata as Record<string, unknown>)?.platform === 'string'
+              ? ((resourceItem.metadata as Record<string, unknown>).platform as string)
+              : null;
+          if (p) candidatePlatformSet.add(p);
+        });
+        const sortedCandidatePlatforms = Array.from(candidatePlatformSet).sort((a, b) => a.localeCompare(b));
+        setAvailablePlatforms(sortedCandidatePlatforms);
+
+        // Only apply platformFilter if still a valid choice in the current (non-platform-filtered) set
+        if (platformFilter && candidatePlatformSet.has(platformFilter)) {
+          const pLower = platformFilter.toLowerCase();
+          derivedResources = derivedResources.filter((resourceItem: Resource) => {
+            const platform =
+              typeof (resourceItem.metadata as Record<string, unknown>)?.platform === 'string'
+                ? ((resourceItem.metadata as Record<string, unknown>).platform as string)
+                : null;
+            return platform ? platform.toLowerCase() === pLower : false;
+          });
+        } else if (platformFilter && !candidatePlatformSet.has(platformFilter)) {
+          setPlatformFilter(null);
+        }
+
         setResources(derivedResources);
 
         const currentSelectedId = selectedResourceRef.current?.id;
@@ -295,11 +359,15 @@ export function useLibraryData({
         if (availableTags.length > 0) {
           setAvailableTags([]);
         }
+        setAvailablePlatforms(prev => (prev.length > 0 ? [] : prev));
         if (classificationFilter) {
           setClassificationFilter(null);
         }
         if (tagFilter) {
           setTagFilter(null);
+        }
+        if (platformFilter) {
+          setPlatformFilter(null);
         }
 
         let data: Resource[];
@@ -343,7 +411,9 @@ export function useLibraryData({
     availableTags.length,
     classificationFilter,
     tagFilter,
+    platformFilter,
     favoritesOnly,
+    categories,
     librarySegments,
     onSelectedResourceChange,
     searchQuery,
@@ -354,9 +424,7 @@ export function useLibraryData({
     loadCategories();
   }, [loadCategories]);
 
-  // Remove activeTab dependency to prevent unnecessary refreshes
-  // Categories are loaded once on mount via the loadCategories useEffect above
-
+  
   useEffect(() => {
     loadResources();
   }, [loadResources]);
@@ -366,6 +434,7 @@ export function useLibraryData({
     setActiveSubcategory(subcategoryId ?? null);
     setClassificationFilter(null);
     setTagFilter(null);
+    setPlatformFilter(null);
     setSearchQuery('');
     setFavoritesOnly(false);
   }, []);
@@ -375,6 +444,7 @@ export function useLibraryData({
     setActiveSubcategory(null);
     setClassificationFilter(null);
     setTagFilter(null);
+    setPlatformFilter(null);
   }, []);
 
   const applyClassificationFilter = useCallback((classification: string | null) => {
@@ -383,6 +453,10 @@ export function useLibraryData({
 
   const applyTagFilter = useCallback((tag: string | null) => {
     setTagFilter(tag);
+  }, []);
+
+  const applyPlatformFilter = useCallback((platform: string | null) => {
+    setPlatformFilter(platform);
   }, []);
 
   const patchResourceLocally = useCallback((resourceId: string, patch: Partial<Resource>) => {
@@ -409,10 +483,12 @@ export function useLibraryData({
     librarySegments,
     availableClassifications,
     availableTags,
+    availablePlatforms,
     activeCategory,
     activeSubcategory,
     classificationFilter,
     tagFilter,
+    platformFilter,
     searchQuery,
     favoritesOnly,
     isLoading,
@@ -425,6 +501,7 @@ export function useLibraryData({
     clearCategorySelection,
     applyClassificationFilter,
     applyTagFilter,
+    applyPlatformFilter,
     patchResourceLocally,
     updateFavoriteLocally,
   };

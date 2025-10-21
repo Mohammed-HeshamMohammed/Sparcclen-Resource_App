@@ -1,8 +1,16 @@
+import { memo, useMemo } from 'react'
 import { BarChart3 } from 'lucide-react'
 
 interface Sub { category: string; subcategory: string; count: number; favourites: number; totalViews?: number }
 
-export function TopSubcategories({ items }: { items: Sub[] }) {
+export const TopSubcategories = memo(function TopSubcategories({ items }: { items: Sub[] }) {
+  const { colors, useViews, denominator } = useMemo(() => {
+    const colors = ['bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-pink-500', 'bg-cyan-500']
+    const totalViewsSum = items.reduce((s, v) => s + (v.totalViews ?? 0), 0)
+    const useViews = totalViewsSum > 0
+    const denominator = useViews ? totalViewsSum : (items.reduce((s, v) => s + v.count, 0) || 1)
+    return { colors, useViews, denominator }
+  }, [items])
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
       <div className="flex items-center gap-2 mb-3">
@@ -11,9 +19,8 @@ export function TopSubcategories({ items }: { items: Sub[] }) {
       </div>
       <div className="space-y-2">
         {items.slice(0, 6).map((sc, i) => {
-          const colors = ['bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-pink-500', 'bg-cyan-500']
-          const total = items.reduce((s, v) => s + v.count, 0) || 1
-          const percentage = (sc.count / total) * 100
+          const numerator = useViews ? (sc.totalViews ?? 0) : sc.count
+          const percentage = (numerator / denominator) * 100
           return (
             <div key={`${i}-${sc.category}-${sc.subcategory}`} className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${colors[i % colors.length]}`} />
@@ -21,7 +28,7 @@ export function TopSubcategories({ items }: { items: Sub[] }) {
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700 dark:text-gray-300 truncate">{sc.category} / {sc.subcategory}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {sc.count} items • {sc.favourites} favs
+                    {sc.favourites} favs
                     {sc.totalViews !== undefined && ` • ${sc.totalViews} views`}
                   </div>
                 </div>
@@ -38,4 +45,4 @@ export function TopSubcategories({ items }: { items: Sub[] }) {
       </div>
     </div>
   )
-}
+})

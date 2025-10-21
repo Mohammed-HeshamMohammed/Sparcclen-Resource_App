@@ -60,7 +60,6 @@ export function useDashboardData(userId?: string | null) {
       } else {
         data = await getResources(undefined, undefined)
       }
-      // Sync favourites with merged local(remote) views_favs so Dashboard reflects Supabase and local file
       try {
         const merged = await viewsFavs.getMergedItems()
         const favKeys = new Set(merged.filter(i => i.favourite).map(i => `${i.title}|${i.category}|${i.subcategory}`))

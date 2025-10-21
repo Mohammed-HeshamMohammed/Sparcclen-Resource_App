@@ -9,10 +9,12 @@ interface LibraryViewProps {
   resources: Resource[]
   availableClassifications: string[]
   availableTags: string[]
+  availablePlatforms: string[]
   activeCategory: string | null
   activeSubcategory: string | null
   classificationFilter: string | null
   tagFilter: string | null
+  platformFilter: string | null
   searchQuery: string
   favoritesOnly: boolean
   isLoading: boolean
@@ -21,6 +23,7 @@ interface LibraryViewProps {
   onClearCategorySelection: () => void
   onClassificationChange: (value: string | null) => void
   onTagChange: (value: string | null) => void
+  onPlatformChange: (value: string | null) => void
   onOpenResource: (resource: Resource) => void
   onToggleFavorite: (resourceId: string) => void
   onToggleFavoritesView: () => void
@@ -31,10 +34,12 @@ export function LibraryView({
   resources,
   availableClassifications,
   availableTags,
+  availablePlatforms,
   activeCategory,
   activeSubcategory,
   classificationFilter,
   tagFilter,
+  platformFilter,
   searchQuery,
   favoritesOnly,
   isLoading,
@@ -43,6 +48,7 @@ export function LibraryView({
   onClearCategorySelection,
   onClassificationChange,
   onTagChange,
+  onPlatformChange,
   onOpenResource,
   onToggleFavorite,
   onToggleFavoritesView,
@@ -50,7 +56,7 @@ export function LibraryView({
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide">
       {/* Sticky, centered TopBar with vertical padding */}
-      <div className="sticky top-0 z-50 bg-transparent py-4 px-6">
+      <div className="sticky top-0 z-[3000] bg-transparent py-4 px-6">
         <div className="flex justify-center">
           <TopBar
             searchQuery={searchQuery}
@@ -79,6 +85,9 @@ export function LibraryView({
           tagOptions={availableTags}
           activeTag={tagFilter}
           onTagChange={onTagChange}
+          platformOptions={availablePlatforms}
+          activePlatform={platformFilter}
+          onPlatformChange={onPlatformChange}
           isLoading={isLoading}
         />
       </motion.div>
